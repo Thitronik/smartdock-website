@@ -68,3 +68,6 @@ gehören nicht in das öffentliche Repository oder seine Issues.
 
 Technischer Branchschutz und Teamzugriffe sind weiterhin offen. Dokumentierte Regeln
 sind kein Nachweis, dass GitHub sie bereits technisch erzwingt.
+Max hat den Branchschutz Adrian als Repository-Admin zugeordnet. Die konkreten
+Einstellungen und die anschließende Kontrolle stehen in
+[#27](https://github.com/Thitronik/smartdock-website/issues/27).

@@ -11,7 +11,7 @@
     "build:pages": "node tools/build.mjs --pages",
     "preview": "node tools/serve.mjs",
     "preview:pages": "node tools/serve.mjs --pages",
-    "test": "node --test tools/build.test.mjs tools/repository.test.mjs tools/pdf.test.mjs tools/configurator.test.mjs tools/pdf-pagination.test.mjs",
+    "test": "node --test tools/build.test.mjs tools/repository.test.mjs tools/pdf.test.mjs tools/configurator.test.mjs tools/pdf-pagination.test.mjs tools/dealer-finder.test.mjs",
     "check": "node tools/check.mjs",
     "verify:reference": "node tools/verify-reference.mjs"
   }

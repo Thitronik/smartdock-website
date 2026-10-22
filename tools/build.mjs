@@ -101,6 +101,7 @@ export async function createOutput(base = '') {
   add('preview.js', await readFile(path.join(ROOT, 'src/preview.js')));
   add('assets/module-allocation.js', await readFile(path.join(ROOT, 'src/module-allocation.js')));
   add('assets/pdf-pagination.js', await readFile(path.join(ROOT, 'src/pdf-pagination.js')));
+  add('assets/dealer-finder.js', await readFile(path.join(ROOT, 'src/dealer-finder.js')));
   const apps = JSON.parse(await readFile(path.join(ROOT, 'src/apps.json'), 'utf8'));
   const routes = JSON.parse(await readFile(path.join(ROOT, 'src/routes.json'), 'utf8'));
   validateRoutes(routes, apps);

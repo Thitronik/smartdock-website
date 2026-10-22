@@ -36,7 +36,7 @@ test('Der Build erzeugt beide Anwendungen, fünf Sprach-Einstiege und alle histo
   const root = await createOutput();
   const pages = await createOutput(PAGES_BASE);
   assert.equal([...root.keys()].filter(name => name.endsWith('.html')).length, 116);
-  assert.equal(root.size, 187);
+  assert.equal(root.size, 188);
   assert.equal(pages.size, root.size + 1);
   for (const language of ['', 'en/', 'fr/', 'nl/', 'es/']) {
     assert.ok(root.has(language + 'index.html'));

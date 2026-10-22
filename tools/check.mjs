@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { build, ROOT } from './build.mjs';
 
 execFileSync(process.execPath, ['tools/check-repository.mjs'], { cwd: ROOT, stdio: 'inherit' });
-execFileSync(process.execPath, ['--test', 'tools/build.test.mjs', 'tools/repository.test.mjs', 'tools/pdf.test.mjs', 'tools/configurator.test.mjs', 'tools/pdf-pagination.test.mjs'], { cwd: ROOT, stdio: 'inherit' });
+execFileSync(process.execPath, ['--test', 'tools/build.test.mjs', 'tools/repository.test.mjs', 'tools/pdf.test.mjs', 'tools/configurator.test.mjs', 'tools/pdf-pagination.test.mjs', 'tools/dealer-finder.test.mjs'], { cwd: ROOT, stdio: 'inherit' });
 for (const pages of [false, true]) {
   const files = await build({ pages });
   let scripts = 0;

@@ -19,6 +19,7 @@
 | Beobachtete Preisfälle und offene Prüfungen | [Konfigurator-Prüftabelle](pruefung/konfigurator-prueftabelle.md) |
 | PDF-Beschriftung, Downloads und Regression | [PDF-Prüfung vom 22.10.2026](pruefung/pdf-zwischensumme-2026-10-22.md) |
 | PDF-Seitenumbrüche und Motor-/Hersteller-/Länderwechsel | [Ergänzende Prüfung vom 22.10.2026](pruefung/pdf-seitenumbruch-und-wechsel-2026-10-22.md) |
+| Händlerfinder, Karte, Standortfälle und Einbaupartner-Auswahl | [Händlerfinder-Prüfung vom 22.10.2026](pruefung/haendlerfinder-2026-10-22.md) |
 
 Historische CSV-Dateien bleiben datiert und unverändert. Aktuelle Arbeit wird in
 Issues gepflegt, statt dieselbe Aufgabenliste in mehreren Dokumenten zu führen.
@@ -29,6 +30,7 @@ Issues gepflegt, statt dieselbe Aufgabenliste in mehreren Dokumenten zu führen.
 |---|---|---|
 | FAQ | [content/faqs.json](../content/faqs.json) | Fünf Sprachfelder, IDs und technische Aussagen erhalten |
 | Händler / Anleitungen | [content/dealers.json](../content/dealers.json), [content/anleitungen.json](../content/anleitungen.json) | Veröffentlichte Kontaktdaten bzw. PDF-Ziele prüfen |
+| Händlerkarte / Standort / Suche | [src/dealer-finder.js](../src/dealer-finder.js) | Browser-Gegenprobe und Regression für beide Kartenansichten |
 | Übersetzungen | [content/](../content/) und [Sprachbefund #9](https://github.com/Thitronik/smartdock-website/issues/9) | Viele Texte liegen noch in den Anwendungspaketen; JSON ist keine vollständige Textquelle |
 | HTML / URL-Einstiege | [src/page.html](../src/page.html), [src/routes.json](../src/routes.json), [src/apps.json](../src/apps.json) | React-Innenseiten liegen noch im Bündel; ein neuer HTML-Einstieg allein erzeugt keine neue Seite |
 | Vorschau-Formulare | [src/preview.js](../src/preview.js) | Lokale Vorschau, kein produktiver Versand |
