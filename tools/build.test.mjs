@@ -160,6 +160,58 @@ test('Cookie-Auswahl zeigt gleichwertige Buttons mit getrennten Einwilligungsakt
  }
 });
 
+// #9: Die Wörterbücher liegen als Objektliterale im übernommenen Paket.
+function dictionary(source, name) {
+  const start = source.indexOf(name + '={nav_home:') + name.length + 1;
+  assert.ok(start > name.length, 'Wörterbuch fehlt: ' + name);
+  let depth = 0, quote = null, i = start;
+  for (; i < source.length; i++) {
+    const c = source[i];
+    if (quote) { if (c === '\\') i++; else if (c === quote) quote = null; continue; }
+    if (c === '"' || c === "'" || c === '`') quote = c;
+    else if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) break;
+  }
+  return vm.runInNewContext('(' + source.slice(start, i + 1) + ')');
+}
+
+test('Newsletter, Seitentitel und Brotkrumen fallen in NL und ES nicht auf Deutsch zurück', async () => {
+  const bundle = (await createOutput()).get('assets/index-RRVGC1mK.js').toString();
+  const de = dictionary(bundle, 'YQ');
+  const newsletter = Object.keys(de).filter(key => key.startsWith('newsletter_'));
+  assert.equal(newsletter.length, 11);
+  for (const name of ['kk', 'Sk']) {
+    const dict = dictionary(bundle, name);
+    for (const key of newsletter) {
+      assert.ok(dict[key]?.trim(), name + ' fehlt ' + key);
+      if (key !== 'newsletter_label') assert.notEqual(dict[key], de[key], name + ' ist deutsch: ' + key);
+    }
+  }
+  for (const text of ['s?"Functies - SMARTDOCK":o?"Funciones - SMARTDOCK"', 's?"Home":o?"Inicio":"Startseite"', 's?"Functies":o?"Funciones":"Funktionen"',
+    'o("Installation - SMARTDOCK","Installation - SMARTDOCK","Installation - SMARTDOCK","Installatie - SMARTDOCK","Instalación - SMARTDOCK")'])
+    assert.ok(bundle.includes(text), 'Fehlt: ' + text);
+});
+
+test('Alte Features-Seiten leiten mit Query und Hash auf die aktuelle Funktionsseite derselben Sprache', async () => {
+  const bundle = (await createOutput()).get('assets/index-RRVGC1mK.js').toString();
+  const mapping = JSON.parse(bundle.match(/sdLF=(\{[^}]*\})/)[1]);
+  const redirect = bundle.match(/sdLFR=(\(\)=>\{[\s\S]*?\}),fo=/)[1];
+  const normalize = bundle.match(/x0=(e=>[^;]*);function b0/)[1];
+  const expected = { '/features': '/funktionen', '/en/features-legacy': '/en/features', '/fr/fonctionnalites': '/fr/fonctions',
+    '/nl/functionaliteiten': '/nl/functies', '/es/funciones-legado': '/es/funciones' };
+  assert.deepEqual(mapping, expected);
+  for (const [path, target] of Object.entries(expected)) {
+    assert.ok(bundle.includes(`r.jsx(Ye,{path:"${path}",element:r.jsx(sdLFR,{})})`), 'Route leitet nicht weiter: ' + path);
+    assert.ok(bundle.includes(`r.jsx(Ye,{path:"${target}",element:r.jsx(tf,{})})`), 'Ziel ist keine Funktionsseite: ' + target);
+    for (const suffix of ['', '/']) {
+      const input = { pathname: path + suffix, search: '?a=1', hash: '#x' };
+      const result = vm.runInNewContext('const x0 = ' + normalize + ';(' + redirect + ')()', {
+        ai: () => input, sdLF: mapping, Yg: null, r: { jsx: (_component, props) => props } }, { timeout: 100 });
+      assert.deepEqual({ ...result }, { to: target + '?a=1#x', replace: true });
+    }
+  }
+});
+
 test('Verwaltungsvorschau veröffentlicht keine Backend- oder Importdateien',async()=>{
  for(const base of ['',PAGES_BASE]){const files=await createOutput(base);const html=files.get('admin/index.html').toString();assert.ok(html.includes('noindex,nofollow'));assert.ok(html.includes(base+'/assets/admin-portal.css'));assert.ok(html.includes('id="root"'));assert.ok(files.has('assets/admin-model.js'));for(const name of files.keys())assert.ok(!name.startsWith('database/')&&!name.endsWith('.sql')&&!name.includes('9_dealers_records'));}
 });
