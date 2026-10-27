@@ -24,6 +24,16 @@ function bootstrap_request(array $config): never {
     header('Referrer-Policy: same-origin');
     $db=database($config);
     if((int)$db->query('SELECT COUNT(*) FROM sd_staff_roles')->fetchColumn()>0)$closed('Die erste Administration wurde bereits eingerichtet. Weitere Konten werden separat freigeschaltet.',409);
+    // Read-only native browser check: no credentials and no account creation.
+    // Available only inside the authorized, still-open first-admin session.
+    if(isset($_GET['check'])){
+        if($method==='POST'){
+            $originOk=($_SERVER['HTTP_ORIGIN'] ?? '')===$config['origin'];
+            $csrfOk=hash_equals($_SESSION['csrf'],is_string($_POST['csrf'] ?? null)?$_POST['csrf']:'');
+            $closed($originOk&&$csrfOk?'Verbindungsprüfung erfolgreich. Herkunft und Formularschutz bestätigt. Es wurde kein Konto angelegt.':'Verbindungsprüfung fehlgeschlagen. Herkunft: '.($originOk?'bestätigt':'nicht bestätigt').'; Formularschutz: '.($csrfOk?'bestätigt':'nicht bestätigt').'.',$originOk&&$csrfOk?200:403);
+        }
+        echo '<!doctype html><html lang="de"><meta charset="utf-8"><title>SMARTDOCK Verbindungsprüfung</title><h1>Verbindung prüfen</h1><p>Diese Prüfung verwendet keine Passwörter und legt kein Konto an.</p><form method="post" action="/api/index.php?action=bootstrap&amp;check=1"><input type="hidden" name="csrf" value="'.htmlspecialchars($_SESSION['csrf'],ENT_QUOTES,'UTF-8').'"><button>Verbindung prüfen</button></form></html>';exit;
+    }
     $error='';
     if($method==='POST'){
         if(($_SERVER['HTTP_ORIGIN'] ?? '')!==$config['origin']||!hash_equals($_SESSION['csrf'],is_string($_POST['csrf'] ?? null)?$_POST['csrf']:''))$closed('Anfrage nicht erlaubt.');
