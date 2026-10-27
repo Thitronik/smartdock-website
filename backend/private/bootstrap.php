@@ -31,10 +31,13 @@ function bootstrap_request(array $config): never {
     // only to this same origin, never to an external destination.
     header('Referrer-Policy: same-origin');
     $db=database($config);
+    $q=$db->prepare('SELECT * FROM sd_users WHERE email_normalized=?');$q->execute([$setup['email']]);$existing=$q->fetch();
+    if($existing){
+        if(staff_mail_verified($db,$existing))$closed('Die E-Mail-Adresse und der Adminzugang wurden bereits bestätigt.',409);
+        require_once __DIR__.'/staff-activation.php';staff_activation_reconfirm($db,$config,$existing);
+    }
     if((int)$db->query('SELECT COUNT(*) FROM sd_staff_roles')->fetchColumn()>0)$closed('Die erste Administration wurde bereits eingerichtet. Weitere Konten werden separat freigeschaltet.',409);
     if(empty($config['mail_from']))$closed('Die Admin-Einrichtung wartet auf den eingerichteten E-Mail-Versand. Ohne Bestätigung des Thitronik-Postfachs wird kein Adminzugang freigeschaltet.',503);
-    $q=$db->prepare('SELECT id FROM sd_users WHERE email_normalized=?');$q->execute([$setup['email']]);
-    if($q->fetchColumn())$closed('Ihre Einrichtung wartet auf die E-Mail-Bestätigung. Bitte öffnen Sie den Aktivierungslink in Ihrem Postfach. Der Zugang ist bis dahin gesperrt.',200);
     // Read-only native browser check: no credentials and no account creation.
     // Available only inside the authorized, still-open first-admin session.
     if(isset($_GET['check'])){
@@ -67,11 +70,8 @@ function bootstrap_request(array $config): never {
                 store_staff_secret($config,$setup['email'],$_SESSION['bootstrap_secret']);$secretStored=true;
                 $q=$db->prepare("INSERT INTO sd_users(first_name,last_name,email,email_normalized,password_hash,password_set_at,status) VALUES(?,?,?,?,?,UTC_TIMESTAMP(6),'invited')");
                 $q->execute([trim($first),trim($last),$setup['email'],$setup['email'],password_hash($password,PASSWORD_DEFAULT)]);$id=(int)$db->lastInsertId();
-                $token=bin2hex(random_bytes(32));
-                $q=$db->prepare("INSERT INTO sd_user_tokens(user_id,purpose,token_hash,expires_at) VALUES(?,'verify_email',UNHEX(?),DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 7 DAY))");$q->execute([$id,hash('sha256',$token)]);$tokenId=(int)$db->lastInsertId();
-                audit($db,$id,'bootstrap.pending','user',$id,['method'=>'private-operator-setup','token_id'=>$tokenId]);
                 require_once __DIR__.'/staff-activation.php';
-                if(!staff_activation_mail($config,$setup['email'],$token))throw new \RuntimeException('Activation mail unavailable.');
+                staff_activation_pending($db,$config,['id'=>$id,'email_normalized'=>$setup['email']]);
                 $db->commit();
                 unset($_SESSION['bootstrap_hash'],$_SESSION['bootstrap_secret']);session_regenerate_id(true);
                 $closed('Die Einrichtung wurde gespeichert. Bitte bestätigen Sie Ihre E-Mail-Adresse über den einmaligen Aktivierungslink in Ihrem Thitronik-Postfach. Erst danach ist der Adminzugang aktiv.',200);

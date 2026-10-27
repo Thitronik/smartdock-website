@@ -62,6 +62,19 @@ try{
  assert.equal((await activation.page('activate-admin',{csrf:activationCsrf})).status,403,'Activation link is single-use');
  assert.equal((await bootstrap.page('bootstrap')).status,403);
  const bootstrapReplay=client();await bootstrapReplay.page('bootstrap&token='+initial.bootstrapToken);assert.equal((await bootstrapReplay.page('bootstrap')).status,409);
+ // Reconfirm a legacy directly activated first account without changing password/MFA.
+ execFileSync(php,['backend/tests/fixture.php','--remove-proof'],{env});
+ const operator=client();await operator.page('bootstrap&token='+initial.bootstrapToken);
+ const reconfirmForm=await operator.page('bootstrap');assert.equal(reconfirmForm.status,200);assert.match(reconfirmForm.text,/E-Mail nachbestätigen/);
+ const reconfirmCsrf=reconfirmForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1];
+ assert.equal((await operator.page('bootstrap',{csrf:'wrong'})).status,403);
+ assert.equal((await operator.page('bootstrap',{csrf:reconfirmCsrf})).status,200);
+ assert.deepEqual(pendingStatus(),{roles:0,user:{status:'invited',email_verified_at:null}});
+ const reconfirmMail=JSON.parse(await readFile(path.join(state,'activation-mail.json'),'utf8'));
+ const reconfirmToken=reconfirmMail.body.match(/action=activate-admin&token=([a-f0-9]{64})/)[1];assert.notEqual(reconfirmToken,activationToken);
+ const reconfirm=client();await reconfirm.page('activate-admin&token='+reconfirmToken);const reconfirmPage=await reconfirm.page('activate-admin');
+ assert.equal((await reconfirm.page('activate-admin',{csrf:reconfirmPage.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1]})).status,200);
+ assert.equal(pendingStatus().roles,1);
  const fixture=JSON.parse(execFileSync(php,['backend/tests/fixture.php','--seed'],{env,encoding:'utf8'}));
  const guest=client();let result=await guest.call('session');assert.equal(result.status,200);assert.equal(result.body.user,null);assert.equal(result.body.csrf.length,64);assert.match(result.headers.get('set-cookie'),/secure/i);assert.match(result.headers.get('set-cookie'),/HttpOnly/i);assert.match(result.headers.get('set-cookie'),/SameSite=Strict/i);
  assert.equal((await guest.call('admin')).status,401);

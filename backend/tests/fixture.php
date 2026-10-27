@@ -6,7 +6,7 @@ if (!$dsn || !str_contains($dsn,'dbname=smartdock_test;')) throw new RuntimeExce
 $db=new PDO($dsn,getenv('SD_TEST_DB_USER'),getenv('SD_TEST_DB_PASSWORD'),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
 $root=getenv('SD_TEST_STATE');if(!$root||!is_dir($root))throw new RuntimeException('Isolated state required.');
 require __DIR__.'/../private/security.php';
-if(!in_array('--seed',$argv,true)){
+if(count($argv)===1){
  if($db->query('SHOW TABLES')->fetch())throw new RuntimeException('Empty isolated database required.');
  foreach(['001_initial.sql','002_dealers_and_users.sql'] as $file)$db->exec(file_get_contents(__DIR__.'/../../database/migrations/'.$file));
  foreach(['state','sessions','mfa'] as $folder)mkdir($root.'/'.$folder,0700);
@@ -17,7 +17,7 @@ if(!in_array('--seed',$argv,true)){
 }
 $config=require $root.'/config.php';
 if(in_array('--pending-status',$argv,true)){
- echo json_encode(['roles'=>(int)$db->query('SELECT COUNT(*) FROM sd_staff_roles')->fetchColumn(),'user'=>$db->query('SELECT status,email_verified_at FROM sd_users WHERE id=1')->fetch(PDO::FETCH_ASSOC)]);exit;
+ echo json_encode(['roles'=>(int)$db->query('SELECT COUNT(*) FROM sd_staff_roles WHERE revoked_at IS NULL')->fetchColumn(),'user'=>$db->query('SELECT status,email_verified_at FROM sd_users WHERE id=1')->fetch(PDO::FETCH_ASSOC)]);exit;
 }
 if(in_array('--remove-proof',$argv,true)){$db->exec("DELETE FROM sd_admin_audit_events WHERE action='staff.email_verified' AND target_id=1");echo '{}';exit;}
 
