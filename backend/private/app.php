@@ -44,13 +44,15 @@ function run(array $config): never {
     if (!session_start()) throw new \RuntimeException('Session unavailable.');
     $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
     $action = (string)($_GET['action'] ?? 'session');
+    require_once __DIR__.'/dealer-access.php';
+    if(in_array($action,['dealer-confirm','dealer-password','dealer-approve'],true))access_token_page($config,$action);
     if (in_array($action,['bootstrap','activate-admin'],true)) {
         require_once __DIR__ . '/bootstrap.php';
         if($action==='activate-admin'){require_once __DIR__.'/staff-activation.php';staff_activation_request($config);}
         bootstrap_request($config);
     }
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-    $read = in_array($action, ['session', 'admin', 'dealer'], true);
+    $read = in_array($action, ['session', 'admin', 'dealer','finder'], true);
     if (($read && $method !== 'GET') || (!$read && $method !== 'POST')) reply(405, ['error' => 'Methode nicht erlaubt.']);
     $data = [];
     if (!$read) {
@@ -69,6 +71,12 @@ function run(array $config): never {
     $user = current_user($db, $config);
     if ($action === 'session') reply(200, ['csrf' => $_SESSION['csrf'], 'user' => $user ? public_user($user) : null]);
     if ($action === 'login') login($db, $config, $data);
+    if ($action === 'dealer-request') dealer_request($db,$config,$data);
+    if ($action === 'password-request') dealer_password_request($db,$config,$data);
+    if ($action === 'finder') {
+        $rows=$db->query("SELECT id,company_name,name_de,name_en,name_fr,original_address,street,house_number,postal_code,city,country_code,original_country,public_email,public_phone,website,website_secondary,latitude,longitude FROM sd_dealer WHERE status='active' AND finder_status='approved' AND latitude IS NOT NULL AND longitude IS NOT NULL ORDER BY company_name")->fetchAll();
+        reply(200,['dealers'=>$rows]);
+    }
     if ($action === 'logout') {
         if (isset($_SESSION['auth_id'])) {
             $q = $db->prepare('UPDATE sd_user_sessions SET revoked_at=UTC_TIMESTAMP(6) WHERE id=?'); $q->execute([$_SESSION['auth_id']]);
@@ -88,9 +96,30 @@ function run(array $config): never {
     if ($action === 'admin') {
         reply(200, [
             'user'=>public_user($user),
-            'dealers'=>$db->query('SELECT id,company_name,original_address,street,house_number,postal_code,city,country_code,public_email,public_phone,website,status,finder_status FROM sd_dealer ORDER BY company_name')->fetchAll(),
+            'dealers'=>$db->query('SELECT id,company_name,original_address,street,house_number,postal_code,city,country_code,public_email,public_phone,website,latitude,longitude,status,finder_status FROM sd_dealer ORDER BY company_name')->fetchAll(),
             'memberships'=>$db->query('SELECT m.id,m.dealer_id,m.user_id,m.status,u.first_name,u.last_name,u.email,u.status AS user_status FROM sd_dealer_memberships m JOIN sd_users u ON u.id=m.user_id ORDER BY m.requested_at DESC')->fetchAll(),
+            'requests'=>$db->query("SELECT r.*,u.email FROM sd_dealer_access_requests r JOIN sd_users u ON u.id=r.user_id WHERE r.status<>'email_pending' ORDER BY r.created_at DESC")->fetchAll(),
+            'mailStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_mail_outbox GROUP BY status')->fetchAll(),
         ]);
+    }
+    if($action==='dealer-update') {
+        require_staff($user,['admin','approver']);
+        $id=filter_var($data['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!$id)reply(400,['error'=>'Firma fehlt.']);
+        try {
+            $v=[];foreach(['company_name'=>254,'original_address'=>2000,'street'=>200,'house_number'=>50,'postal_code'=>32,'city'=>200,'country_code'=>2,'public_email'=>254,'public_phone'=>100,'website'=>2048] as $key=>$max)$v[$key]=access_field($data,$key,$max,in_array($key,['company_name','country_code'],true));
+            $v['country_code']=strtoupper($v['country_code']);if(!preg_match('/\A[A-Z]{2}\z/D',$v['country_code']))throw new \InvalidArgumentException();
+            if($v['public_email']!=='')$v['public_email']=normalized_email($v['public_email']);
+            if($v['website']!==''&&(!filter_var($v['website'],FILTER_VALIDATE_URL)||!in_array(strtolower(parse_url($v['website'],PHP_URL_SCHEME)??''),['http','https'],true)))throw new \InvalidArgumentException();
+            $lat=$data['latitude']??'';$lng=$data['longitude']??'';
+            if($lat===''&&$lng===''){$lat=null;$lng=null;}elseif(!is_numeric($lat)||!is_numeric($lng)||abs((float)$lat)>90||abs((float)$lng)>180)throw new \InvalidArgumentException();
+        }catch(\InvalidArgumentException){reply(400,['error'=>'Bitte Firmenname, Ländercode, öffentliche Kontakte und Koordinaten prüfen.']);}
+        $db->beginTransaction();
+        try {
+            $q=$db->prepare('SELECT id FROM sd_dealer WHERE id=? FOR UPDATE');$q->execute([$id]);if(!$q->fetch()){$db->rollBack();reply(404,['error'=>'Firma nicht gefunden.']);}
+            $q=$db->prepare('UPDATE sd_dealer SET company_name=?,original_address=?,street=?,house_number=?,postal_code=?,city=?,country_code=?,public_email=?,public_phone=?,website=?,latitude=?,longitude=? WHERE id=?');
+            $q->execute([...array_values($v),$lat,$lng,$id]);audit($db,(int)$user['id'],'dealer.updated','dealer',$id,['fields'=>array_keys($v)]);$db->commit();
+        }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
+        reply(200,['ok'=>true]);
     }
     if ($action === 'membership-decision') {
         require_staff($user, ['admin','approver']);
@@ -99,13 +128,32 @@ function run(array $config): never {
         if (!$id || !in_array($decision,['approved','rejected','suspended'],true)) reply(400,['error'=>'Ungültige Freigabe.']);
         $db->beginTransaction();
         try {
+            if($decision==='approved') {
+                approve_dealer_membership($db,$config,$id,$user);$db->commit();dispatch_mail($db,$config);reply(200,['ok'=>true]);
+            }
             $q=$db->prepare('SELECT id,status FROM sd_dealer_memberships WHERE id=? FOR UPDATE'); $q->execute([$id]); $old=$q->fetch();
             if (!$old) { $db->rollBack(); reply(404,['error'=>'Zuordnung nicht gefunden.']); }
             $q=$db->prepare('UPDATE sd_dealer_memberships SET status=?,decided_at=UTC_TIMESTAMP(6),decided_by=? WHERE id=?');$q->execute([$decision,$user['id'],$id]);
+            $q=$db->prepare("UPDATE sd_dealer_access_requests SET status='rejected' WHERE membership_id=?");$q->execute([$id]);
             audit($db,$user['id'],'membership.decision','membership',$id,['from'=>$old['status'],'to'=>$decision]); $db->commit();
         } catch (\Throwable $error) { if($db->inTransaction())$db->rollBack();throw $error; }
         reply(200,['ok'=>true]);
     }
+    if($action==='membership-company') {
+        require_staff($user,['admin','approver']);
+        $id=filter_var($data['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);$dealerId=filter_var($data['dealer_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        if(!$id||!$dealerId)reply(400,['error'=>'Bitte eine Firma auswählen.']);
+        $db->beginTransaction();
+        try {
+            $q=$db->prepare("SELECT id,dealer_id FROM sd_dealer_memberships WHERE id=? AND status='pending' FOR UPDATE");$q->execute([$id]);$old=$q->fetch();
+            $q=$db->prepare("SELECT id FROM sd_dealer WHERE id=? AND status='active'");$q->execute([$dealerId]);
+            if(!$old||!$q->fetch()){$db->rollBack();reply(400,['error'=>'Nur offene Anfragen können einer aktiven Firma zugeordnet werden.']);}
+            $q=$db->prepare('UPDATE sd_dealer_memberships SET dealer_id=? WHERE id=?');$q->execute([$dealerId,$id]);
+            audit($db,(int)$user['id'],'membership.company','membership',$id,['from'=>$old['dealer_id'],'to'=>$dealerId]);$db->commit();
+        }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
+        reply(200,['ok'=>true]);
+    }
+    if($action==='mail-retry') {require_staff($user,['admin']);dispatch_mail($db,$config);reply(200,['ok'=>true]);}
     if ($action === 'finder-decision') {
         require_staff($user,['admin','approver']);
         $id=filter_var($data['id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);$status=$data['status'] ?? '';

@@ -22,10 +22,11 @@
       return new Response(JSON.stringify({status:503,message:'Preview: form delivery is not connected.',data:{}}), {status:503,headers:{'Content-Type':'application/json'}});
     }
     if (!collections.has(match[1])) return new Response('{}',{status:404});
-    const response = await originalFetch('/data/'+match[1]+'.json');
+    const liveFinder=location.hostname==='test.smartdock.de'&&match[1]==='dealers';
+    const response = await originalFetch(liveFinder?'/api/index.php?action=finder':'/data/'+match[1]+'.json',liveFinder?{credentials:'same-origin',cache:'no-store'}:undefined);
     if (!response.ok) return response;
     const data = await response.json();
-    let items = data.items;
+    let items = liveFinder?data.dealers.map(d=>({id:String(d.id),name:d.company_name,name_de:d.name_de||d.company_name,name_en:d.name_en||d.company_name,name_fr:d.name_fr||d.company_name,address:d.original_address||[d.street,d.house_number,d.postal_code,d.city].filter(Boolean).join(' '),country:d.original_country||d.country_code,email:d.public_email||'',phone:d.public_phone||'',website:d.website||'',website2:d.website_secondary||'',latitude:Number(d.latitude),longitude:Number(d.longitude)})):data.items;
     if (match[1] === 'anleitungen') items = items.filter(x=>x.aktiv);
     const sort = url.searchParams.get('sort');
     if (sort) {
