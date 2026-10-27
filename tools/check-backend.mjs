@@ -7,6 +7,6 @@ function php(args){const output=execFileSync(executable,[...prefix,...args],{enc
 async function files(dir){const result=[];for(const e of await readdir(dir,{withFileTypes:true})){const name=path.join(dir,e.name);if(e.isDirectory())result.push(...await files(name));else if(name.endsWith('.php'))result.push(name);}return result;}
 for(const file of await files('backend'))php(['-l',file]);
 const output=php(['backend/tests/security.test.php']);
-if(!output.includes('47 security checks passed.'))throw Error(output);
+if(!output.includes('52 security checks passed.'))throw Error(output);
 console.log(output.trim());
 console.log('PHP syntax checks passed.');

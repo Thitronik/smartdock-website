@@ -14,6 +14,8 @@ return [
     'rate_key' => '', // at least 32 random bytes, stored as hex
     'dummy_password_hash' => '', // bcrypt/Argon2 hash for uniform login failure
     'staff_allowlist' => [], // exact normalized addresses, never domain wildcard
+    'staff_email_domain' => 'thitronik.de', // domain AND individual approval required
+    'mail_from' => '', // existing Hetzner mailbox @smartdock.de; empty disables setup
     'staff_totp_secrets' => [], // normalized email => private Base32 secret
     // Optional first-account setup only: token_hash (SHA-256), email, expires_at.
     // After the first role is created, this setup endpoint stays closed.

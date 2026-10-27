@@ -5,10 +5,15 @@ use function Smartdock\{normalized_email,staff_allowed,active_user,dealer_allowe
 $count=0;
 function check(bool $ok,string $label):void {global $count;if(!$ok)throw new RuntimeException($label);$count++;echo "PASS $label\n";}
 $allow=['admin@example.invalid'];
-check(staff_allowed(' Admin@Example.invalid ',$allow),'Exact normalized staff identity');
-check(!staff_allowed('other@example.invalid',$allow),'Same domain is insufficient');
-check(!staff_allowed('admin@example.invalid.evil.test',$allow),'Suffix is insufficient');
-check(!staff_allowed('not-an-address',$allow),'Malformed address denied');
+check(staff_allowed(' Admin@Example.invalid ',$allow,'example.invalid'),'Exact normalized staff identity');
+check(!staff_allowed('other@example.invalid',$allow,'example.invalid'),'Same domain is insufficient');
+check(!staff_allowed('admin@example.invalid.evil.test',$allow,'example.invalid'),'Suffix is insufficient');
+check(!staff_allowed('not-an-address',$allow,'example.invalid'),'Malformed address denied');
+check(!staff_allowed('user@foreign.invalid',['user@foreign.invalid']),'Approved foreign domain denied');
+check(!staff_allowed('user@thitronik.de.foreign.invalid',['user@thitronik.de.foreign.invalid']),'Corporate suffix spoof denied');
+check(!staff_allowed('user@sub.thitronik.de',['user@sub.thitronik.de']),'Corporate subdomain denied');
+check(!staff_allowed('fixture@thitronik.de',[]),'Corporate domain alone grants no access');
+check(staff_allowed('fixture@thitronik.de',['fixture@thitronik.de']),'Corporate domain and individual approval required');
 $user=['id'=>10,'status'=>'active','email_verified_at'=>'2026-10-27','password_set_at'=>'2026-10-27','password_hash'=>'hash'];
 $company=['id'=>20,'status'=>'active','finder_status'=>'unlisted'];
 $member=['user_id'=>10,'dealer_id'=>20,'status'=>'approved'];

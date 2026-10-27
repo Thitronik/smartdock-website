@@ -11,9 +11,9 @@ function normalized_email(string $email): string {
     return strtolower($email);
 }
 
-function staff_allowed(string $email, array $allowlist): bool {
+function staff_allowed(string $email, array $allowlist, string $domain = 'thitronik.de'): bool {
     try { $email = normalized_email($email); } catch (\InvalidArgumentException) { return false; }
-    return in_array($email, $allowlist, true);
+    return substr($email,strrpos($email,'@')+1) === $domain && in_array($email, $allowlist, true);
 }
 
 function active_user(array $user): bool {

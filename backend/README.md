@@ -68,7 +68,7 @@ von einer Oberfläche eingerichtet. Keine geheime Beispielkonfiguration überneh
 
 ## Prüfungen
 
-Native PHP-8.4-Installation: `node tools/check-backend.mjs` prüft Syntax und 47
+Native PHP-8.4-Installation: `node tools/check-backend.mjs` prüft Syntax und 52
 Sicherheitsfälle. Optional akzeptiert das Werkzeug PHP_BINARY oder PHP_WASM_CLI.
 Die lokale WASM-Prüfung ersetzt weder Apache noch MariaDB.
 
@@ -85,3 +85,22 @@ ein. Sobald eine Mitarbeiterrolle existiert, ist dieser Weg geschlossen. Der
 Authenticator-Schlüssel wird mit AES-256-GCM verschlüsselt außerhalb des
 Webroots gespeichert und an die jeweilige Identität gebunden. Der private
 Hauptschlüssel darf beim Aktualisieren der Anwendung nicht ersetzt werden.
+
+Nach dieser Einrichtung bleibt das Konto zunächst `invited`, ohne bestätigte
+E-Mail und ohne Mitarbeiterrolle. Erst der einmalige Aktivierungslink an die
+persönlich freigegebene Adresse und die anschließende bewusste Bestätigung per
+POST erteilen den ersten Adminzugang. GET-Aufrufe von Mail-Scannern aktivieren
+nichts. Tokens laufen nach sieben Tagen ab und werden ausschließlich gehasht in
+`sd_user_tokens` gespeichert. Freigabeliste UND exakte Mitarbeiterdomain gelten
+bei Einrichtung, Aktivierung, Anmeldung und jeder bestehenden Admin-Sitzung.
+Ein zu einer E-Mail passender Verifikationsnachweis im Audit ist zusätzlich
+erforderlich; frühere direkte Ersteinrichtungen ersetzen ihn nicht.
+
+Der Absender `mail_from` muss ein vorhandenes Hetzner-Postfach der SMARTDOCK-Domain
+sein. Ohne diese private Konfiguration bleibt die Ersteinrichtung geschlossen.
+Der Versand nutzt Hetzners lokalen Mailtransfer mit festem From/Envelope-From.
+Eine Annahme durch den Mailtransfer beweist keine Zustellung: Diese ist erst
+nach tatsächlichem Empfang und Aktivierung geprüft. Ein Commitfehler nach
+Mailannahme kann einen ungültigen Link verursachen; Wiederherstellung/erneute
+Einladung und weitere Mitarbeiter-Einladungen bleiben offen. Es gibt noch
+keinen allgemeinen SMTP-/Newsletter-Worker.

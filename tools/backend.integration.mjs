@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {execFileSync,spawn} from 'node:child_process';
-import {mkdtemp,rm} from 'node:fs/promises';
+import {mkdtemp,rm,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {createHmac} from 'node:crypto';
@@ -45,7 +45,21 @@ try{
  const setup={csrf:formCsrf,first_name:'Test',last_name:'Person',password:'FictionalPassword-OnlyForCI!',repeat:'FictionalPassword-OnlyForCI!',otp:otp(secret)};
  assert.equal((await bootstrap.page('bootstrap',{...setup,csrf:'wrong'})).status,403);
  assert.equal((await bootstrap.page('bootstrap',{...setup,otp:'invalid'})).status,200);
- assert.equal((await bootstrap.page('bootstrap',{...setup,otp:otp(secret)})).status,303);
+ assert.equal((await bootstrap.page('bootstrap',{...setup,otp:otp(secret)})).status,200);
+ const pendingStatus=()=>JSON.parse(execFileSync(php,['backend/tests/fixture.php','--pending-status'],{env,encoding:'utf8'}));
+ assert.deepEqual(pendingStatus(),{roles:0,user:{status:'invited',email_verified_at:null}});
+ const pendingLogin=client();await pendingLogin.call('session');assert.equal((await pendingLogin.call('login',{email:'admin@example.invalid',password:setup.password,otp:otp(secret)})).status,401);
+ const activationMail=JSON.parse(await readFile(path.join(state,'activation-mail.json'),'utf8'));assert.equal(activationMail.to,'admin@example.invalid');
+ const activationToken=activationMail.body.match(/action=activate-admin&token=([a-f0-9]{64})/)[1];
+ const invalidActivation=client();await invalidActivation.page('activate-admin&token='+'0'.repeat(64));assert.equal((await invalidActivation.page('activate-admin')).status,403);
+ const activation=client();assert.equal((await activation.page('activate-admin&token='+activationToken)).status,303);
+ const activationForm=await activation.page('activate-admin');assert.equal(activationForm.status,200);
+ assert.equal(pendingStatus().roles,0,'GET from an email scanner grants no role');
+ const activationCsrf=activationForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1];
+ assert.equal((await activation.page('activate-admin',{csrf:'wrong'})).status,403);
+ assert.equal((await activation.page('activate-admin',{csrf:activationCsrf})).status,200);
+ assert.equal(pendingStatus().roles,1);assert.equal(pendingStatus().user.status,'active');assert.ok(pendingStatus().user.email_verified_at);
+ assert.equal((await activation.page('activate-admin',{csrf:activationCsrf})).status,403,'Activation link is single-use');
  assert.equal((await bootstrap.page('bootstrap')).status,403);
  const bootstrapReplay=client();await bootstrapReplay.page('bootstrap&token='+initial.bootstrapToken);assert.equal((await bootstrapReplay.page('bootstrap')).status,409);
  const fixture=JSON.parse(execFileSync(php,['backend/tests/fixture.php','--seed'],{env,encoding:'utf8'}));
@@ -62,8 +76,10 @@ try{
  assert.equal((await admin.call('finder-decision',{id:1,status:'approved'})).status,200);assert.equal((await dealer.call('dealer')).status,200);
  assert.equal((await admin.call('membership-decision',{id:1,status:'suspended'})).status,200);assert.equal((await dealer.call('dealer')).status,403);
  const replay=client();await replay.call('session');assert.equal((await replay.call('login',{email:'admin@example.invalid',password:'FictionalPassword-OnlyForCI!',otp:fixture.otp})).status,401);
+ execFileSync(php,['backend/tests/fixture.php','--remove-proof'],{env});assert.equal((await admin.call('admin')).status,403,'Mail proof is checked on existing sessions');
+ const noProof=client();await noProof.call('session');assert.equal((await noProof.call('login',{email:'admin@example.invalid',password:setup.password,otp:otp(secret)})).status,401);
  assert.equal((await admin.call('logout',{intent:'logout'})).status,200);assert.equal((await admin.call('admin')).status,401);
  for(let i=0;i<10;i++)assert.equal((await guest.call('login',{email:'missing@example.invalid',password:'wrong'})).status,401);
  assert.equal((await guest.call('login',{email:'missing@example.invalid',password:'wrong'})).status,429);
- console.log('PASS: MariaDB HTTP integration: one-time first-admin setup, encrypted MFA, CSRF, session cookies, login, exact allowlist, OTP/replay, independent approvals, revocation, logout and rate limits.');
+ console.log('PASS: MariaDB HTTP integration: pending first-admin setup, single-use email activation, revoked email proof, encrypted MFA, CSRF, session cookies, login, exact allowlist, OTP/replay, independent approvals, revocation, logout and rate limits.');
 }finally{if(server){server.kill();await new Promise(resolve=>server.once('exit',resolve));}await rm(state,{recursive:true,force:true});}

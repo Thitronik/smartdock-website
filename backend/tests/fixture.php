@@ -11,11 +11,16 @@ if(!in_array('--seed',$argv,true)){
  foreach(['001_initial.sql','002_dealers_and_users.sql'] as $file)$db->exec(file_get_contents(__DIR__.'/../../database/migrations/'.$file));
  foreach(['state','sessions','mfa'] as $folder)mkdir($root.'/'.$folder,0700);
  $token=bin2hex(random_bytes(32));
- $config=['origin'=>'https://test.smartdock.de','dsn'=>$dsn,'database_user'=>getenv('SD_TEST_DB_USER'),'database_password'=>getenv('SD_TEST_DB_PASSWORD'),'state_directory'=>$root.'/state','session_directory'=>$root.'/sessions','mfa_directory'=>$root.'/mfa','rate_key'=>bin2hex(random_bytes(32)),'dummy_password_hash'=>password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT),'staff_allowlist'=>['admin@example.invalid'],'staff_totp_secrets'=>[],'bootstrap'=>['token_hash'=>hash('sha256',$token),'email'=>'admin@example.invalid','expires_at'=>time()+3600]];
+ $config=['origin'=>'https://test.smartdock.de','dsn'=>$dsn,'database_user'=>getenv('SD_TEST_DB_USER'),'database_password'=>getenv('SD_TEST_DB_PASSWORD'),'state_directory'=>$root.'/state','session_directory'=>$root.'/sessions','mfa_directory'=>$root.'/mfa','rate_key'=>bin2hex(random_bytes(32)),'dummy_password_hash'=>password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT),'staff_email_domain'=>'example.invalid','mail_from'=>'activation-ci-fixture@smartdock.de','staff_allowlist'=>['admin@example.invalid'],'staff_totp_secrets'=>[],'bootstrap'=>['token_hash'=>hash('sha256',$token),'email'=>'admin@example.invalid','expires_at'=>time()+3600]];
  file_put_contents($root.'/config.php','<?php return '.var_export($config,true).';');chmod($root.'/config.php',0600);
  echo json_encode(['bootstrapToken'=>$token],JSON_THROW_ON_ERROR);exit;
 }
 $config=require $root.'/config.php';
+if(in_array('--pending-status',$argv,true)){
+ echo json_encode(['roles'=>(int)$db->query('SELECT COUNT(*) FROM sd_staff_roles')->fetchColumn(),'user'=>$db->query('SELECT status,email_verified_at FROM sd_users WHERE id=1')->fetch(PDO::FETCH_ASSOC)]);exit;
+}
+if(in_array('--remove-proof',$argv,true)){$db->exec("DELETE FROM sd_admin_audit_events WHERE action='staff.email_verified' AND target_id=1");echo '{}';exit;}
+
 if((int)$db->query('SELECT COUNT(*) FROM sd_users')->fetchColumn()!==1 || $db->query('SELECT email_normalized FROM sd_users WHERE id=1')->fetchColumn()!=='admin@example.invalid')throw new RuntimeException('Bootstrap fixture required.');
 $q=$db->prepare("INSERT INTO sd_users(first_name,last_name,email,email_normalized,password_hash,password_set_at,email_verified_at,status) VALUES('Test','Person',?,?,?,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'active')");
 foreach(['outsider@example.invalid','dealer@example.invalid'] as $email)$q->execute([$email,$email,password_hash('FictionalPassword-OnlyForCI!',PASSWORD_DEFAULT)]);
