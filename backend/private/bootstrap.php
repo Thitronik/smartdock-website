@@ -18,6 +18,10 @@ function bootstrap_request(array $config): never {
         header('Location: /api/index.php?action=bootstrap',true,303);exit;
     }
     if(!hash_equals($hash,$_SESSION['bootstrap_hash'] ?? '')||empty($_SESSION['bootstrap_secret']))$closed('Bitte den persönlichen Einrichtungslink öffnen.');
+    // Native form POSTs need a non-null Origin for the strict CSRF check.
+    // Keep no-referrer on the token redirect; the clean form URL may refer
+    // only to this same origin, never to an external destination.
+    header('Referrer-Policy: same-origin');
     $db=database($config);
     if((int)$db->query('SELECT COUNT(*) FROM sd_staff_roles')->fetchColumn()>0)$closed('Die erste Administration wurde bereits eingerichtet. Weitere Konten werden separat freigeschaltet.',409);
     $error='';
