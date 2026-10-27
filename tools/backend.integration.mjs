@@ -30,6 +30,11 @@ try{
  const form=await bootstrap.page('bootstrap');assert.equal(form.status,200);
  assert.equal(form.headers.get('referrer-policy'),'same-origin');
  const secret=form.text.match(/data-testid="totp-secret"[^>]*>([A-Z2-7]+)</)[1];
+ const provisioning=new URL(form.text.match(/data-provisioning="([^"]+)"/)[1].replaceAll('&amp;','&'));
+ assert.equal(provisioning.protocol,'otpauth:');assert.equal(provisioning.hostname,'totp');
+ assert.equal(provisioning.searchParams.get('secret'),secret);assert.equal(provisioning.searchParams.get('issuer'),'SMARTDOCK Test');
+ assert.equal(provisioning.searchParams.get('digits'),'6');assert.equal(provisioning.searchParams.get('period'),'30');assert.equal(provisioning.searchParams.get('algorithm'),'SHA1');
+ assert.match(form.headers.get('content-security-policy'),/script-src 'self'/);assert.match(form.text,/src="\/api\/bootstrap-qr.js"/);
  await bootstrap.page('bootstrap&token='+initial.bootstrapToken);
  const reopened=await bootstrap.page('bootstrap');assert.equal(reopened.text.match(/data-testid="totp-secret"[^>]*>([A-Z2-7]+)</)[1],secret,'Reopening the same link preserves the authenticator key');
  assert.match(form.text,/<details class="setup-secret">/);assert.doesNotMatch(form.text,/<details[^>]*\sopen/);
