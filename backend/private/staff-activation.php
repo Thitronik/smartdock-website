@@ -21,14 +21,14 @@ function staff_activation_reconfirm(\PDO $db,array $config,array $user): never {
     $finish=static function(string $message,int $status=200):never{http_response_code($status);echo bootstrap_document('SMARTDOCK · E-Mail nachbestätigen','<h1>E-Mail bestätigen</h1><p>'.htmlspecialchars($message,ENT_QUOTES,'UTF-8').'</p>');exit;};
     if(empty($config['mail_from']))$finish('Die Nachbestätigung wartet auf den eingerichteten E-Mail-Versand. Der Adminzugang bleibt bis zur Bestätigung gesperrt.',503);
     $q=$db->prepare("SELECT id FROM sd_admin_audit_events WHERE action IN ('bootstrap.admin_created','bootstrap.pending') AND target_type='user' AND target_id=? LIMIT 1");$q->execute([$user['id']]);
-    if(!$q->fetchColumn()||!$user['password_hash']||!staff_secret($config,$user['email_normalized']))$finish('Für dieses Konto ist eine separate persönliche Freigabe erforderlich.',403);
+    if(!$q->fetchColumn()||!in_array($user['status'],['active','invited'],true)||!$user['password_hash']||!staff_secret($config,$user['email_normalized']))$finish('Für dieses Konto ist eine separate persönliche Freigabe erforderlich.',403);
     if(($_SERVER['REQUEST_METHOD'] ?? '')==='POST'){
         if(($_SERVER['HTTP_ORIGIN'] ?? '')!==$config['origin']||!is_string($_POST['csrf'] ?? null)||!hash_equals($_SESSION['csrf'],$_POST['csrf']))$finish('Anfrage nicht erlaubt.',403);
         if(!rate_limit($config['state_directory'],'staff-reconfirm-'.hash('sha256',$user['email_normalized']),time(),3))$finish('Zu viele Versuche. Bitte später erneut versuchen.',429);
         $lock=fopen($config['state_directory'].'/bootstrap.lock','c+');if(!$lock||!flock($lock,LOCK_EX))throw new \RuntimeException('Activation unavailable.');chmod($config['state_directory'].'/bootstrap.lock',0600);
         try{
             $db->beginTransaction();$q=$db->prepare('SELECT * FROM sd_users WHERE id=? FOR UPDATE');$q->execute([$user['id']]);$current=$q->fetch();
-            if(!$current||staff_mail_verified($db,$current)){$db->rollBack();$finish('Die E-Mail-Adresse wurde bereits bestätigt.',409);}
+            if(!$current||!in_array($current['status'],['active','invited'],true)||staff_mail_verified($db,$current)){$db->rollBack();$finish('Für dieses Konto ist keine Nachbestätigung verfügbar.',409);}
             $q=$db->prepare('SELECT user_id FROM sd_staff_roles WHERE user_id<>? AND revoked_at IS NULL LIMIT 1');$q->execute([$current['id']]);
             if($q->fetchColumn()){$db->rollBack();$finish('Weitere Zugänge benötigen eine separate persönliche Freigabe.',403);}
             staff_activation_pending($db,$config,$current);$db->commit();

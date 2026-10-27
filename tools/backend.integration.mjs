@@ -52,6 +52,9 @@ try{
  const activationMail=JSON.parse(await readFile(path.join(state,'activation-mail.json'),'utf8'));assert.equal(activationMail.to,'admin@example.invalid');
  const activationToken=activationMail.body.match(/action=activate-admin&token=([a-f0-9]{64})/)[1];
  const invalidActivation=client();await invalidActivation.page('activate-admin&token='+'0'.repeat(64));assert.equal((await invalidActivation.page('activate-admin')).status,403);
+ execFileSync(php,['backend/tests/fixture.php','--expire-mail'],{env});
+ const expired=client();await expired.page('activate-admin&token='+activationToken);assert.equal((await expired.page('activate-admin')).status,403,'Expired email link is rejected');assert.equal(pendingStatus().roles,0);
+ execFileSync(php,['backend/tests/fixture.php','--restore-mail'],{env});
  const activation=client();assert.equal((await activation.page('activate-admin&token='+activationToken)).status,303);
  const activationForm=await activation.page('activate-admin');assert.equal(activationForm.status,200);
  assert.equal(pendingStatus().roles,0,'GET from an email scanner grants no role');

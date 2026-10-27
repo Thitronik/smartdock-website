@@ -19,6 +19,8 @@ $config=require $root.'/config.php';
 if(in_array('--pending-status',$argv,true)){
  echo json_encode(['roles'=>(int)$db->query('SELECT COUNT(*) FROM sd_staff_roles WHERE revoked_at IS NULL')->fetchColumn(),'user'=>$db->query('SELECT status,email_verified_at FROM sd_users WHERE id=1')->fetch(PDO::FETCH_ASSOC)]);exit;
 }
+if(in_array('--expire-mail',$argv,true)){$db->exec("UPDATE sd_user_tokens SET created_at=DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 2 DAY),expires_at=DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 1 DAY) WHERE purpose='verify_email' AND consumed_at IS NULL");echo '{}';exit;}
+if(in_array('--restore-mail',$argv,true)){$db->exec("UPDATE sd_user_tokens SET created_at=UTC_TIMESTAMP(6),expires_at=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 7 DAY) WHERE purpose='verify_email' AND consumed_at IS NULL");echo '{}';exit;}
 if(in_array('--remove-proof',$argv,true)){$db->exec("DELETE FROM sd_admin_audit_events WHERE action='staff.email_verified' AND target_id=1");echo '{}';exit;}
 
 if((int)$db->query('SELECT COUNT(*) FROM sd_users')->fetchColumn()!==1 || $db->query('SELECT email_normalized FROM sd_users WHERE id=1')->fetchColumn()!=='admin@example.invalid')throw new RuntimeException('Bootstrap fixture required.');
