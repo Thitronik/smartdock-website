@@ -1,8 +1,11 @@
 # Serverseitige Anmeldung – Grundlage für die Hetzner-Testumgebung
 
-**Noch nicht auf Hetzner installiert oder an die Oberfläche angeschlossen.**
-Die Website auf Hetzner ist weiterhin die statische Vorschau hinter Verzeichnisschutz.
-Diese Backend-Grundlage wird separat geprüft; sie aktiviert keine echten Konten.
+**Nur in der getrennten Hetzner-Testumgebung installiert; keine Produktionsfreigabe.**
+Die Website bleibt hinter Verzeichnisschutz. Private Konfiguration und Implementation
+liegen außerhalb des Webroots. Der anonyme Sitzungsaufruf wurde auf Hetzner geprüft;
+er erreicht die Testdatenbank per verifiziertem TLS. Echte Konten sind noch nicht
+angelegt oder freigeschaltet. Die Admin-Oberfläche wird ausschließlich auf der
+Testdomain angeschlossen; GitHub Pages zeigt weiterhin den geschlossenen Einstieg.
 
 ## Enthaltener Umfang
 
@@ -29,8 +32,15 @@ Diese Backend-Grundlage wird separat geprüft; sie aktiviert keine echten Konten
 | private/config.example.php | Private Vorlage für smartdock-private-test/config.php |
 | Tests und Dokumentation | Niemals hochladen |
 
+Bei Hetzner ist public_html ein symbolischer Link. Der API-Unterordner erhält
+deshalb per Apache SetEnv SMARTDOCK_PRIVATE_DIR den absoluten privaten Hosting-Pfad.
+Der PHP-Einstieg verweigert ausdrücklich einen Konfigurationsordner innerhalb des
+öffentlichen Document Root.
+
 Die private Konfiguration muss vollständig sein. Fehlt sie, liefert der öffentliche
 Einstieg nur 503. Laufzeit verwendet ausschließlich den R/W-Benutzer der Testdatenbank.
+Die Datenbankverbindung verlangt die offizielle Hetzner-CA und Serverprüfung; nur
+der isolierte lokale CI-Server darf ohne TLS verwendet werden.
 Die Freigabeliste, Datenbankpasswörter, TOTP-Schlüssel, Sitzungen und Rate-Limit-Dateien
 gehören niemals ins Repository oder einen öffentlichen Build. Private Ordner erhalten
 0700, Konfiguration und Zustandsdateien 0600. Die Konfiguration erlaubt ausschließlich
@@ -43,9 +53,10 @@ von einer Oberfläche eingerichtet. Keine geheime Beispielkonfiguration überneh
 
 ## Noch offen vor produktivem Betrieb
 
-- Private Installation und MariaDB-Verbindung auf Hetzner prüfen; vollständige
+- Private Installation und MariaDB-Verbindung auf Hetzner sind geprüft; vollständige
   Zugriffstests mit tatsächlich verwendeter PHP-Version durchführen.
-- Admin-/Händleroberfläche anschließen; Firmenpflege und Inhalteverwaltung ergänzen.
+- Anmeldeseite und erste Listen-/Freigabeansicht der Admin-Testoberfläche prüfen;
+  Händleroberfläche, Firmenpflege und Inhalteverwaltung ergänzen.
 - Sichere Kontoanlage, persönliche Zwei-Faktor-Einrichtung und Wiederherstellung.
 - Händleranfragen und Einladungen, Passwortvergabe/-zurücksetzen, E-Mail-Verifikation,
   Freigabelinks mit maximal sieben Tagen und einmaliger Verwendung.

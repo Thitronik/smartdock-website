@@ -10,12 +10,20 @@ function reply(int $status, array $data): never {
 }
 
 function database(array $config): \PDO {
-    $db = new \PDO($config['dsn'], $config['database_user'], $config['database_password'], [
+    $options = [
         \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
         \PDO::ATTR_EMULATE_PREPARES => false,
         \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
         \PDO::ATTR_STRINGIFY_FETCHES => false,
-    ]);
+    ];
+    if (!empty($config['database_ssl_ca'])) {
+        if (!is_readable($config['database_ssl_ca'])) throw new \RuntimeException('Database CA unavailable.');
+        $options[\PDO::MYSQL_ATTR_SSL_CA] = $config['database_ssl_ca'];
+        $options[\PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
+    } elseif (!str_starts_with($config['dsn'], 'mysql:host=127.0.0.1;')) {
+        throw new \RuntimeException('Verified database TLS required.');
+    }
+    $db = new \PDO($config['dsn'], $config['database_user'], $config['database_password'], $options);
     $db->exec("SET time_zone = '+00:00'");
     return $db;
 }

@@ -1,0 +1,39 @@
+// The server decides access on every request; this UI never grants a role.
+const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export function mountServerAdmin(root){
+ const controller=new AbortController();let csrf='',disposed=false,busy=false,snapshot=null;
+ async function api(action,data){
+  const response=await fetch('/api/index.php?action='+encodeURIComponent(action),{method:data===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:data===undefined?{}:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:data===undefined?undefined:JSON.stringify(data)});
+  let result;try{result=await response.json();}catch{throw Error('Der Server hat keine gültige Antwort geliefert.');}
+  if(!response.ok)throw Object.assign(Error(result.error||'Anfrage fehlgeschlagen.'),{status:response.status});
+  if(result.csrf)csrf=result.csrf;return result;
+ }
+ function notice(text){if(disposed)return;const node=root.querySelector('[role="status"]');if(node)node.textContent=text;}
+ function login(){
+  if(disposed)return;snapshot=null;
+  root.innerHTML=`<section class="admin-gate"><p class="eyebrow">SMARTDOCK · INTERN</p><h1>Administration</h1><p>Nur für persönlich freigeschaltete Thitronik-Mitarbeiter.</p><form id="staff-login"><label>E-Mail-Adresse<input name="email" type="email" autocomplete="username" required maxlength="254"></label><label>Passwort<input name="password" type="password" autocomplete="current-password" required maxlength="1024"></label><label>Einmalcode aus der Authenticator-App<input name="otp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required></label><button class="primary-button">Anmelden</button></form><p class="admin-toast" role="status" aria-live="polite"></p><p class="subtle">Testumgebung. Persönliche Konten und Zwei-Faktor-Einrichtung werden separat vorbereitet. Es gibt keine öffentliche Registrierung für die Administration.</p></section>`;
+ }
+ function dashboard(){
+  if(disposed)return;const {dealers,memberships,user}=snapshot;const canApprove=user.roles.some(x=>['admin','approver'].includes(x));
+  const statuses={approved:'Freigegeben',unlisted:'Nicht auf der Karte',suspended:'Gesperrt',pending:'Wartet auf Prüfung',rejected:'Abgelehnt'};
+  root.innerHTML=`<div class="admin-preview-banner"><span>HETZNER · TESTUMGEBUNG · ECHTE TESTDATENBANK</span><button data-action="logout">Abmelden</button></div><div class="admin-heading"><div><p class="eyebrow">SMARTDOCK VERWALTUNG</p><h1>Guten Tag, ${escape(user.firstName)}.</h1><p>Firmen und persönliche Mitarbeiterzugänge bleiben getrennt.</p></div></div><div class="stat-grid"><article class="stat-card"><strong>${dealers.length}</strong><span>Händlerfirmen</span></article><article class="stat-card"><strong>${memberships.length}</strong><span>Mitarbeiterzuordnungen</span></article><article class="stat-card"><strong>${memberships.filter(m=>m.status==='pending').length}</strong><span>Offene Freigaben</span></article><article class="stat-card"><strong>${dealers.filter(d=>d.status==='active'&&d.finder_status==='approved').length}</strong><span>Kartenfreigaben</span></article></div><section class="admin-card"><h2>Händlerfirmen</h2><div class="table-scroll"><table><thead><tr><th>Firma</th><th>Kontakt</th><th>Kartenfreigabe</th><th>Aktion</th></tr></thead><tbody>${dealers.map(d=>`<tr><td><strong>${escape(d.company_name)}</strong><small>${escape(d.original_address||[d.street,d.house_number,d.postal_code,d.city].filter(Boolean).join(' '))}</small></td><td>${escape(d.public_email)}</td><td>${escape(statuses[d.finder_status]||d.finder_status)}</td><td>${canApprove?`<button data-finder="${Number(d.id)}" data-status="${d.finder_status==='approved'?'unlisted':'approved'}">${d.finder_status==='approved'?'Aus Karte ausblenden':'Karte freigeben'}</button>`:''}</td></tr>`).join('')||'<tr><td colspan="4">Noch keine Firmen in der Testdatenbank. Der Bestandsimport folgt separat.</td></tr>'}</tbody></table></div></section><section class="admin-card"><h2>Persönliche Mitarbeiterzugänge</h2><div class="table-scroll"><table><thead><tr><th>Person</th><th>Firma</th><th>Status</th><th>Aktion</th></tr></thead><tbody>${memberships.map(m=>`<tr><td><strong>${escape(m.first_name+' '+m.last_name)}</strong><small>${escape(m.email)}</small></td><td>${escape(dealers.find(d=>Number(d.id)===Number(m.dealer_id))?.company_name||'–')}</td><td>${escape(statuses[m.status]||m.status)}</td><td>${canApprove?`<button data-membership="${Number(m.id)}" data-status="${m.status==='approved'?'suspended':'approved'}">${m.status==='approved'?'Zugang sperren':'Mitarbeiter freigeben'}</button>`:''}</td></tr>`).join('')||'<tr><td colspan="4">Noch keine Mitarbeiteranfragen in der Testdatenbank.</td></tr>'}</tbody></table></div></section><div class="admin-notice">Änderungen werden in der separaten Testdatenbank gespeichert. Der öffentliche Händlerfinder nutzt noch den bisherigen Dateibestand. Freigaben versenden noch keine Einladung und melden niemanden zum Newsletter an. Firmenpflege, Inhalte und Mailabläufe folgen im nächsten Ausbau.</div><p class="admin-toast" role="status" aria-live="polite"></p>`;
+ }
+ async function load(){snapshot=await api('admin');dashboard();}
+ async function submit(event){if(event.target.id!=='staff-login')return;event.preventDefault();if(busy||!event.target.reportValidity())return;busy=true;const form=event.target;const button=form.querySelector('button');button.disabled=true;
+  const data=Object.fromEntries(new FormData(form));form.querySelector('[name="password"]').value='';form.querySelector('[name="otp"]').value='';
+  try{await api('login',data);await load();}catch(error){if(error.name!=='AbortError')notice(error.message);}finally{data.password='';data.otp='';busy=false;if(!disposed&&button.isConnected)button.disabled=false;}
+ }
+ async function click(event){const button=event.target.closest('button');if(!button||busy)return;
+  try{if(button.dataset.action==='retry'){await init();return;}
+   if(button.dataset.action==='logout'){busy=true;await api('logout',{});await init();return;}
+   const id=Number(button.dataset.finder||button.dataset.membership);if(!id)return;
+   busy=true;button.disabled=true;await api(button.dataset.finder?'finder-decision':'membership-decision',{id,status:button.dataset.status});await load();notice('Änderung in der Testdatenbank gespeichert.');
+  }catch(error){if(error.name!=='AbortError'){if(error.status===401){await init();notice('Die Sitzung ist abgelaufen. Bitte erneut anmelden.');}else notice(error.message);}}finally{busy=false;if(!disposed&&button.isConnected)button.disabled=false;}
+ }
+ async function init(){if(disposed)return;root.innerHTML='<section class="admin-gate"><h1>Administration</h1><p role="status">Verbindung zur Testumgebung wird geprüft …</p></section>';
+  try{const session=await api('session');if(disposed)return;if(session.user){try{await load();}catch(error){if(error.status===403){login();notice('Dieses Konto hat keine Verwaltungsberechtigung.');}else throw error;}}else login();}
+  catch(error){if(disposed||error.name==='AbortError')return;root.innerHTML='<section class="admin-gate"><h1>Administration</h1><p role="status"></p><button data-action="retry">Erneut prüfen</button></section>';notice(error.message);}
+ }
+ root.addEventListener('submit',submit);root.addEventListener('click',click);void init();
+ return()=>{disposed=true;controller.abort();root.removeEventListener('submit',submit);root.removeEventListener('click',click);};
+}

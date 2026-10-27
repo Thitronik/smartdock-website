@@ -36,7 +36,7 @@ test('Der Build erzeugt beide Anwendungen, fünf Sprach-Einstiege und alle histo
   const root = await createOutput();
   const pages = await createOutput(PAGES_BASE);
   assert.equal([...root.keys()].filter(name => name.endsWith('.html')).length, 122);
-  assert.equal(root.size, 205);
+  assert.equal(root.size, 206);
   assert.equal(pages.size, root.size + 1);
   for (const language of ['', 'en/', 'fr/', 'nl/', 'es/']) {
     assert.ok(root.has(language + 'index.html'));
@@ -213,7 +213,7 @@ test('Alte Features-Seiten leiten mit Query und Hash auf die aktuelle Funktionss
 });
 
 test('Verwaltungsvorschau veröffentlicht keine Backend- oder Importdateien',async()=>{
- for(const base of ['',PAGES_BASE]){const files=await createOutput(base);const html=files.get('admin/index.html').toString();assert.ok(html.includes('noindex,nofollow'));assert.ok(html.includes(base+'/assets/admin-portal.css'));assert.ok(html.includes('id="root"'));assert.ok(files.has('assets/admin-model.js'));for(const name of files.keys())assert.ok(!name.startsWith('database/')&&!name.endsWith('.sql')&&!name.includes('9_dealers_records'));}
+ for(const base of ['',PAGES_BASE]){const files=await createOutput(base);const html=files.get('admin/index.html').toString();assert.ok(html.includes('noindex,nofollow'));assert.ok(html.includes(base+'/assets/admin-portal.css'));assert.ok(html.includes('id="root"'));assert.ok(files.has('assets/admin-model.js'));for(const name of files.keys())assert.ok(!name.startsWith('database/')&&!name.startsWith('backend/')&&!name.endsWith('.sql')&&!name.includes('9_dealers_records'));}
 });
 
  test("Öffentlicher Admineinstieg bietet weder Beispieldaten noch Anmeldeformular",async()=>{

@@ -8,7 +8,13 @@ header('Cache-Control: no-store');
 header('X-Content-Type-Options: nosniff');
 header('X-Robots-Tag: noindex, nofollow');
 try {
-    $private = dirname(__DIR__, 3) . '/smartdock-private-test';
+    $private = getenv('SMARTDOCK_PRIVATE_DIR') ?: dirname(__DIR__, 3) . '/smartdock-private-test';
+    $privateReal = realpath($private);
+    $publicReal = realpath($_SERVER['DOCUMENT_ROOT'] ?? __DIR__);
+    if (!$privateReal || !$publicReal || $privateReal === $publicReal || str_starts_with($privateReal, $publicReal . '/')) {
+        throw new RuntimeException('Private installation unavailable.');
+    }
+    $private = $privateReal;
     if (!is_file($private . '/config.php') || !is_file($private . '/app.php')) {
         http_response_code(503);
         echo '{"error":"Die Testanmeldung ist noch nicht eingerichtet."}';

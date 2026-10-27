@@ -7,6 +7,7 @@ return [
     'dsn' => 'mysql:host=DATABASE_HOST;dbname=TEST_DATABASE;charset=utf8mb4',
     'database_user' => 'READ_WRITE_USER',
     'database_password' => '',
+    'database_ssl_ca' => __DIR__ . '/sqlca.pem', // official Hetzner database CA
     'state_directory' => __DIR__ . '/state',
     'session_directory' => __DIR__ . '/sessions',
     'rate_key' => '', // at least 32 random bytes, stored as hex
