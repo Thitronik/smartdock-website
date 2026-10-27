@@ -137,7 +137,11 @@ function access_token_page(array $config,string $action): never {
                 $q=$db->prepare('SELECT * FROM sd_user_tokens WHERE id=? AND consumed_at IS NULL AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP(6) FOR UPDATE');$q->execute([$token['id']]);$fresh=$q->fetch();
                 if(!$fresh||!$owner||$owner['status']==='suspended'){$db->rollBack();access_html(403,'Link nicht gültig','<p>Bitte einen neuen Link anfordern.</p>');}
                 if($action==='dealer-confirm')confirm_dealer_request($db,$config,$fresh,$owner);
-                elseif($action==='dealer-approve')approve_dealer_membership($db,$config,(int)$fresh['membership_id'],$staff);
+                elseif($action==='dealer-approve') {
+                    $q=$db->prepare("SELECT id FROM sd_dealer_memberships WHERE id=? AND status='pending' FOR UPDATE");$q->execute([$fresh['membership_id']]);
+                    if(!$q->fetch()){$db->rollBack();access_html(409,'Bereits entschieden','<p>Diese Anfrage wurde bereits bearbeitet. Änderungen sind nur direkt in der Administration möglich.</p>');}
+                    approve_dealer_membership($db,$config,(int)$fresh['membership_id'],$staff);
+                }
                 else {
                     $q=$db->prepare("SELECT m.id FROM sd_dealer_memberships m JOIN sd_dealer d ON d.id=m.dealer_id WHERE m.user_id=? AND m.status='approved' AND d.status='active' LIMIT 1");$q->execute([$owner['id']]);
                     $s=$db->prepare('SELECT user_id FROM sd_staff_roles WHERE user_id=? LIMIT 1');$s->execute([$owner['id']]);

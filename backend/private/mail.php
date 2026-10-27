@@ -30,7 +30,15 @@ function deliver_mail(array $config,array $mail,array $payload): bool {
         $records[]=['to'=>$mail['recipient_email'],'type'=>$mail['message_type'],...$payload];
         file_put_contents($file,json_encode($records,JSON_THROW_ON_ERROR));return true;
     }
-    return mail($mail['recipient_email'],'=?UTF-8?B?'.base64_encode($payload['subject']).'?=',$payload['body'],['From'=>'SMARTDOCK <'.$from.'>','MIME-Version'=>'1.0','Content-Type'=>'text/plain; charset=UTF-8'],'-f'.$from);
+    $html=nl2br(htmlspecialchars($payload['body'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8'));
+    $pattern='~'.preg_quote($config['origin'].'/api/index.php?action=','~').'(dealer-confirm|dealer-password|dealer-approve)&amp;token=[a-f0-9]{64}~';
+    $html=preg_replace_callback($pattern,static function(array $match):string {
+        $label=$match[1]==='dealer-approve'?'Händler für den Händlerbereich freischalten!':($match[1]==='dealer-password'?'Passwort festlegen':'E-Mail bestätigen');
+        return '<a style="display:inline-block;padding:14px 20px;background:#c8f500;color:#171b1f;border-radius:8px;text-decoration:none;font-weight:bold" href="'.$match[0].'">'.$label.'</a>';
+    },$html);
+    $boundary='sd-'.bin2hex(random_bytes(18));
+    $body='--'.$boundary."\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n".chunk_split(base64_encode($payload['body'])).'--'.$boundary."\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n".chunk_split(base64_encode('<!doctype html><html lang="de"><body style="font-family:Arial,sans-serif;line-height:1.6">'.$html.'</body></html>')).'--'.$boundary."--\r\n";
+    return mail($mail['recipient_email'],'=?UTF-8?B?'.base64_encode($payload['subject']).'?=',$body,['From'=>'SMARTDOCK <'.$from.'>','MIME-Version'=>'1.0','Content-Type'=>'multipart/alternative; boundary="'.$boundary.'"'],'-f'.$from);
 }
 // Runs after commit; a failed hand-off remains retryable. SMTP cannot promise exactly once.
 function dispatch_mail(\PDO $db,array $config,int $limit=5): void {
