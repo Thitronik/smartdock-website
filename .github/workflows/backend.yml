@@ -1,0 +1,41 @@
+name: SMARTDOCK PHP Testbackend
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.8
+        env:
+          MARIADB_DATABASE: smartdock_test
+          MARIADB_USER: smartdock_ci
+          MARIADB_PASSWORD: disposable-ci-only
+          MARIADB_ROOT_PASSWORD: disposable-ci-root-only
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      SD_TEST_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=smartdock_test;charset=utf8mb4'
+      SD_TEST_DB_USER: smartdock_ci
+      SD_TEST_DB_PASSWORD: disposable-ci-only
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql
+          coverage: none
+      - run: node tools/check-backend.mjs
+      - run: node tools/backend.integration.mjs
