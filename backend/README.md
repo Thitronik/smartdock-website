@@ -57,7 +57,9 @@ von einer Oberfläche eingerichtet. Keine geheime Beispielkonfiguration überneh
   Zugriffstests mit tatsächlich verwendeter PHP-Version durchführen.
 - Anmeldeseite und erste Listen-/Freigabeansicht der Admin-Testoberfläche prüfen;
   Händleroberfläche, Firmenpflege und Inhalteverwaltung ergänzen.
-- Sichere Kontoanlage, persönliche Zwei-Faktor-Einrichtung und Wiederherstellung.
+- Weitere Kontoanlagen und Wiederherstellung ergänzen. Die einmalige Einrichtung
+  des ersten Administratorkontos ist implementiert; auf Hetzner steht die
+  persönliche Aktivierung noch aus.
 - Händleranfragen und Einladungen, Passwortvergabe/-zurücksetzen, E-Mail-Verifikation,
   Freigabelinks mit maximal sieben Tagen und einmaliger Verwendung.
 - SMTP/Outbox-Erweiterung, Newsletter-Double-Opt-in, Abmeldung und Spam-Schutz.
@@ -66,7 +68,7 @@ von einer Oberfläche eingerichtet. Keine geheime Beispielkonfiguration überneh
 
 ## Prüfungen
 
-Native PHP-8.4-Installation: `node tools/check-backend.mjs` prüft Syntax und 41
+Native PHP-8.4-Installation: `node tools/check-backend.mjs` prüft Syntax und 47
 Sicherheitsfälle. Optional akzeptiert das Werkzeug PHP_BINARY oder PHP_WASM_CLI.
 Die lokale WASM-Prüfung ersetzt weder Apache noch MariaDB.
 
@@ -75,3 +77,11 @@ Der separate GitHub-Workflow erstellt eine kurzlebige MariaDB 11.8 und testet
 Der CI-Router simuliert HTTPS nur auf einem lokalen Testserver. Router, Fixtures,
 CI-Zugangswerte und Tests dürfen niemals auf Hetzner installiert werden. Es werden
 keine Live-Datenbanken angesprochen und keine Nachrichten versendet.
+
+Die erste Administration wird ausschließlich über einen befristeten privaten
+Einrichtungslink angelegt. Zieladresse und Token-Hash stehen außerhalb des
+Webroots; Passwort und Authenticator-Code trägt die berechtigte Person selbst
+ein. Sobald eine Mitarbeiterrolle existiert, ist dieser Weg geschlossen. Der
+Authenticator-Schlüssel wird mit AES-256-GCM verschlüsselt außerhalb des
+Webroots gespeichert und an die jeweilige Identität gebunden. Der private
+Hauptschlüssel darf beim Aktualisieren der Anwendung nicht ersetzt werden.

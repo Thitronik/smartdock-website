@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__ . '/../private/security.php';
-use function Smartdock\{normalized_email,staff_allowed,active_user,dealer_allowed,totp_code,totp_step,rate_limit,consume_totp};
+use function Smartdock\{normalized_email,staff_allowed,active_user,dealer_allowed,totp_code,totp_step,rate_limit,consume_totp,base32_encode,base32_decode,staff_secret,store_staff_secret,mfa_path};
 $count=0;
 function check(bool $ok,string $label):void {global $count;if(!$ok)throw new RuntimeException($label);$count++;echo "PASS $label\n";}
 $allow=['admin@example.invalid'];
@@ -37,5 +37,15 @@ try{
  check(!consume_totp($directory,'replay',100),'OTP replay denied');
  check(!consume_totp($directory,'replay',99),'Older OTP denied');
  check(consume_totp($directory,'replay',101),'New OTP allowed');
-}finally{foreach(glob($directory.'/*.json') as $file)unlink($file);rmdir($directory);}
+ mkdir($directory.'/mfa',0700);$config=['mfa_directory'=>$directory.'/mfa','rate_key'=>str_repeat('a',64),'staff_totp_secrets'=>[]];
+ check(base32_decode(base32_encode(str_repeat('x',20)))===str_repeat('x',20),'Base32 enrollment roundtrip');
+ store_staff_secret($config,'admin@example.invalid',$secret);
+ check(staff_secret($config,'admin@example.invalid')===$secret,'Encrypted MFA enrollment roundtrip');
+ check(!str_contains(file_get_contents(mfa_path($config,'admin@example.invalid')),$secret),'MFA key not stored in plaintext');
+ check(staff_secret($config,'other@example.invalid')==='','Other identity has no MFA key');
+ $rejected=false;try{store_staff_secret($config,'admin@example.invalid',$secret);}catch(RuntimeException){$rejected=true;}check($rejected,'Existing enrollment cannot be overwritten');
+ $rejected=false;try{staff_secret(array_replace($config,['rate_key'=>str_repeat('b',64)]),'admin@example.invalid');}catch(RuntimeException){$rejected=true;}
+ // Different master key also changes the lookup name, so it safely returns empty.
+ check($rejected||staff_secret(array_replace($config,['rate_key'=>str_repeat('b',64)]),'admin@example.invalid')==='','Wrong master key grants no enrollment');
+}finally{foreach(glob($directory.'/*.json') as $file)unlink($file);if(is_dir($directory.'/mfa')){foreach(glob($directory.'/mfa/*.key') as $file)unlink($file);rmdir($directory.'/mfa');}rmdir($directory);}
 echo "$count security checks passed.\n";

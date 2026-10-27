@@ -44,6 +44,10 @@ function run(array $config): never {
     if (!session_start()) throw new \RuntimeException('Session unavailable.');
     $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
     $action = (string)($_GET['action'] ?? 'session');
+    if ($action === 'bootstrap') {
+        require_once __DIR__ . '/bootstrap.php';
+        bootstrap_request($config);
+    }
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $read = in_array($action, ['session', 'admin', 'dealer'], true);
     if (($read && $method !== 'GET') || (!$read && $method !== 'POST')) reply(405, ['error' => 'Methode nicht erlaubt.']);
@@ -123,7 +127,7 @@ function current_user(\PDO $db,array $config): ?array {
     $q->execute([$_SESSION['auth_id'],hash('sha256',$_SESSION['proof'],true),hash('sha256',$_SESSION['csrf'],true)]);$user=$q->fetch();
     if (!$user || !active_user($user)) { unset($_SESSION['auth_id'],$_SESSION['proof']);return null; }
     $user['roles']=[];
-    if (staff_allowed($user['email_normalized'],$config['staff_allowlist']) && !empty($user['staff_mfa_verified_at']) && !empty($config['staff_totp_secrets'][$user['email_normalized']])) {
+    if (staff_allowed($user['email_normalized'],$config['staff_allowlist']) && !empty($user['staff_mfa_verified_at']) && staff_secret($config,$user['email_normalized']) !== '') {
         $q=$db->prepare('SELECT role FROM sd_staff_roles WHERE user_id=? AND revoked_at IS NULL');$q->execute([$user['id']]);$user['roles']=$q->fetchAll(\PDO::FETCH_COLUMN);
     }
     $q=$db->prepare('UPDATE sd_user_sessions SET last_seen_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$user['session_id']]);
@@ -142,7 +146,7 @@ function login(\PDO $db,array $config,array $data): never {
     $q=$db->prepare('SELECT role FROM sd_staff_roles WHERE user_id=? AND revoked_at IS NULL');$q->execute([$user['id']]);$roles=$q->fetchAll(\PDO::FETCH_COLUMN);
     $staff=false;
     if ($roles) {
-        $secret=$config['staff_totp_secrets'][$email] ?? '';
+        $secret=staff_secret($config,$email);
         if (!staff_allowed($email,$config['staff_allowlist']) || !$secret) reply(401,['error'=>'Anmeldung nicht möglich.']);
         $step=totp_step($secret,$data['otp'] ?? '',time());
         if ($step===null || !consume_totp($config['state_directory'],'totp-'.$key,$step)) reply(401,['error'=>'Anmeldung nicht möglich.']);

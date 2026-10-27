@@ -94,3 +94,33 @@ function consume_totp(string $directory, string $key, int $step): bool {
         return [['step' => max($previous, $step)], $step > $previous];
     });
 }
+
+function base32_encode(string $bytes): string {
+    $alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';$bits=0;$value=0;$encoded='';
+    foreach(str_split($bytes) as $byte){$value=($value<<8)|ord($byte);$bits+=8;while($bits>=5){$bits-=5;$encoded.=$alphabet[($value>>$bits)&31];}$value&=(1<<$bits)-1;}
+    if($bits)$encoded.=$alphabet[($value<<(5-$bits))&31];return $encoded;
+}
+
+function mfa_path(array $config,string $email): string {
+    return $config['mfa_directory'].'/'.hash_hmac('sha256',$email,$config['rate_key']).'.key';
+}
+function mfa_key(array $config): string {
+    if(!function_exists('openssl_encrypt')||!function_exists('openssl_decrypt'))throw new \RuntimeException('MFA encryption unavailable.');
+    return hash_hmac('sha256','smartdock-mfa-encryption-v1',$config['rate_key'],true);
+}
+function staff_secret(array $config,string $email): string {
+    if(!empty($config['staff_totp_secrets'][$email]))return $config['staff_totp_secrets'][$email];
+    if(empty($config['mfa_directory']))return '';
+    $file=mfa_path($config,$email);if(!is_file($file))return '';
+    $bytes=file_get_contents($file);if($bytes===false||strlen($bytes)<33||substr($bytes,0,4)!=='SDM1')throw new \RuntimeException('MFA unavailable.');
+    $secret=openssl_decrypt(substr($bytes,32),'aes-256-gcm',mfa_key($config),OPENSSL_RAW_DATA,substr($bytes,4,12),substr($bytes,16,16),$email);
+    if($secret===false)throw new \RuntimeException('MFA unavailable.');return $secret;
+}
+function store_staff_secret(array $config,string $email,string $secret): void {
+    $directory=$config['mfa_directory'];if(!is_dir($directory)||!is_writable($directory))throw new \RuntimeException('MFA directory unavailable.');
+    $nonce=random_bytes(12);$tag='';$cipher=openssl_encrypt($secret,'aes-256-gcm',mfa_key($config),OPENSSL_RAW_DATA,$nonce,$tag,$email,16);
+    if($cipher===false||strlen($tag)!==16)throw new \RuntimeException('MFA encryption unavailable.');
+    $bytes='SDM1'.$nonce.$tag.$cipher;
+    $file=@fopen(mfa_path($config,$email),'x');if(!$file)throw new \RuntimeException('MFA already configured.');
+    try{chmod(mfa_path($config,$email),0600);if(fwrite($file,$bytes)!==strlen($bytes)||!fflush($file))throw new \RuntimeException('MFA unavailable.');}finally{fclose($file);}
+}
