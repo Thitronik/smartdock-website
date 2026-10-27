@@ -30,6 +30,9 @@ try{
  const form=await bootstrap.page('bootstrap');assert.equal(form.status,200);
  assert.equal(form.headers.get('referrer-policy'),'same-origin');
  const secret=form.text.match(/data-testid="totp-secret"[^>]*>([A-Z2-7]+)</)[1];
+ await bootstrap.page('bootstrap&token='+initial.bootstrapToken);
+ const reopened=await bootstrap.page('bootstrap');assert.equal(reopened.text.match(/data-testid="totp-secret"[^>]*>([A-Z2-7]+)</)[1],secret,'Reopening the same link preserves the authenticator key');
+ assert.match(form.text,/<details class="setup-secret">/);assert.doesNotMatch(form.text,/<details[^>]*\sopen/);
  const formCsrf=form.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1];
  assert.equal((await bootstrap.page('bootstrap&check=1',{csrf:'wrong'})).status,403);
  const probe=await bootstrap.page('bootstrap&check=1',{csrf:formCsrf});assert.equal(probe.status,200);assert.match(probe.text,/Verbindungsprüfung erfolgreich/);
