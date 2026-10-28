@@ -6,7 +6,7 @@ export function mountAdminPortal(){
  const root=document.getElementById('admin-portal');if(!root)return()=>{};
  if(location.hostname==='test.smartdock.de'){
   let cancelled=false,cleanup=()=>{};document.title='SMARTDOCK · Administration';
-  import('./admin-server.js?v=20261028').then(module=>{if(!cancelled)cleanup=module.mountServerAdmin(root);}).catch(()=>{if(!cancelled)root.textContent='Die Testanmeldung konnte nicht geladen werden.';});
+  import('./admin-server.js?v=20261028c').then(module=>{if(!cancelled)cleanup=module.mountServerAdmin(root);}).catch(()=>{if(!cancelled)root.textContent='Die Testanmeldung konnte nicht geladen werden.';});
   return()=>{cancelled=true;cleanup();};
  }
  if(!["localhost","127.0.0.1","[::1]"].includes(location.hostname)){document.title="SMARTDOCK · Administration";root.innerHTML=`<section class="admin-gate"><p class="eyebrow">SMARTDOCK · INTERN</p><h1>Administration</h1><p>Dieser Bereich ist ausschließlich für freigeschaltete Thitronik-Mitarbeiter bestimmt.</p><div class="admin-notice">Die geschützte Anmeldung wird auf Hetzner eingerichtet. In dieser Vorschau ist der Zugang geschlossen.</div></section>`;return()=>{};}

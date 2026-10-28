@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace Smartdock;
 require_once __DIR__ . '/security.php';
+require_once __DIR__ . '/staff-management.php';
 
 function reply(int $status, array $data): never {
     http_response_code($status);
@@ -46,6 +47,7 @@ function run(array $config): never {
     $action = (string)($_GET['action'] ?? 'session');
     require_once __DIR__.'/dealer-access.php';
     require_once __DIR__.'/public-forms.php';
+    if($action==='staff-invitation')staff_invitation_page($config);
     if(in_array($action,['newsletter-confirm','newsletter-unsubscribe'],true))newsletter_page($config,$action);
     if(in_array($action,['dealer-confirm','dealer-password','dealer-approve'],true))access_token_page($config,$action);
     if (in_array($action,['bootstrap','activate-admin'],true)) {
@@ -101,6 +103,7 @@ function run(array $config): never {
     if ($action === 'admin') {
         reply(200, [
             'user'=>public_user($user),
+            'staffManagement'=>staff_management_snapshot($db,$config,$user),
             'dealers'=>$db->query('SELECT id,company_name,original_address,street,house_number,postal_code,city,country_code,public_email,public_phone,website,latitude,longitude,status,finder_status FROM sd_dealer ORDER BY company_name')->fetchAll(),
             'memberships'=>$db->query('SELECT m.id,m.dealer_id,m.user_id,m.status,u.first_name,u.last_name,u.email,u.status AS user_status FROM sd_dealer_memberships m JOIN sd_users u ON u.id=m.user_id ORDER BY m.requested_at DESC')->fetchAll(),
             'requests'=>$db->query("SELECT r.*,u.email FROM sd_dealer_access_requests r JOIN sd_users u ON u.id=r.user_id WHERE r.status<>'email_pending' ORDER BY r.created_at DESC")->fetchAll(),
@@ -110,6 +113,8 @@ function run(array $config): never {
             'newsletterStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_newsletter_subscribers GROUP BY status')->fetchAll(),
         ]);
     }
+    if($action==='staff-invite'){staff_invite($db,$config,$user,$data);}
+    if($action==='staff-revoke'){staff_revoke($db,$config,$user,$data);}
     if($action==='dealer-update') {
         require_staff($user,['admin','approver']);
         $id=filter_var($data['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!$id)reply(400,['error'=>'Firma fehlt.']);
@@ -190,7 +195,7 @@ function current_user(\PDO $db,array $config): ?array {
     $q->execute([$_SESSION['auth_id'],hash('sha256',$_SESSION['proof'],true),hash('sha256',$_SESSION['csrf'],true)]);$user=$q->fetch();
     if (!$user || !active_user($user)) { unset($_SESSION['auth_id'],$_SESSION['proof']);return null; }
     $user['roles']=[];
-    if (staff_allowed($user['email_normalized'],$config['staff_allowlist'],$config['staff_email_domain'] ?? 'thitronik.de') && staff_mail_verified($db,$user) && !empty($user['staff_mfa_verified_at']) && staff_secret($config,$user['email_normalized']) !== '') {
+    if (staff_address_authorized($db,$config,$user) && staff_mail_verified($db,$user) && !empty($user['staff_mfa_verified_at']) && staff_secret($config,$user['email_normalized']) !== '') {
         $q=$db->prepare('SELECT role FROM sd_staff_roles WHERE user_id=? AND revoked_at IS NULL');$q->execute([$user['id']]);$user['roles']=$q->fetchAll(\PDO::FETCH_COLUMN);
     }
     $q=$db->prepare('UPDATE sd_user_sessions SET last_seen_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$user['session_id']]);
@@ -210,7 +215,7 @@ function login(\PDO $db,array $config,array $data): never {
     $staff=false;
     if ($roles) {
         $secret=staff_secret($config,$email);
-        if (!staff_allowed($email,$config['staff_allowlist'],$config['staff_email_domain'] ?? 'thitronik.de') || !staff_mail_verified($db,$user) || !$secret) reply(401,['error'=>'Anmeldung nicht möglich.']);
+        if (!staff_address_authorized($db,$config,$user) || !staff_mail_verified($db,$user) || !$secret) reply(401,['error'=>'Anmeldung nicht möglich.']);
         $step=totp_step($secret,$data['otp'] ?? '',time());
         if ($step===null || !consume_totp($config['state_directory'],'totp-'.$key,$step)) reply(401,['error'=>'Anmeldung nicht möglich.']);
         $staff=true;
