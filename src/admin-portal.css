@@ -3,3 +3,4 @@
 
 /* Center bounded paragraphs within their cards, not within a left-aligned 65ch box. */
 .sd-admin-portal p{margin-inline:auto}.sd-admin-portal .admin-heading{align-items:center}.sd-admin-portal .row-actions{align-items:center}
+.sd-admin-portal [hidden]{display:none!important}

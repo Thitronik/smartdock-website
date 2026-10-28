@@ -4,3 +4,5 @@
 
 /* Keep portal copy and actions on the same central axis as its headings. */
 .sd-dealer-portal{box-sizing:border-box}.sd-dealer-portal .card{text-align:center}.sd-dealer-portal .card p,.sd-dealer-portal .tile p{margin-inline:auto}.sd-dealer-portal .tile{text-align:center}.sd-dealer-portal input{box-sizing:border-box}
+/* Author grid rules must not override the authenticated view's hidden state. */
+.sd-dealer-portal [hidden]{display:none!important}

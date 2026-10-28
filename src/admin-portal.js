@@ -3,7 +3,7 @@ const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 const badges={unlisted:'Nicht freigegeben',pending:'Wartet auf Prüfung',approved:'Freigegeben',rejected:'Abgelehnt',suspended:'Gesperrt',active:'Aktiv',invited:'Passwort noch nicht gesetzt'};
 const icon={overview:'◈',dealers:'⌖',users:'♙',content:'▤',roles:'◇',newsletter:'✉'};
 export function mountAdminPortal(){
- if(!document.querySelector('link[data-sd-admin-styles]')){const link=document.createElement('link');link.rel='stylesheet';link.href=new URL('./admin-portal.css?v=20261028b',import.meta.url).href;link.dataset.sdAdminStyles='';document.head.append(link);}
+ if(!document.querySelector('link[data-sd-admin-styles]')){const link=document.createElement('link');link.rel='stylesheet';link.href=new URL('./admin-portal.css?v=20261028e',import.meta.url).href;link.dataset.sdAdminStyles='';document.head.append(link);}
 
  const root=document.getElementById('admin-portal');if(!root)return()=>{};
  if(location.hostname==='test.smartdock.de'){
