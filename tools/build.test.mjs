@@ -228,3 +228,9 @@ test('Verwaltungsvorschau veröffentlicht keine Backend- oder Importdateien',asy
  }
  const files=await createOutput();assert.ok(files.has("admin/index.html"));assert.ok(!files.has("verwaltung/index.html"));
  });
+
+test('Händlerkarten verwenden die schlüsselfreie OSM-Quelle mit sichtbarer Quellenangabe',async()=>{
+ const files=await createOutput();const entry=files.get('assets/index-RRVGC1mK.js').toString();
+ assert.doesNotMatch(entry,/basemaps\.cartocdn\.com|\{s\}\.tile\.openstreetmap\.org/);
+ assert.equal((entry.match(/url:"https:\/\/tile\.openstreetmap\.org\/\{z\}\/\{x\}\/\{y\}\.png"[^}]*attribution:/g)||[]).length,2);
+});

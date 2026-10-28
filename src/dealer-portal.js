@@ -50,7 +50,7 @@ layout.innerHTML=`<summary>${labels[0]}</summary><p class="notice">${labels[1]}<
 document.getElementById('portal').append(layout);
 if(location.hostname==='test.smartdock.de') {
  document.querySelectorAll('#portal form button,#portal #reset').forEach(button=>button.disabled=true);
- import('./dealer-server.js?v=20261028').then(({connectDealerPortal})=>connectDealerPortal(document.getElementById('portal'),language)).catch(()=>{document.getElementById('login-status').textContent='SMARTDOCK: Verbindung zur Testumgebung fehlgeschlagen.';});
+ import('./dealer-server.js?v=20261028d').then(({connectDealerPortal})=>connectDealerPortal(document.getElementById('portal'),language)).catch(()=>{document.getElementById('login-status').textContent='SMARTDOCK: Verbindung zur Testumgebung fehlgeschlagen.';});
 }
 
 }
