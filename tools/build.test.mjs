@@ -132,7 +132,9 @@ test('Händler-Sprachwechsel erhält die Seite und nutzt dieselbe Anwendung wie 
         assert.equal(translate(current, lang), dealerLink(lang).href);
       }
       const page = files.get((lang === 'DE' ? '' : lang.toLowerCase() + '/') + 'haendlerbereich/index.html').toString();
-      assert.ok(page.includes('src="' + base + '/assets/index-RRVGC1mK.js"'));
+      const entry=page.match(/<script type="module" src="([^"]+)"/)[1];
+      assert.equal(new URL(entry,'https://example.invalid').pathname,base+'/assets/index-RRVGC1mK.js');
+      assert.equal(entry,files.get('index.html').toString().match(/<script type="module" src="([^"]+)"/)[1]);
       assert.ok(page.includes('id="root"'));
       assert.ok(!page.includes('<header'), 'Keine zweite Headerimplementierung');
     }

@@ -2,8 +2,8 @@
 
 ## Aktueller Teststand – 28.10.2026
 
-Die getrennte Hetzner-Datenbank `smartda_test` enthält Migrationen 001, 002 und
-003. Diese Migrationen dort **nicht erneut ausführen**. Vor 003 wurde eine private
+Die getrennte Hetzner-Datenbank `smartda_test` enthält Migrationen 001, 002, 003 und
+004 (öffentliche Formulare, installiert am 28.10.2026). Diese Migrationen dort **nicht erneut ausführen**. Vor 003 wurde eine private
 vollständige SQL-Sicherung erstellt und der Bestand mit 13 Tabellen geprüft.
 Nach 003: 14 Tabellen; `sd_dealer_access_requests` speichert persönliche Anfragen.
 Die Outbox enthält zusätzliche Transaktionsmailtypen, Benutzer-/Tokenbezüge und

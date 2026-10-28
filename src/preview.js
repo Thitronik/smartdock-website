@@ -15,7 +15,7 @@
       const input=document.createElement('input');input.name='sd_website';input.tabIndex=-1;input.autocomplete='off';trap.append(input);form.append(trap);
       if(!form.querySelector('#newsletter-email')){const p=document.createElement('p');p.dataset.sdPrivacy='';p.className='text-sm text-muted-foreground';const link=document.createElement('a');link.href=privacy;link.target='_blank';link.rel='noopener';link.textContent=labels[language];p.append(link);form.append(p);}
     });
-    document.addEventListener('DOMContentLoaded',()=>{prepareForms();new MutationObserver(prepareForms).observe(document.body,{childList:true,subtree:true});},{once:true});
+    document.addEventListener('DOMContentLoaded',()=>{const note=document.getElementById('preview-note');if(note)note.textContent='HETZNER · TESTUMGEBUNG · Formulare sind mit der separaten Testdatenbank verbunden. Bestätigungsmails werden versendet.';prepareForms();new MutationObserver(prepareForms).observe(document.body,{childList:true,subtree:true});},{once:true});
   }
   const collections = new Set(['translation_DE','translation_EN','dealers','faqs','anleitungen']);
   window.fetch = async (input, init = {}) => {
