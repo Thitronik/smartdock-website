@@ -15,6 +15,7 @@ export async function connectDealerPortal(root,language){
   if(!response.ok)throw Error(body.error||'SMARTDOCK: Anfrage fehlgeschlagen.');if(body.csrf)csrf=body.csrf;return body;
  }
  const session=await api('session');if(!root.isConnected)return;
+ const previewNote=document.getElementById('preview-note');if(previewNote)previewNote.textContent=t[8];
  root.querySelectorAll('form button,#reset').forEach(button=>button.disabled=false);
  root.querySelector('.notice').textContent=t[8];
  root.querySelector('#request button').textContent=t[0];

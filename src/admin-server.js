@@ -1,6 +1,7 @@
 // The server decides access on every request; this UI never grants a role.
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function mountServerAdmin(root){
+ const previewNote=document.getElementById('preview-note');if(previewNote)previewNote.textContent='HETZNER · TESTUMGEBUNG · Verwaltung mit separater Testdatenbank. Änderungen betreffen ausschließlich die Testseite.';
  const controller=new AbortController();let csrf='',disposed=false,busy=false,snapshot=null;
  async function api(action,data){
   const response=await fetch('/api/index.php?action='+encodeURIComponent(action),{method:data===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:data===undefined?{}:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:data===undefined?undefined:JSON.stringify(data)});

@@ -1,5 +1,47 @@
 # Serverseitige Anmeldung – Grundlage für die Hetzner-Testumgebung
 
+## Händlerabläufe – 28.10.2026
+
+Migration 003 ergänzt persönliche Zugangsanfragen und eine verschlüsselte,
+dauerhafte Transaktionsmail-Warteschlange. Eine Anfrage erzeugt zunächst eine
+Person ohne Passwort und ohne Rechte. Erst die einmalige E-Mail-Bestätigung
+(24 Stunden) erzeugt eine offene Mitarbeiterzuordnung und die Benachrichtigung
+an die privat konfigurierte Geschäftsführungsadresse. Der Freigabelink gilt
+sieben Tage und verlangt zusätzlich eine aktive Admin-/Approver-Sitzung.
+GET-Aufrufe bestätigen oder genehmigen nichts. Staff-Mail-Bestätigung und TOTP
+bleiben Voraussetzungen der Administration.
+
+Persönliche Freigaben und Kartenfreigaben sind unabhängig. Die Verwaltung kann
+offene Mitarbeiter einer bestehenden Firma zuordnen und öffentliche Firmendaten
+einschließlich Koordinaten pflegen. Passwortlinks gelten eine Stunde, werden nur
+gehasht gespeichert und können einmal verwendet werden. Passwortänderungen
+widerrufen laufende Sitzungen; gesperrte Personen/Firmen oder fehlende persönliche
+Freigaben verhindern die Nutzung. Der Händler-Passwortablauf gilt nicht für Staff.
+
+Die Testseite lädt den Händlerfinder aus den ausdrücklich veröffentlichten
+Datenbankfirmen. GitHub Pages bleibt eine Vorschau ohne schreibenden Backendzugriff.
+Die sechs Händlerkacheln enthalten weiterhin keine vertraulichen Unterlagen;
+deren Inhalte werden noch vorbereitet.
+
+`mail-worker.php` ist ausschließlich ein privater CLI-Einstieg. Auf Hetzner läuft
+er mit `/usr/bin/php84` alle fünf Minuten exklusiv, zusätzlich erfolgt nach
+Formulartransaktionen ein begrenzter Versandversuch. Nach Fehlern bleiben Aufträge
+erneut versuchbar, nach fünf Versuchen ist eine manuelle Prüfung erforderlich.
+Abgelaufene/widerrufene Tokens werden nicht verschickt; Tokenpayloads werden nach
+Versand oder Abbruch entfernt. Versand ist Text/HTML mit festem SMARTDOCK-Absender.
+Ein Mailserver bestätigt keine garantierte oder exakt einmalige Zustellung.
+
+Prüfung: 52 reine PHP-Sicherheitsfälle sowie MariaDB-HTTP-Integration für Anfrage,
+Bestätigung, Anmeldung, Zuordnung, unabhängige Freigaben, Passwortsetzung/-reset,
+Token-Replay und Sitzungswiderruf. Eine tatsächliche Anmeldung mit erfundenem Konto
+wurde auf der Testseite abgelehnt. Der erste Admin bestätigte den Mailempfang und
+die Aktivierung selbst. Ein echter neuer Händlerdurchlauf mit zugänglichem
+Testpostfach und die angemeldete CMS-Sichtprüfung stehen noch aus.
+
+Kundennewsletter, Konfigurations- und Kontaktformulare sind durch diesen
+Händlerausbau noch nicht angeschlossen. Die folgenden Abschnitte dokumentieren
+die ursprüngliche Anmeldegrundlage und deren Installation.
+
 **Nur in der getrennten Hetzner-Testumgebung installiert; keine Produktionsfreigabe.**
 Die Website bleibt hinter Verzeichnisschutz. Private Konfiguration und Implementation
 liegen außerhalb des Webroots. Der anonyme Sitzungsaufruf wurde auf Hetzner geprüft;

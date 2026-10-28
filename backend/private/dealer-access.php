@@ -120,7 +120,7 @@ function access_token_page(array $config,string $action): never {
     $staff=null;
     if($action==='dealer-approve') {
         $staff=current_user($db,$config);
-        if(!$staff||!array_intersect($staff['roles']??[],['admin','approver']))access_html(403,'Anmeldung erforderlich','<p>Bitte zuerst mit Ihrem freigeschalteten Thitronik-Konto <a href="/admin/">in der Administration anmelden</a> und danach diesen Link erneut öffnen.</p>');
+        if(!$staff||!array_intersect($staff['roles']??[],['admin','approver']))access_html(403,'Anmeldung erforderlich','<p>Bitte mit Ihrem freigeschalteten Thitronik-Konto <a href="/admin/" target="_blank" rel="noopener">die Administration in einem neuen Tab öffnen und anmelden</a>. Kehren Sie anschließend zu dieser Seite zurück und laden Sie sie neu.</p>');
     }
     $error='';
     if($method==='POST') {

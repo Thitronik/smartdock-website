@@ -1,5 +1,23 @@
 # SMARTDOCK Datenbank
 
+## Aktueller Teststand – 28.10.2026
+
+Die getrennte Hetzner-Datenbank `smartda_test` enthält Migrationen 001, 002 und
+003. Diese Migrationen dort **nicht erneut ausführen**. Vor 003 wurde eine private
+vollständige SQL-Sicherung erstellt und der Bestand mit 13 Tabellen geprüft.
+Nach 003: 14 Tabellen; `sd_dealer_access_requests` speichert persönliche Anfragen.
+Die Outbox enthält zusätzliche Transaktionsmailtypen, Benutzer-/Tokenbezüge und
+verschlüsselte Payloads. Die Produktivdatenbank bleibt unverändert.
+
+Neun Firmen aus dem bereitgestellten Hostinger-Export wurden anhand eindeutiger
+Quellkennungen in die Testdatenbank importiert. Originalanschriften, Koordinaten
+und Sprachvarianten bleiben erhalten. Keine Benutzerkonten, Mitgliedschaften,
+Newslettereinwilligungen oder Einladungen wurden daraus erzeugt. Kartenstatus
+zunächst `unlisted`; Veröffentlichung erfolgt bewusst über die Administration.
+
+Die folgenden historischen Abschnitte beschreiben frühere Installationsstände.
+Sie sind keine Anleitung zum erneuten Ausführen der Erstmigrationen.
+
 Erstmigration für MariaDB 10.6 oder neuer. Am 21.10.2026 auf der vorgesehenen
 Hetzner-Datenbank ausgeführt (MariaDB 11.8.6). Ausgangsbestand: keine Tabellen.
 Schema aus Commit `9e09cf0f898db6acf20b675196ec108a0ec24f78`.
