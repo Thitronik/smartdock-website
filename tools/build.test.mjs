@@ -220,11 +220,11 @@ test('Verwaltungsvorschau veröffentlicht keine Backend- oder Importdateien',asy
 
  test("Öffentlicher Admineinstieg bietet weder Beispieldaten noch Anmeldeformular",async()=>{
  const {readFile}=await import("node:fs/promises");
- const source=(await readFile(new URL("../src/admin-portal.js",import.meta.url),"utf8")).replace(/^import .*;\n/,"").replace("export function mountAdminPortal","function mountAdminPortal");
+ const source=(await readFile(new URL("../src/admin-portal.js",import.meta.url),"utf8")).replace(/^import .*;\n/,"").replace("export function mountAdminPortal","function mountAdminPortal").replaceAll("import.meta.url",JSON.stringify("https://thitronik.github.io/smartdock-website/assets/admin-portal.js"));
  for(const hostname of ["thitronik.github.io","www.smartdock.de","smartdock.de"]){
- const root={innerHTML:""};const context={location:{hostname},document:{getElementById:()=>root}};
+ const root={innerHTML:""},styles=[];const context={URL,location:{hostname},document:{getElementById:()=>root,querySelector:()=>null,createElement:()=>({dataset:{}}),head:{append:link=>styles.push(link)}}};
  vm.runInNewContext(source+";mountAdminPortal();",context);
- assert.match(root.innerHTML,/Zugang geschlossen/);assert.doesNotMatch(root.innerHTML,/<button|<form|<input|Beispieldaten öffnen/);
+ assert.equal(styles[0].href,"https://thitronik.github.io/smartdock-website/assets/admin-portal.css?v=20261028b");assert.match(root.innerHTML,/Zugang geschlossen/);assert.doesNotMatch(root.innerHTML,/<button|<form|<input|Beispieldaten öffnen/);
  }
  const files=await createOutput();assert.ok(files.has("admin/index.html"));assert.ok(!files.has("verwaltung/index.html"));
  });
