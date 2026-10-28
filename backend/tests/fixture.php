@@ -8,15 +8,19 @@ $root=getenv('SD_TEST_STATE');if(!$root||!is_dir($root))throw new RuntimeExcepti
 require __DIR__.'/../private/security.php';
 if(count($argv)===1){
  if($db->query('SHOW TABLES')->fetch())throw new RuntimeException('Empty isolated database required.');
- foreach(['001_initial.sql','002_dealers_and_users.sql','003_access_requests_and_mail.sql'] as $file)$db->exec(file_get_contents(__DIR__.'/../../database/migrations/'.$file));
+ foreach(['001_initial.sql','002_dealers_and_users.sql','003_access_requests_and_mail.sql','004_public_forms.sql'] as $file)$db->exec(file_get_contents(__DIR__.'/../../database/migrations/'.$file));
  foreach(['state','sessions','mfa'] as $folder)mkdir($root.'/'.$folder,0700);
  $token=bin2hex(random_bytes(32));
  $config=['origin'=>'https://test.smartdock.de','dsn'=>$dsn,'database_user'=>getenv('SD_TEST_DB_USER'),'database_password'=>getenv('SD_TEST_DB_PASSWORD'),'state_directory'=>$root.'/state','session_directory'=>$root.'/sessions','mfa_directory'=>$root.'/mfa','rate_key'=>bin2hex(random_bytes(32)),'dummy_password_hash'=>password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT),'staff_email_domain'=>'example.invalid','mail_from'=>'activation-ci-fixture@smartdock.de','staff_allowlist'=>['admin@example.invalid'],'staff_totp_secrets'=>[],'bootstrap'=>['token_hash'=>hash('sha256',$token),'email'=>'admin@example.invalid','expires_at'=>time()+3600]];
  $config['dealer_approval_email']='management@example.invalid';
+ $config['inquiry_email']='inquiries@example.invalid';
  file_put_contents($root.'/config.php','<?php return '.var_export($config,true).';');chmod($root.'/config.php',0600);
  echo json_encode(['bootstrapToken'=>$token],JSON_THROW_ON_ERROR);exit;
 }
 $config=require $root.'/config.php';
+if(in_array('--public-status',$argv,true)){
+ echo json_encode(['newsletter'=>$db->query('SELECT email,status FROM sd_newsletter_subscribers ORDER BY id')->fetchAll(PDO::FETCH_ASSOC),'contacts'=>(int)$db->query('SELECT COUNT(*) FROM sd_contact_requests')->fetchColumn(),'configurations'=>$db->query('SELECT public_reference,selection_json,price_snapshot_json,status FROM sd_configuration_requests')->fetchAll(PDO::FETCH_ASSOC)]);exit;
+}
 if(in_array('--pending-status',$argv,true)){
  echo json_encode(['roles'=>(int)$db->query('SELECT COUNT(*) FROM sd_staff_roles WHERE revoked_at IS NULL')->fetchColumn(),'user'=>$db->query('SELECT status,email_verified_at FROM sd_users WHERE id=1')->fetch(PDO::FETCH_ASSOC)]);exit;
 }

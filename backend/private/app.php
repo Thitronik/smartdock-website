@@ -45,6 +45,8 @@ function run(array $config): never {
     $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
     $action = (string)($_GET['action'] ?? 'session');
     require_once __DIR__.'/dealer-access.php';
+    require_once __DIR__.'/public-forms.php';
+    if(in_array($action,['newsletter-confirm','newsletter-unsubscribe'],true))newsletter_page($config,$action);
     if(in_array($action,['dealer-confirm','dealer-password','dealer-approve'],true))access_token_page($config,$action);
     if (in_array($action,['bootstrap','activate-admin'],true)) {
         require_once __DIR__ . '/bootstrap.php';
@@ -69,10 +71,13 @@ function run(array $config): never {
     }
     $db = database($config);
     $user = current_user($db, $config);
-    if ($action === 'session') reply(200, ['csrf' => $_SESSION['csrf'], 'user' => $user ? public_user($user) : null]);
+    if ($action === 'session') {$_SESSION['public_form_started']??=time();reply(200, ['csrf' => $_SESSION['csrf'], 'user' => $user ? public_user($user) : null]);}
     if ($action === 'login') login($db, $config, $data);
     if ($action === 'dealer-request') dealer_request($db,$config,$data);
     if ($action === 'password-request') dealer_password_request($db,$config,$data);
+    if ($action === 'newsletter-request') newsletter_request($db,$config,$data);
+    if ($action === 'contact-request') public_inquiry($db,$config,$data,'contact');
+    if ($action === 'configuration-request') public_inquiry($db,$config,$data,'configuration');
     if ($action === 'finder') {
         $rows=$db->query("SELECT id,company_name,name_de,name_en,name_fr,original_address,street,house_number,postal_code,city,country_code,original_country,public_email,public_phone,website,website_secondary,latitude,longitude FROM sd_dealer WHERE status='active' AND finder_status='approved' AND latitude IS NOT NULL AND longitude IS NOT NULL ORDER BY company_name")->fetchAll();
         reply(200,['dealers'=>$rows]);
@@ -100,6 +105,9 @@ function run(array $config): never {
             'memberships'=>$db->query('SELECT m.id,m.dealer_id,m.user_id,m.status,u.first_name,u.last_name,u.email,u.status AS user_status FROM sd_dealer_memberships m JOIN sd_users u ON u.id=m.user_id ORDER BY m.requested_at DESC')->fetchAll(),
             'requests'=>$db->query("SELECT r.*,u.email FROM sd_dealer_access_requests r JOIN sd_users u ON u.id=r.user_id WHERE r.status<>'email_pending' ORDER BY r.created_at DESC")->fetchAll(),
             'mailStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_mail_outbox GROUP BY status')->fetchAll(),
+            'contacts'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,message,language,status,created_at FROM sd_contact_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
+            'configurations'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,selection_json,status,created_at FROM sd_configuration_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
+            'newsletterStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_newsletter_subscribers GROUP BY status')->fetchAll(),
         ]);
     }
     if($action==='dealer-update') {
