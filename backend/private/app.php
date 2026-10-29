@@ -106,7 +106,7 @@ function run(array $config): never {
             'staffManagement'=>staff_management_snapshot($db,$config,$user),
             'dealers'=>$db->query('SELECT id,company_name,original_address,street,house_number,postal_code,city,country_code,public_email,public_phone,website,latitude,longitude,status,finder_status FROM sd_dealer ORDER BY company_name')->fetchAll(),
             'memberships'=>$db->query('SELECT m.id,m.dealer_id,m.user_id,m.status,u.first_name,u.last_name,u.email,u.status AS user_status FROM sd_dealer_memberships m JOIN sd_users u ON u.id=m.user_id ORDER BY m.requested_at DESC')->fetchAll(),
-            'requests'=>$db->query("SELECT r.*,u.email FROM sd_dealer_access_requests r JOIN sd_users u ON u.id=r.user_id WHERE r.status<>'email_pending' ORDER BY r.created_at DESC")->fetchAll(),
+            'requests'=>$db->query("SELECT r.*,u.email FROM sd_dealer_access_requests r JOIN sd_users u ON u.id=r.user_id ORDER BY r.created_at DESC")->fetchAll(),
             'mailStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_mail_outbox GROUP BY status')->fetchAll(),
             'contacts'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,message,language,status,created_at FROM sd_contact_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
             'configurations'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,selection_json,status,created_at FROM sd_configuration_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
@@ -115,6 +115,7 @@ function run(array $config): never {
     }
     if($action==='staff-invite'){staff_invite($db,$config,$user,$data);}
     if($action==='staff-revoke'){staff_revoke($db,$config,$user,$data);}
+    if($action==='dealer-confirmation-resend'){dealer_confirmation_reminder($db,$config,$user,$data);}
     if($action==='dealer-update') {
         require_staff($user,['admin','approver']);
         $id=filter_var($data['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!$id)reply(400,['error'=>'Firma fehlt.']);

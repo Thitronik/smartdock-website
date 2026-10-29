@@ -95,7 +95,18 @@ try{
  assert.equal((await newcomer.call('dealer-request',{...request,privacy:false})).status,400);
  assert.equal((await newcomer.call('dealer-request',request)).status,200);
  const mails=async()=>JSON.parse(await readFile(path.join(state,'outbox-mails.json'),'utf8'));
- const confirmation=(await mails()).find(m=>m.type==='dealer_email_confirmation');assert.equal(confirmation.to,request.email);
+ const firstConfirmation=(await mails()).find(m=>m.type==='dealer_email_confirmation');
+ const pendingRequest=(await admin.call('admin')).body.requests.find(r=>r.email===request.email);
+ assert.equal(pendingRequest.status,'email_pending');
+ assert.equal((await dealer.call('dealer-confirmation-resend',{id:pendingRequest.id})).status,403);
+ assert.equal((await admin.call('dealer-confirmation-resend',{id:pendingRequest.id})).status,200);
+ assert.equal((await newcomer.call('dealer-request',{...request,company:'Must not overwrite original company'})).status,200);
+ const afterResend=(await admin.call('admin')).body.requests.filter(r=>r.email===request.email);
+ assert.equal(afterResend.length,1);assert.equal(afterResend[0].company_name,request.company);
+ const confirmation=(await mails()).filter(m=>m.type==='dealer_email_confirmation').at(-1);assert.equal(confirmation.to,request.email);
+ assert.notEqual(confirmation.body,firstConfirmation.body);
+ const oldVerification=client();await oldVerification.page('dealer-confirm&token='+firstConfirmation.body.match(/action=dealer-confirm&token=([a-f0-9]{64})/)[1]);
+ assert.equal((await oldVerification.page('dealer-confirm')).status,403,'A reminder invalidates the earlier link');
  const confirmToken=confirmation.body.match(/action=dealer-confirm&token=([a-f0-9]{64})/)[1];
  const verified=client();assert.equal((await verified.page('dealer-confirm&token='+confirmToken)).status,303);
  const confirmationPage=await verified.page('dealer-confirm');assert.equal(confirmationPage.status,200);
@@ -103,6 +114,7 @@ try{
  assert.equal((await verified.page('dealer-confirm',{csrf:'wrong'})).status,403);
  assert.equal((await verified.page('dealer-confirm',{csrf:confirmationPage.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1]})).status,200);
  assert.equal((await verified.page('dealer-confirm')).status,403,'Verification token cannot be replayed');
+ assert.equal((await admin.call('dealer-confirmation-resend',{id:pendingRequest.id})).status,409,'Verified requests cannot be reminded');
  const approval=(await mails()).find(m=>m.type==='dealer_approval_notification');assert.equal(approval.to,'management@example.invalid');
  const approvalToken=approval.body.match(/action=dealer-approve&token=([a-f0-9]{64})/)[1];
  const scanner=client();await scanner.page('dealer-approve&token='+approvalToken);assert.equal((await scanner.page('dealer-approve')).status,403,'Approval email alone grants no access');

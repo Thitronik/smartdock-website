@@ -20,6 +20,26 @@ function access_token(\PDO $db,int $userId,string $purpose,?int $membershipId=nu
     return ['id'=>(int)$db->lastInsertId(),'raw'=>$raw];
 }
 function access_link(array $config,string $action,string $raw): string {return $config['origin'].'/api/index.php?action='.$action.'&token='.$raw;}
+function queue_dealer_confirmation(\PDO $db,array $config,array $user,int $requestId): void {
+    $q=$db->prepare("UPDATE sd_user_tokens SET revoked_at=UTC_TIMESTAMP(6) WHERE user_id=? AND purpose='verify_email' AND access_request_id=? AND consumed_at IS NULL AND revoked_at IS NULL");$q->execute([$user['id'],$requestId]);
+        $token=access_token($db,(int)$user['id'],'verify_email',null,$requestId);
+        queue_mail($db,$config,'dealer_email_confirmation',$user['email'],'SMARTDOCK: E-Mail-Adresse bestätigen',"Bitte bestätigen Sie Ihre Händler-Zugangsanfrage:\n\n".access_link($config,'dealer-confirm',$token['raw'])."\n\nDer Link ist 24 Stunden gültig. Die Bestätigung erteilt noch keinen Zugang. Wenn Sie keine Anfrage gestellt haben, ignorieren Sie diese E-Mail.",'dealer-confirm-'.$token['id'],(int)$user['id'],$token['id']);
+}
+function dealer_confirmation_reminder(\PDO $db,array $config,array $staff,array $data): never {
+    require_staff($staff,['admin','approver']);
+    $id=filter_var($data['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+    if(!$id)reply(400,['error'=>'Zugangsanfrage fehlt.']);
+    access_limit($config,'dealer-reminder',(string)$id);
+    $db->beginTransaction();
+    try {
+        $q=$db->prepare("SELECT u.* FROM sd_users u JOIN sd_dealer_access_requests r ON r.user_id=u.id WHERE r.id=? AND r.status='email_pending' AND u.status='invited' AND u.email_verified_at IS NULL AND NOT EXISTS(SELECT 1 FROM sd_staff_roles s WHERE s.user_id=u.id) FOR UPDATE");$q->execute([$id]);$target=$q->fetch();
+        if(!$target){$db->rollBack();reply(409,['error'=>'Diese Anfrage wartet nicht mehr auf eine E-Mail-Bestätigung.']);}
+        queue_dealer_confirmation($db,$config,$target,$id);
+        audit($db,(int)$staff['id'],'dealer.confirmation_resent','access_request',$id,[]);
+        $db->commit();
+    }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
+    dispatch_mail($db,$config);reply(200,['ok'=>true]);
+}
 function dealer_request(\PDO $db,array $config,array $data): never {
     try {
         $email=normalized_email(access_field($data,'email',254));
@@ -34,13 +54,18 @@ function dealer_request(\PDO $db,array $config,array $data): never {
     $db->beginTransaction();
     try {
         // Never overwrite an existing person or grant an affiliation from a public form.
-        $q=$db->prepare('SELECT id FROM sd_users WHERE email_normalized=? FOR UPDATE');$q->execute([$email]);
-        if($q->fetch()){$db->commit();reply(200,$response);}
+        $q=$db->prepare('SELECT * FROM sd_users WHERE email_normalized=? FOR UPDATE');$q->execute([$email]);
+        if($existing=$q->fetch()){
+            if($existing['status']==='invited'&&$existing['email_verified_at']===null){
+                $q=$db->prepare("SELECT r.id FROM sd_dealer_access_requests r WHERE r.user_id=? AND r.status='email_pending' AND NOT EXISTS(SELECT 1 FROM sd_staff_roles s WHERE s.user_id=r.user_id) ORDER BY r.id DESC LIMIT 1 FOR UPDATE");$q->execute([$existing['id']]);
+                if($pending=$q->fetch())queue_dealer_confirmation($db,$config,$existing,(int)$pending['id']);
+            }
+            $db->commit();dispatch_mail($db,$config);reply(200,$response);
+        }
         $q=$db->prepare('INSERT INTO sd_users(first_name,last_name,email,email_normalized) VALUES(?,?,?,?)');$q->execute([$v['first_name'],$v['last_name'],$email,$email]);$userId=(int)$db->lastInsertId();
         $q=$db->prepare('INSERT INTO sd_dealer_access_requests(user_id,first_name,last_name,company_name,street,house_number,postal_code,city,country,phone,language,privacy_version) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)');
         $q->execute([$userId,$v['first_name'],$v['last_name'],$v['company'],$v['street'],$v['house_number'],$v['postal_code'],$v['city'],$v['country'],$v['phone']?:null,$language,'dealer-access-2026-10']);$requestId=(int)$db->lastInsertId();
-        $token=access_token($db,$userId,'verify_email',null,$requestId);
-        queue_mail($db,$config,'dealer_email_confirmation',$email,'SMARTDOCK: E-Mail-Adresse bestätigen',"Bitte bestätigen Sie Ihre Händler-Zugangsanfrage:\n\n".access_link($config,'dealer-confirm',$token['raw'])."\n\nDer Link ist 24 Stunden gültig. Die Bestätigung erteilt noch keinen Zugang. Wenn Sie keine Anfrage gestellt haben, ignorieren Sie diese E-Mail.",'dealer-confirm-'.$token['id'],$userId,$token['id']);
+        queue_dealer_confirmation($db,$config,['id'=>$userId,'email'=>$email],$requestId);
         $db->commit();
     }catch(\PDOException $error){if($db->inTransaction())$db->rollBack();if($error->getCode()!=='23000')throw $error;reply(200,$response);}
     catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
