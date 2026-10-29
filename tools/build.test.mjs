@@ -102,6 +102,19 @@ test('Lokale Konfigurationsvorschau speichert wie Pages nur im aktuellen Tab', a
   }
 });
 
+test('Hetzner-Bestätigung zeigt die Serverreferenz statt der lokalen Formularnummer', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('../src/preview.js', import.meta.url), 'utf8');
+  const form={querySelector:selector=>selector==='[data-sd-privacy]'?{}:null};
+  const context={URL,Request,Response,location:{hostname:'test.smartdock.de',href:'https://test.smartdock.de/',pathname:'/'},
+    document:{addEventListener(){},activeElement:{closest:()=>form}},
+    window:{fetch:async url=>new Response(JSON.stringify(url.includes('action=session')?{csrf:'test'}:{ok:true,id:'SD-0000-0123'}),{status:200})}};
+  vm.runInNewContext(source,context);
+  const response=await context.window.fetch('/hcgi/platform/api/collections/configuration_requests/records',{method:'POST',body:JSON.stringify({referenceNumber:'LOCAL-123456'})});
+  const data=await response.json();
+  assert.equal(data.id,'SD-0000-0123');assert.equal(data.referenceNumber,data.id);assert.equal(data.preview,false);
+});
+
  test('Händlerseiten bleiben ohne Backend und enthalten keine geschützten Inhalte', async () => {
  const files = await createOutput(PAGES_BASE);
  for (const lang of ['', 'en/', 'fr/', 'nl/', 'es/']) {

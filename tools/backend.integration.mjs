@@ -153,11 +153,12 @@ try{
  assert.equal((await publicClient.call('contact-request',contact)).status,200);assert.equal(publicStatus().contacts,1);
  assert.equal((await mails()).find(m=>m.type==='contact_notification').to,'inquiries@example.invalid');
  const configuration={email:contact.email,firstName:'Example',lastName:'Visitor',referenceNumber:'TEST-123456',privacy:true,language:'de',motorCount:2,price:0,status:'completed',dealer_id:99,street:'Musterstraße',houseNumber:'12',postalCode:'24340',city:'Eckernförde',country:'Deutschland'};
- const created=await publicClient.call('configuration-request',configuration);assert.equal(created.status,200);
+ const created=await publicClient.call('configuration-request',configuration);assert.equal(created.status,200);assert.match(created.body.id,/^SD-\d{4}-\d{4}$/);
  assert.equal((await publicClient.call('configuration-request',configuration)).body.id,created.body.id,'Repeated submission is idempotent');
  const stored=publicStatus().configurations;assert.equal(stored.length,1);assert.equal(JSON.parse(stored[0].price_snapshot_json).totalPrice,3950);assert.equal(stored[0].status,'new');assert.equal(JSON.parse(stored[0].selection_json).dealer_id,undefined);
  const confirmations=(await mails()).filter(m=>m.type==='configuration_confirmation');assert.equal(confirmations.length,1);assert.equal(confirmations[0].to,contact.email);assert.equal(confirmations[0].attachments.length,1);assert.equal(Buffer.from(confirmations[0].attachments[0].base64,'base64').subarray(0,5).toString(),'%PDF-');
  const notifications=(await mails()).filter(m=>m.type==='configuration_notification');assert.equal(notifications.length,1);assert.match(notifications[0].body,/Musterstraße 12/);assert.match(notifications[0].body,/ECU \(2\+ Motoren\)/);assert.match(notifications[0].body,/3.950,00 EUR/);
+ assert.equal(stored[0].public_reference,created.body.id);assert.ok(notifications[0].body.includes(created.body.id));assert.ok(confirmations[0].body.includes(created.body.id));assert.ok(confirmations[0].attachments[0].name.includes(created.body.id));
  const adminForms=(await admin.call('admin')).body;assert.equal(adminForms.contacts.length,1);assert.equal(adminForms.configurations.length,1);
  assert.equal((await publicClient.call('configuration-request',{...configuration,referenceNumber:'BAD-DEALER',installationService:'Ja',dealerId:999999})).status,400);
  assert.equal((await publicClient.call('configuration-request',{...configuration,referenceNumber:'NO-ADDRESS',street:''})).status,400);

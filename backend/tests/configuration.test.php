@@ -1,8 +1,12 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/../private/configuration-report.php';
-use function Smartdock\{configuration_price,configuration_summary,configuration_pdf};
+use function Smartdock\{configuration_reference,configuration_price,configuration_summary,configuration_pdf};
 function expect(bool $value,string $message):void {if(!$value)throw new RuntimeException($message);}
+expect(configuration_reference(1)==='SD-0000-0001','Reference leading zeroes');
+expect(configuration_reference(12345678)==='SD-1234-5678','Reference groups');
+expect(configuration_reference(99999999)==='SD-9999-9999','Reference upper boundary');
+foreach([0,100000000] as $invalid){try{configuration_reference($invalid);throw new RuntimeException('Invalid reference accepted');}catch(OutOfRangeException){}}
 $base=['country'=>'Deutschland','motorCount'=>0,'ankerwinde1'=>true,'street'=>'Musterstraße','houseNumber'=>'12a','postalCode'=>'24340','city'=>'Eckernförde','installationService'=>'Nein'];
 $p=configuration_price($base);expect($p['totalPrice']===1250.0,'Anchor total');expect($p['items'][0]['name']==='WCU (1 Ankerwinde)','Anchor mapping');
 $installed=configuration_price(array_replace($base,['installationService'=>'Ja']));expect($installed['totalPrice']===3250.0,'Installation total');

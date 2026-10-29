@@ -2,6 +2,12 @@
 declare(strict_types=1);
 namespace Smartdock;
 
+function configuration_reference(int $id): string {
+    if($id<1||$id>99999999)throw new \OutOfRangeException('Configuration reference range exhausted.');
+    $digits=sprintf('%08d',$id);
+    return 'SD-'.substr($digits,0,4).'-'.substr($digits,4);
+}
+
 // Price rules mirror the existing configurator. No submitted amount, recipient,
 // module name or HTML is used as an authoritative value.
 function configuration_price(array $s): array {
