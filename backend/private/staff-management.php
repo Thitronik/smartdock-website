@@ -20,7 +20,12 @@ function staff_address_authorized(\PDO $db,array $config,array $user): bool {
 function staff_management_snapshot(\PDO $db,array $config,array $user): ?array {
     if(!staff_is_owner($user))return null;
     $rows=$db->query("SELECT u.id,u.first_name,u.last_name,u.email,u.email_normalized,u.status,MAX(s.revoked_at IS NULL AND s.role='admin') AS active_role FROM sd_users u LEFT JOIN sd_staff_roles s ON s.user_id=u.id WHERE s.user_id IS NOT NULL OR EXISTS(SELECT 1 FROM sd_admin_audit_events a WHERE a.target_id=u.id AND a.target_type='user' AND a.action='staff.invited') GROUP BY u.id ORDER BY u.email")->fetchAll();
-    foreach($rows as &$row){$row['protected']=$row['email_normalized']===staff_owner_email();unset($row['email_normalized']);}
+    foreach($rows as &$row){
+        $row['protected']=$row['email_normalized']===staff_owner_email();
+        // Display the shared marketing account as a team in the admin list.
+        if($row['protected']){$row['first_name']='Marketing';$row['last_name']='';}
+        unset($row['email_normalized']);
+    }
     return ['ownerEmail'=>staff_owner_email(),'accounts'=>$rows];
 }
 function staff_invite(\PDO $db,array $config,array $owner,array $data): never {
