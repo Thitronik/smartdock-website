@@ -5,6 +5,13 @@ import vm from 'node:vm';
 import { allocationFromSelection, moduleFields } from '../src/module-allocation.js';
 import { calculate as live, countries } from './fixtures/live-pricing-2026-10-22.js';
 
+test('Erfolgstext unterscheidet echte Hetzner-Anfrage von lokal gespeicherter Pages-Vorschau',async()=>{
+ const source=await readFile(new URL('../vendor/website/assets/index-RRVGC1mK.js',import.meta.url),'utf8');
+ const expression=source.match(/\(typeof location!=="undefined"&&location\.hostname==="test\.smartdock\.de"\?"Konfigurationsanfrage eingegangen":"Testkonfiguration gespeichert"\)/)?.[0];assert.ok(expression);
+ assert.equal(vm.runInNewContext(expression,{location:{hostname:'test.smartdock.de'}}),'Konfigurationsanfrage eingegangen');assert.equal(vm.runInNewContext(expression,{location:{hostname:'thitronik.github.io'}}),'Testkonfiguration gespeichert');
+ assert.match(source,/Ot=\{promoCode:A\.promoCode\|\|"",referenceNumber:yt/);
+});
+
 async function currentCalculator() {
   const source = await readFile(new URL('../vendor/website/assets/index-RRVGC1mK.js', import.meta.url), 'utf8');
   const first = source.indexOf(',Eg={'), last = source.indexOf(',a4=j.createContext()', first);
