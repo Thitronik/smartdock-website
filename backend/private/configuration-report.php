@@ -2,10 +2,14 @@
 declare(strict_types=1);
 namespace Smartdock;
 
-function configuration_reference(int $id): string {
-    if($id<1||$id>99999999)throw new \OutOfRangeException('Configuration reference range exhausted.');
-    $digits=sprintf('%08d',$id);
-    return 'SD-'.substr($digits,0,4).'-'.substr($digits,4);
+function configuration_reference(callable $reserve): string {
+    // Only return a number after its atomic reservation in the database succeeds.
+    for($attempt=0;$attempt<32;$attempt++) {
+        $digits=sprintf('%08d',random_int(0,99999999));
+        $reference='SD-'.substr($digits,0,4).'-'.substr($digits,4);
+        if($reserve($reference))return $reference;
+    }
+    throw new \RuntimeException('Unable to reserve a unique configuration reference.');
 }
 
 // Price rules mirror the existing configurator. No submitted amount, recipient,

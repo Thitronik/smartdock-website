@@ -56,9 +56,15 @@ function public_inquiry(\PDO $db,array $config,array $data,string $type): never 
             $dedup=hash('sha256',$email.'|'.$clientReference,true);$q=$db->prepare('SELECT public_reference FROM sd_configuration_requests WHERE idempotency_key=? FOR UPDATE');$q->execute([$dedup]);$existing=$q->fetchColumn();if($existing){$db->commit();reply(200,['id'=>$existing,'ok'=>true]);}
             $q=$db->prepare('INSERT INTO sd_configuration_requests(public_reference,idempotency_key,contact_name,email,company,phone,language,configuration_version,selection_json,price_snapshot_json,privacy_notice_version,privacy_acknowledged_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,UTC_TIMESTAMP(6))');
             $q->execute([$ref,$dedup,$name,$email,$company?:null,$phone?:null,$language,'website-2026-10',$selectionJson,json_encode($price,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE),'public-forms-2026-10']);$id=(int)$db->lastInsertId();
-            // The database sequence makes the readable reference unique, including concurrent submissions.
-            $ref=configuration_reference($id);
-            $q=$db->prepare('UPDATE sd_configuration_requests SET public_reference=? WHERE id=?');$q->execute([$ref,$id]);
+            // The UNIQUE index arbitrates collisions, including simultaneous submissions.
+            $q=$db->prepare('UPDATE sd_configuration_requests SET public_reference=? WHERE id=?');
+            $ref=configuration_reference(static function(string $candidate)use($q,$id):bool {
+                try {$q->execute([$candidate,$id]);return true;}
+                catch(\PDOException $e) {
+                    if(($e->errorInfo[1]??null)===1062)return false;
+                    throw $e;
+                }
+            });
             $mailType='configuration_notification';$refs=['configuration_request_id'=>$id];$subject='SMARTDOCK: Neue Konfigurationsanfrage';
         }
         $body="Neue Anfrage: ".$ref."\nName: ".$name."\nE-Mail: ".$email."\nUnternehmen: ".$company."\nTelefon: ".$phone."\n\n".($type==='contact'?$message:'Die Konfiguration steht in der Administration. Auswahl und Preise müssen fachlich geprüft werden. Es wurde kein verbindliches Angebot erzeugt.')."\n\nAdministration: ".$config['origin'].'/admin/';
