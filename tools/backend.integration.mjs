@@ -14,11 +14,13 @@ try{
  let errors='';server.stderr.on('data',b=>errors+=b);
  const base='http://127.0.0.1:9473/?action=';
  for(let i=0;i<50;i++){try{await fetch(base+'session');break;}catch{if(i===49)throw Error(errors);await new Promise(r=>setTimeout(r,100));}}
- function client(){let cookie='',csrf='';return {async page(action,form){
-  const response=await fetch(base+action,{method:form?'POST':'GET',headers:{Cookie:cookie,...(form?{Origin:'https://test.smartdock.de'}:{})},body:form?new URLSearchParams(form):undefined,redirect:'manual'});
+ // Independent simulated visitors have separate IP limits in the local-only router.
+ let clientNumber=0;
+ function client(){const testClient=String(++clientNumber);let cookie='',csrf='';return {async page(action,form){
+  const response=await fetch(base+action,{method:form?'POST':'GET',headers:{Cookie:cookie,'X-SD-Test-Client':testClient,...(form?{Origin:'https://test.smartdock.de'}:{})},body:form?new URLSearchParams(form):undefined,redirect:'manual'});
   const set=response.headers.get('set-cookie');if(set)cookie=set.split(';')[0];return {status:response.status,text:await response.text(),headers:response.headers};
  },async call(action,data,options={}){
-  const headers={Cookie:cookie,...options.headers};
+  const headers={Cookie:cookie,'X-SD-Test-Client':testClient,...options.headers};
   if(data!==undefined){headers['Content-Type']='application/json';headers.Origin='https://test.smartdock.de';headers['X-CSRF-Token']=csrf;Object.assign(headers,options.headers);}
   const response=await fetch(base+action,{method:data===undefined?'GET':'POST',headers,body:data===undefined?undefined:JSON.stringify(data)});
   const set=response.headers.get('set-cookie');if(set)cookie=set.split(';')[0];
