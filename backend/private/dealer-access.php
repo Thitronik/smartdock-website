@@ -22,8 +22,8 @@ function access_token(\PDO $db,int $userId,string $purpose,?int $membershipId=nu
 function access_link(array $config,string $action,string $raw): string {return $config['origin'].'/api/index.php?action='.$action.'&token='.$raw;}
 function queue_dealer_confirmation(\PDO $db,array $config,array $user,int $requestId): void {
     $q=$db->prepare("UPDATE sd_user_tokens SET revoked_at=UTC_TIMESTAMP(6) WHERE user_id=? AND purpose='verify_email' AND access_request_id=? AND consumed_at IS NULL AND revoked_at IS NULL");$q->execute([$user['id'],$requestId]);
-        $token=access_token($db,(int)$user['id'],'verify_email',null,$requestId);
-        queue_mail($db,$config,'dealer_email_confirmation',$user['email'],'SMARTDOCK: E-Mail-Adresse bestätigen',"Bitte bestätigen Sie Ihre Händler-Zugangsanfrage:\n\n".access_link($config,'dealer-confirm',$token['raw'])."\n\nDer Link ist 24 Stunden gültig. Die Bestätigung erteilt noch keinen Zugang. Wenn Sie keine Anfrage gestellt haben, ignorieren Sie diese E-Mail.",'dealer-confirm-'.$token['id'],(int)$user['id'],$token['id']);
+    $token=access_token($db,(int)$user['id'],'verify_email',null,$requestId);
+    queue_mail($db,$config,'dealer_email_confirmation',$user['email'],'SMARTDOCK: E-Mail-Adresse bestätigen',"Bitte bestätigen Sie Ihre Händler-Zugangsanfrage:\n\n".access_link($config,'dealer-confirm',$token['raw'])."\n\nDer Link ist 24 Stunden gültig. Die Bestätigung erteilt noch keinen Zugang. Wenn Sie keine Anfrage gestellt haben, ignorieren Sie diese E-Mail.",'dealer-confirm-'.$token['id'],(int)$user['id'],$token['id']);
 }
 function dealer_confirmation_reminder(\PDO $db,array $config,array $staff,array $data): never {
     require_staff($staff,['admin','approver']);
@@ -35,7 +35,7 @@ function dealer_confirmation_reminder(\PDO $db,array $config,array $staff,array 
         $q=$db->prepare("SELECT u.* FROM sd_users u JOIN sd_dealer_access_requests r ON r.user_id=u.id WHERE r.id=? AND r.status='email_pending' AND u.status='invited' AND u.email_verified_at IS NULL AND NOT EXISTS(SELECT 1 FROM sd_staff_roles s WHERE s.user_id=u.id) FOR UPDATE");$q->execute([$id]);$target=$q->fetch();
         if(!$target){$db->rollBack();reply(409,['error'=>'Diese Anfrage wartet nicht mehr auf eine E-Mail-Bestätigung.']);}
         queue_dealer_confirmation($db,$config,$target,$id);
-        audit($db,(int)$staff['id'],'dealer.confirmation_resent','access_request',$id,[]);
+        audit($db,(int)$staff['id'],'dealer.confirmation_resent','user',(int)$target['id'],['request_id'=>$id]);
         $db->commit();
     }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
     dispatch_mail($db,$config);reply(200,['ok'=>true]);
