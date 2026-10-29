@@ -15,7 +15,7 @@ $forged=configuration_price($base+['totalPrice'=>0,'configurationPrices'=>[['pri
 foreach([['motorCount'=>-1],['country'=>'<script>'],['horn'=>'true'],['promoCode'=>[]]] as $invalid){try{configuration_price(array_replace($base,$invalid));throw new RuntimeException('Invalid selection accepted');}catch(InvalidArgumentException){}}
 $contact=['name'=>'Adrian Muster','email'=>'test@example.invalid','company'=>'Muster GmbH','phone'=>'+49 123 456'];
 $summary=configuration_summary($contact,$base,$p,'TEST-123456');expect(str_contains($summary,'Musterstraße 12a'),'Street');expect(str_contains($summary,'1.250,00 EUR'),'Formatted price');expect(!str_contains($summary,'configurationPrices'),'No raw JSON');
-$pdf=configuration_pdf($contact,$base,$p,'TEST-123456');expect(str_starts_with($pdf,'%PDF-'),'PDF output');expect(strlen($pdf)>1000&&strlen($pdf)<2000000,'PDF size');
+$pdf=configuration_pdf($contact,$base,$p,'SD-0000-0006');expect(str_starts_with($pdf,'%PDF-'),'PDF output');expect(strlen($pdf)>1000&&strlen($pdf)<2000000,'PDF size');
 if(is_file(__DIR__.'/.configuration-price-cases.json')){
  $cases=json_decode(file_get_contents(__DIR__.'/.configuration-price-cases.json'),true,32,JSON_THROW_ON_ERROR);
  foreach($cases as $i=>$case){$actual=configuration_price($case['selection']);$expected=$case['expected'];foreach(['subtotal','bundleDiscount','totalPrice','vat','currency'] as $key)expect($actual[$key]==$expected[$key],'Price parity '.$i.' '.$key);foreach($expected['items'] as $j=>$line)expect($actual['items'][$j]['name']===$line['name']&&$actual['items'][$j]['price']==$line['price'],'Line parity '.$i.' '.$j);expect(count($actual['items'])===count($expected['items']),'Line count '.$i);}

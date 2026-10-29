@@ -52,16 +52,6 @@ function configuration_summary(array $contact,array $s,array $price,string $refe
     return implode("\n",$out);
 }
 function configuration_pdf(array $contact,array $s,array $price,string $reference): string {
-    require_once __DIR__.'/lib/fpdf/fpdf.php';
-    $pdf=new \FPDF();$pdf->SetMargins(18,18,18);$pdf->SetAutoPageBreak(true,22);$pdf->AddPage();
-    $pdf->SetTitle('SMARTDOCK Konfigurationsanfrage',true);$pdf->Image(__DIR__.'/configuration-logo.png',18,18,84);$pdf->SetY(38);
-    $text=static fn(string $v):string=>iconv('UTF-8','windows-1252//TRANSLIT',$v)?:$v;
-    $pdf->SetFont('Helvetica','B',19);$pdf->SetTextColor(29,29,27);$pdf->MultiCell(0,9,$text('Ihre SMARTDOCK Konfiguration'));$pdf->Ln(4);
-    $pdf->SetFont('Helvetica','',10);
-    foreach(explode("\n",configuration_summary($contact,$s,$price,$reference)) as $line){
-        if(str_starts_with($line,'Gesamtpreis:')){$pdf->Ln(3);$pdf->SetTextColor(188,235,2);$pdf->SetFont('Helvetica','B',18);$pdf->MultiCell(0,10,$text($line));$pdf->SetTextColor(29,29,27);$pdf->SetFont('Helvetica','',10);}
-        elseif(str_starts_with($line,'Unverbindliche')){$pdf->Ln(3);$pdf->SetTextColor(100,100,100);$pdf->MultiCell(0,5,$text($line),0,'C');}
-        else {$fill=str_starts_with($line,'Zwischensumme:')||str_starts_with($line,'MwSt.:')||str_contains($line,'rabatt:');$pdf->SetFillColor(245,245,245);$pdf->MultiCell(0,6,$text($line),0,'L',$fill);}
-    }
-    return $pdf->Output('S');
+    require_once __DIR__.'/configuration-pdf-layout.php';
+    return render_configuration_pdf($contact,$s,$price,$reference);
 }
