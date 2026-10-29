@@ -1,7 +1,7 @@
 name: SMARTDOCK PHP Testbackend
 on:
   pull_request:
-    branches: [main, staging]
+    branches: [main, staging, codex/hetzner-testbackend, codex/hetzner-dealerflows, codex/hetzner-public-forms, codex/portal-alignment]
   push:
     branches: [main, staging]
 permissions:
