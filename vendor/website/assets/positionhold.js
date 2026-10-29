@@ -267,7 +267,8 @@ end`};t.events.push(["putFont",function(o){(function(l){var u=l.font,A=l.out,h=l
           </div>
           `:""}
 
-          <div data-pdf-keep data-pdf-totals style="background: #d6d6d6; border-radius: 12px; padding: 32px; margin-bottom: 40px;">
+          <div data-pdf-keep data-pdf-totals style="background: #ffffff; margin-bottom: 40px;">
+<div data-pdf-breakdown style="background: #f5f5f5; border-radius: 12px; padding: 32px;">
             <div style="display: flex; justify-content: space-between; font-size: 14px; color: #737373; margin-bottom: 8px;">
               <span>${qn("subtotal",e,t)}</span>
               <span style="font-weight: 500; color: #171717;">${Ga(l.subtotal,l?.currency)}</span>
@@ -275,12 +276,13 @@ end`};t.events.push(["putFont",function(o){(function(l){var u=l.font,A=l.out,h=l
             
             ${oe}
 
-            <div style="display: flex; justify-content: space-between; font-size: 14px; color: #737373; padding-bottom: 16px; border-bottom: 1px solid #e5e5e5; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; font-size: 14px; color: #737373; ">
               <span>${qn("vat",e,t)} (${l.vat}%)</span>
               <span>${qn("included",e,t)}</span>
             </div>
             
-            <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+            </div>
+<div data-pdf-grand-total style="display: flex; justify-content: space-between; align-items: flex-end; background: #ffffff; padding: 24px 32px 0;">
               <span style="font-size: 18px; font-weight: 700; color: #171717;">${qn("total_price",e,t)}</span>
               <span style="font-size: 28px; font-weight: 800; color: #bceb02;">${Ga(l.totalPrice,l?.currency)}</span>
             </div>
