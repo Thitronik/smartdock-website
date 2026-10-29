@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace Smartdock;
 require_once __DIR__.'/dealer-access.php';
+require_once __DIR__.'/configuration-report.php';
 
 function form_language(array $data): string {
     $language=$data['language']??'de';if(!is_string($language)||!in_array($language,['de','en','fr','nl','es'],true))throw new \InvalidArgumentException('Invalid language.');return $language;
@@ -25,12 +26,23 @@ function public_inquiry(\PDO $db,array $config,array $data,string $type): never 
         }else {
             $first=access_field($data,'firstName',95);$last=access_field($data,'lastName',95);$name=$first.' '.$last;
             $clientReference=access_field($data,'referenceNumber',36);if(!preg_match('/\A[a-zA-Z0-9-]{6,36}\z/D',$clientReference))throw new \InvalidArgumentException('Reference invalid.');
-            $keys=['street','houseNumber','postalCode','city','country','skus','configuration','motorCount','motorType','joystickType','ecuCount','moduleAllocation','tcuCount','acuCount','wcuCount','tcu','bugstrahlruder','heckstrahlruder','acu','wcu','horn','ankerwinde1','ankerwinde2','ankerwinch1','ankerwinch2','installationService','thrusterManufacturer','thrusterType'];
+            $keys=['street','houseNumber','postalCode','city','country','motorCount','motorType','joystickType','bugstrahlruder','heckstrahlruder','horn','ankerwinde1','ankerwinde2','ankerwinch1','ankerwinch2','installationService','thrusterManufacturer','thrusterType','promoCode'];
             $selection=[];foreach($keys as $key)if(array_key_exists($key,$data))$selection[$key]=$data[$key];
+            foreach(['street'=>200,'houseNumber'=>30,'postalCode'=>30,'city'=>120,'country'=>80] as $field=>$length)$selection[$field]=access_field($data,$field,$length);
+            foreach(['motorType','joystickType','thrusterManufacturer','thrusterType'] as $field)$selection[$field]=access_field($data,$field,150,false);
+            if(!in_array($selection['installationService']??'Nein',['Ja','Nein'],true))throw new \InvalidArgumentException('Installation invalid.');
+            $selection['dealer']=null;
+            if(($selection['installationService']??'Nein')==='Ja') {
+                $dealerId=$data['dealerId']??null;if(!is_scalar($dealerId)||!ctype_digit((string)$dealerId))throw new \InvalidArgumentException('Dealer invalid.');
+                $q=$db->prepare("SELECT id,company_name,street,house_number,postal_code,city,public_email FROM sd_dealer WHERE id=? AND status='active' AND finder_status='approved'");$q->execute([(int)$dealerId]);$dealer=$q->fetch();
+                if(!$dealer||empty($dealer['public_email']))throw new \InvalidArgumentException('Dealer unavailable.');
+                normalized_email($dealer['public_email']);$selection['dealer']=$dealer;
+            }
             foreach(['motorCount','ecuCount','tcuCount','acuCount','wcuCount'] as $key)if(isset($selection[$key])&&(!is_int($selection[$key])||$selection[$key]<0||$selection[$key]>64))throw new \InvalidArgumentException('Counts invalid.');
             $selection['client_reference']=$clientReference;$selection['review_required']=true;
-            // Browser prices, discounts, dealer assignment and status are never
-            // accepted as authoritative values. Staff must check the request.
+            $price=configuration_price($selection);
+            // Calculate prices on the server and resolve recipients from approved
+            // database records; ignore submitted totals, names and email addresses.
             $selectionJson=json_encode($selection,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);if(strlen($selectionJson)>12000)throw new \InvalidArgumentException('Selection too large.');
         }
     }catch(\InvalidArgumentException|\JsonException){reply(400,['error'=>'Bitte Pflichtfelder und Datenschutzhinweis prüfen.']);}
@@ -42,11 +54,25 @@ function public_inquiry(\PDO $db,array $config,array $data,string $type): never 
             $mailType='contact_notification';$refs=['contact_request_id'=>$id];$subject='SMARTDOCK: Neue Kontaktanfrage';
         }else {
             $dedup=hash('sha256',$email.'|'.$clientReference,true);$q=$db->prepare('SELECT public_reference FROM sd_configuration_requests WHERE idempotency_key=? FOR UPDATE');$q->execute([$dedup]);$existing=$q->fetchColumn();if($existing){$db->commit();reply(200,['id'=>$existing,'ok'=>true]);}
-            $q=$db->prepare('INSERT INTO sd_configuration_requests(public_reference,idempotency_key,contact_name,email,company,phone,language,configuration_version,selection_json,privacy_notice_version,privacy_acknowledged_at) VALUES(?,?,?,?,?,?,?,?,?,?,UTC_TIMESTAMP(6))');
-            $q->execute([$ref,$dedup,$name,$email,$company?:null,$phone?:null,$language,'website-2026-10',$selectionJson,'public-forms-2026-10']);$id=(int)$db->lastInsertId();
+            $q=$db->prepare('INSERT INTO sd_configuration_requests(public_reference,idempotency_key,contact_name,email,company,phone,language,configuration_version,selection_json,price_snapshot_json,privacy_notice_version,privacy_acknowledged_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,UTC_TIMESTAMP(6))');
+            $q->execute([$ref,$dedup,$name,$email,$company?:null,$phone?:null,$language,'website-2026-10',$selectionJson,json_encode($price,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE),'public-forms-2026-10']);$id=(int)$db->lastInsertId();
             $mailType='configuration_notification';$refs=['configuration_request_id'=>$id];$subject='SMARTDOCK: Neue Konfigurationsanfrage';
         }
         $body="Neue Anfrage: ".$ref."\nName: ".$name."\nE-Mail: ".$email."\nUnternehmen: ".$company."\nTelefon: ".$phone."\n\n".($type==='contact'?$message:'Die Konfiguration steht in der Administration. Auswahl und Preise müssen fachlich geprüft werden. Es wurde kein verbindliches Angebot erzeugt.')."\n\nAdministration: ".$config['origin'].'/admin/';
+        if($type!=='contact') {
+            $contact=['name'=>$name,'email'=>$email,'company'=>$company,'phone'=>$phone];
+            $summary=configuration_summary($contact,$selection,$price,$ref);
+            $body="Eine neue SMARTDOCK Konfigurationsanfrage ist eingegangen.\n\n".$summary."\n\nAdministration: ".$config['origin'].'/admin/';
+            $pdf=configuration_pdf($contact,$selection,$price,$ref);
+            queue_mail($db,$config,'configuration_confirmation',$email,'SMARTDOCK: Ihre Konfigurationsanfrage',"Vielen Dank für Ihre Anfrage, ".$name.".\n\nIhre Konfiguration mit Anschrift, ausgewählten Komponenten, Preisen und gegebenenfalls Einbauhändler finden Sie als PDF im Anhang.\n\nReferenz: ".$ref."\n\nWir prüfen Ihre Anfrage. Dies ist keine verbindliche Bestell- oder Terminbestätigung.",'configuration-customer-'.$ref,null,null,$refs,[['name'=>'SMARTDOCK-'.$ref.'.pdf','base64'=>base64_encode($pdf)]]);
+            if($selection['dealer']) {
+                // Test notifications must never contact a real installation dealer.
+                $isTest=parse_url($config['origin'],PHP_URL_HOST)==='test.smartdock.de';
+                $dealerRecipient=$isTest?$recipient:$selection['dealer']['public_email'];
+                $dealerBody=($isTest?"TEST – Händlerbenachrichtigung umgeleitet.\n\n":'')."Ihr Unternehmen ".$selection['dealer']['company_name']." wurde für den Einbauservice einer SMARTDOCK Konfiguration gewählt. Bitte stimmen Sie Machbarkeit und Termin mit dem Kunden ab.\n\n".$summary;
+                queue_mail($db,$config,'configuration_notification',$dealerRecipient,'SMARTDOCK: Ihr Unternehmen wurde für den Einbau gewählt',$dealerBody,'configuration-dealer-'.$ref,null,null,$refs);
+            }
+        }
         queue_mail($db,$config,$mailType,$recipient,$subject,$body,$type.'-'.$ref,null,null,$refs);$db->commit();
     }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
     dispatch_mail($db,$config);reply(200,['ok'=>true,'id'=>$ref]);

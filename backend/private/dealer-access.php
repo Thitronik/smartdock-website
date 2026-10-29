@@ -129,7 +129,7 @@ function approve_dealer_membership(\PDO $db,array $config,int $id,array $staff):
     audit($db,(int)$staff['id'],'membership.decision','membership',$id,['from'=>$membership['status'],'to'=>'approved']);
     queue_dealer_password($db,$config,['id'=>$membership['user_id'],'email'=>$membership['email'],'password_hash'=>$membership['password_hash']]);
 }
-function access_form(string $button,string $extra=''): string {return '<form method="post"><input type="hidden" name="csrf" value="'.access_escape($_SESSION['csrf']).'">'.$extra.'<button>'.access_escape($button).'</button></form>';}
+function access_form(string $button,string $extra=''): string {return '<form method="post"><input type="hidden" name="csrf" value="'.access_escape($_SESSION['csrf']).'">'.$extra.'<button class="primary-button" style="background:#bceb02;border-color:#bceb02;color:#1d1d1b;white-space:normal">'.access_escape($button).'</button></form>';}
 function access_token_page(array $config,string $action): never {
     $db=database($config);access_limit($config,'token-page');$method=$_SERVER['REQUEST_METHOD']??'GET';
     if(!in_array($method,['GET','POST'],true))access_html(405,'Nicht erlaubt','<p>Methode nicht erlaubt.</p>');

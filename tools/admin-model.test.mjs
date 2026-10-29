@@ -3,6 +3,13 @@ import assert from 'node:assert/strict';
 import {createDemoState,canAccessDealerArea,isFinderVisible,decideMembership,moveMembership,prepareInvitation,saveDealer} from '../src/admin-model.js';
 import {prepareDealerImport} from './prepare-dealer-import.mjs';
 
+test('Konfigurationsübersicht zeigt Anschrift, Komponenten und Summen ohne Rohdaten oder HTML-Ausführung',async()=>{
+ const {readFile}=await import('node:fs/promises');const vm=await import('node:vm');const source=await readFile(new URL('../src/admin-server.js',import.meta.url),'utf8');const context={Intl};vm.createContext(context);vm.runInContext(source.replace('export function','function')+';this.render=configurationDetails',context);
+ const html=context.render({selection_json:JSON.stringify({street:'Musterstraße',houseNumber:'12',postalCode:'24340',city:'Eckernförde',country:'Deutschland',dealer:{company_name:'<img src=x onerror=alert(1)>'}}),price_snapshot_json:JSON.stringify({items:[{name:'WCU (1 Ankerwinde)',price:1250}],subtotal:1250,totalPrice:1250,vat:19,currency:'EUR'})});
+ assert.match(html,/Musterstraße 12/);assert.match(html,/WCU \(1 Ankerwinde\)/);assert.match(html,/1\.250,00/);assert.match(html,/&lt;img/);assert.doesNotMatch(html,/<img|<pre|selection_json|totalPrice/);
+ assert.match(context.render({selection_json:'{}'}),/kein Preisstand gespeichert/);
+});
+
 test('Kartenfreigabe und Mitarbeiterzugang sind voneinander unabhängig',()=>{
  const state=createDemoState();
  assert.equal(isFinderVisible(state.dealers[1]),false);

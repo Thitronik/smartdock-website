@@ -109,7 +109,7 @@ function run(array $config): never {
             'requests'=>$db->query("SELECT r.*,u.email FROM sd_dealer_access_requests r JOIN sd_users u ON u.id=r.user_id ORDER BY r.created_at DESC")->fetchAll(),
             'mailStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_mail_outbox GROUP BY status')->fetchAll(),
             'contacts'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,message,language,status,created_at FROM sd_contact_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
-            'configurations'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,selection_json,status,created_at FROM sd_configuration_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
+            'configurations'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,selection_json,price_snapshot_json,status,created_at FROM sd_configuration_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
             'newsletterStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_newsletter_subscribers GROUP BY status')->fetchAll(),
         ]);
     }
