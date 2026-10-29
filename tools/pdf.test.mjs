@@ -93,7 +93,9 @@ for (const bundle of bundles) {
         assert.equal((html.match(/data-pdf-totals/g) || []).length, 1, 'Summenblock braucht eine Umbruchgrenze');
         assert.match(html, /<img data-pdf-logo src="data:image\/png;base64,/);
         assert.ok(!html.includes('#0284c7'));
-        assert.ok(html.includes('#ccff00'));
+        assert.ok(html.includes('#bceb02'));
+        assert.ok(!html.includes('#191c20'));
+        assert.match(html,/data-pdf-totals style="background: #d6d6d6;/);
         assert.equal((html.slice(html.indexOf('data-pdf-footer')).match(/max-width:none/g)||[]).length,2);
         assert.equal((html.match(/data-pdf-footer/g) || []).length, 1, 'Footer gehört zur letzten Summenseite');
         if (fixture.bundleDiscount < 0) assert.ok(html.includes(format(fixture.bundleDiscount)), 'Rabatt muss erhalten bleiben');
