@@ -4,3 +4,6 @@
 /* Center bounded paragraphs within their cards, not within a left-aligned 65ch box. */
 .sd-admin-portal p{margin-inline:auto}.sd-admin-portal .admin-heading{align-items:center}.sd-admin-portal .row-actions{align-items:center}
 .sd-admin-portal [hidden]{display:none!important}
+
+/* Keep login notices on the same centered axis as the form. */
+.sd-admin-portal .admin-gate>p{width:100%;max-width:100%;margin-left:auto;margin-right:auto;box-sizing:border-box;text-align:center}.sd-admin-portal .admin-gate>.admin-toast{position:static;max-width:460px;margin:16px auto}.sd-admin-portal .admin-gate>.subtle{max-width:460px;margin:20px auto 0}
