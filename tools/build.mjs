@@ -35,7 +35,7 @@ export function adaptForBase(source, name, base) {
   let text = source.replaceAll('\r\n', '\n');
   text = text.replace(/(?<![\w:/])\/(assets|media|hcgi|data)\//g, base + '/$1/');
   text = text.replaceAll('"/favicon.png"', '"' + base + '/favicon.png"');
-  text = text.replaceAll('"/preview.js"', '"' + base + '/preview.js"');
+  text = text.replaceAll('"/preview.js', '"' + base + '/preview.js');
   if (name.endsWith('.js')) {
     text = text.replace(/basename:([A-Za-z_$][\w$]*)="\/"/g, 'basename:$1="' + base + '"');
     text = text.replace(/window\.location\.href=([A-Za-z_$][\w$]*)(?=[,;}])/g, 'window.location.href=window.__sdPagesUrl($1)');

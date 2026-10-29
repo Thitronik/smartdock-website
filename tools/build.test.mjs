@@ -132,7 +132,9 @@ test('Händler-Sprachwechsel erhält die Seite und nutzt dieselbe Anwendung wie 
         assert.equal(translate(current, lang), dealerLink(lang).href);
       }
       const page = files.get((lang === 'DE' ? '' : lang.toLowerCase() + '/') + 'haendlerbereich/index.html').toString();
-      assert.ok(page.includes('src="' + base + '/assets/index-RRVGC1mK.js"'));
+      const entry=page.match(/<script type="module" src="([^"]+)"/)[1];
+      assert.equal(new URL(entry,'https://example.invalid').pathname,base+'/assets/index-RRVGC1mK.js');
+      assert.equal(entry,files.get('index.html').toString().match(/<script type="module" src="([^"]+)"/)[1]);
       assert.ok(page.includes('id="root"'));
       assert.ok(!page.includes('<header'), 'Keine zweite Headerimplementierung');
     }
@@ -218,11 +220,17 @@ test('Verwaltungsvorschau veröffentlicht keine Backend- oder Importdateien',asy
 
  test("Öffentlicher Admineinstieg bietet weder Beispieldaten noch Anmeldeformular",async()=>{
  const {readFile}=await import("node:fs/promises");
- const source=(await readFile(new URL("../src/admin-portal.js",import.meta.url),"utf8")).replace(/^import .*;\n/,"").replace("export function mountAdminPortal","function mountAdminPortal");
+ const source=(await readFile(new URL("../src/admin-portal.js",import.meta.url),"utf8")).replace(/^import .*;\n/,"").replace("export function mountAdminPortal","function mountAdminPortal").replaceAll("import.meta.url",JSON.stringify("https://thitronik.github.io/smartdock-website/assets/admin-portal.js"));
  for(const hostname of ["thitronik.github.io","www.smartdock.de","smartdock.de"]){
- const root={innerHTML:""};const context={location:{hostname},document:{getElementById:()=>root}};
+ const root={innerHTML:""},styles=[];const context={URL,location:{hostname},document:{getElementById:()=>root,querySelector:()=>null,createElement:()=>({dataset:{}}),head:{append:link=>styles.push(link)}}};
  vm.runInNewContext(source+";mountAdminPortal();",context);
- assert.match(root.innerHTML,/Zugang geschlossen/);assert.doesNotMatch(root.innerHTML,/<button|<form|<input|Beispieldaten öffnen/);
+ assert.equal(styles[0].href,"https://thitronik.github.io/smartdock-website/assets/admin-portal.css?v=20261028e");assert.match(root.innerHTML,/Zugang geschlossen/);assert.doesNotMatch(root.innerHTML,/<button|<form|<input|Beispieldaten öffnen/);
  }
  const files=await createOutput();assert.ok(files.has("admin/index.html"));assert.ok(!files.has("verwaltung/index.html"));
  });
+
+test('Händlerkarten verwenden die schlüsselfreie OSM-Quelle mit sichtbarer Quellenangabe',async()=>{
+ const files=await createOutput();const entry=files.get('assets/index-RRVGC1mK.js').toString();
+ assert.doesNotMatch(entry,/basemaps\.cartocdn\.com|\{s\}\.tile\.openstreetmap\.org/);
+ assert.equal((entry.match(/url:"https:\/\/tile\.openstreetmap\.org\/\{z\}\/\{x\}\/\{y\}\.png"[^}]*attribution:/g)||[]).length,2);
+});

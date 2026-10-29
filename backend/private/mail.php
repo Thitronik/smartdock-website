@@ -16,10 +16,10 @@ function mail_decrypt(array $config,string $record): array {
     if($plain===false)throw new \RuntimeException('Mail authentication failed.');
     return json_decode($plain,true,16,JSON_THROW_ON_ERROR);
 }
-function queue_mail(\PDO $db,array $config,string $type,string $email,string $subject,string $body,string $dedup,?int $userId=null,?int $tokenId=null): void {
+function queue_mail(\PDO $db,array $config,string $type,string $email,string $subject,string $body,string $dedup,?int $userId=null,?int $tokenId=null,array $refs=[]): void {
     $email=normalized_email($email);
-    $q=$db->prepare('INSERT INTO sd_mail_outbox(message_type,recipient_email,template_version,payload_encrypted,deduplication_key,user_id,user_token_id) VALUES(?,?,?,?,?,?,?)');
-    $q->execute([$type,$email,'transactional-v1',mail_encrypt($config,['subject'=>$subject,'body'=>$body]),$dedup,$userId,$tokenId]);
+    $q=$db->prepare('INSERT INTO sd_mail_outbox(message_type,recipient_email,template_version,payload_encrypted,deduplication_key,user_id,user_token_id,subscriber_id,newsletter_token_id,configuration_request_id,contact_request_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)');
+    $q->execute([$type,$email,'transactional-v1',mail_encrypt($config,['subject'=>$subject,'body'=>$body]),$dedup,$userId,$tokenId,$refs['subscriber_id']??null,$refs['newsletter_token_id']??null,$refs['configuration_request_id']??null,$refs['contact_request_id']??null]);
 }
 function deliver_mail(array $config,array $mail,array $payload): bool {
     $from=$config['mail_from']??'';
@@ -31,9 +31,9 @@ function deliver_mail(array $config,array $mail,array $payload): bool {
         file_put_contents($file,json_encode($records,JSON_THROW_ON_ERROR));return true;
     }
     $html=nl2br(htmlspecialchars($payload['body'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8'));
-    $pattern='~'.preg_quote($config['origin'].'/api/index.php?action=','~').'(dealer-confirm|dealer-password|dealer-approve)&amp;token=[a-f0-9]{64}~';
+    $pattern='~'.preg_quote($config['origin'].'/api/index.php?action=','~').'(dealer-confirm|dealer-password|dealer-approve|staff-invitation|newsletter-confirm|newsletter-unsubscribe)&amp;token=[a-f0-9]{64}~';
     $html=preg_replace_callback($pattern,static function(array $match):string {
-        $label=$match[1]==='dealer-approve'?'Händler für den Händlerbereich freischalten!':($match[1]==='dealer-password'?'Passwort festlegen':'E-Mail bestätigen');
+        $label=match($match[1]){'dealer-approve'=>'Händler für den Händlerbereich freischalten!','dealer-password'=>'Passwort festlegen','newsletter-confirm'=>'Newsletter-Anmeldung bestätigen','newsletter-unsubscribe'=>'Abmelden',default=>'E-Mail bestätigen'};
         return '<a style="display:inline-block;padding:14px 20px;background:#c8f500;color:#171b1f;border-radius:8px;text-decoration:none;font-weight:bold" href="'.$match[0].'">'.$label.'</a>';
     },$html);
     $boundary='sd-'.bin2hex(random_bytes(18));
@@ -45,10 +45,14 @@ function dispatch_mail(\PDO $db,array $config,int $limit=5): void {
     for($i=0;$i<$limit;$i++) {
         $db->beginTransaction();
         try {
-            $q=$db->query("SELECT * FROM sd_mail_outbox WHERE message_type IN ('dealer_email_confirmation','dealer_approval_notification','dealer_password','dealer_decision','staff_activation') AND payload_encrypted IS NOT NULL AND attempts<5 AND available_at<=UTC_TIMESTAMP(6) AND (status IN ('queued','failed') OR (status='processing' AND locked_at<DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 10 MINUTE))) ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED");
+            $q=$db->query("SELECT * FROM sd_mail_outbox WHERE message_type IN ('dealer_email_confirmation','dealer_approval_notification','dealer_password','dealer_decision','staff_activation','newsletter_confirmation','configuration_notification','contact_notification') AND payload_encrypted IS NOT NULL AND attempts<5 AND available_at<=UTC_TIMESTAMP(6) AND (status IN ('queued','failed') OR (status='processing' AND locked_at<DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 10 MINUTE))) ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED");
             $mail=$q->fetch();if(!$mail){$db->commit();return;}
             if($mail['user_token_id']) {
                 $q=$db->prepare('SELECT id FROM sd_user_tokens WHERE id=? AND consumed_at IS NULL AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP(6)');$q->execute([$mail['user_token_id']]);
+                if(!$q->fetch()){$q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled',payload_encrypted=NULL,payload_json=NULL WHERE id=?");$q->execute([$mail['id']]);$db->commit();continue;}
+            }
+            if($mail['newsletter_token_id']) {
+                $q=$db->prepare("SELECT t.id FROM sd_newsletter_tokens t JOIN sd_newsletter_subscribers s ON s.id=t.subscriber_id WHERE t.id=? AND t.consumed_at IS NULL AND t.expires_at>UTC_TIMESTAMP(6) AND s.status='pending'");$q->execute([$mail['newsletter_token_id']]);
                 if(!$q->fetch()){$q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled',payload_encrypted=NULL,payload_json=NULL WHERE id=?");$q->execute([$mail['id']]);$db->commit();continue;}
             }
             $owner=bin2hex(random_bytes(16));$q=$db->prepare("UPDATE sd_mail_outbox SET status='processing',attempts=attempts+1,locked_at=UTC_TIMESTAMP(6),locked_by=? WHERE id=?");$q->execute([$owner,$mail['id']]);$db->commit();

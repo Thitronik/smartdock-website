@@ -17,6 +17,7 @@ return [
     'staff_email_domain' => 'thitronik.de', // domain AND individual approval required
     'mail_from' => '', // existing Hetzner mailbox @smartdock.de; empty disables setup
     'dealer_approval_email' => '', // private management recipient for verified requests
+    'inquiry_email' => '', // private recipient for contact/configuration notifications
     'staff_totp_secrets' => [], // normalized email => private Base32 secret
     // Optional first-account setup only: token_hash (SHA-256), email, expires_at.
     // After the first role is created, this setup endpoint stays closed.
