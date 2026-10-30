@@ -12,7 +12,17 @@ $content=newsletter_content(['subject'=>'Neuigkeiten','title'=>'<img src=x onerr
 $html=newsletter_html($content,'https://example.test/unsubscribe',['origin'=>'https://example.test']);
 expect(str_contains($html,'&lt;img src=x onerror=alert(1)&gt;'));
 expect(str_contains($html,'https://example.test/unsubscribe'));
-expect(str_contains($html,'#bceb02')===false); // no CTA without target
+expect(!str_contains($html,'class="sd-cta-text"')); // no CTA without target
+expect(str_contains($html,'color-scheme'));
+expect(str_contains($html,'bgcolor="#ffffff"'));
+expect(str_contains($html,'border="0" cellpadding="0" cellspacing="0"'));
+expect(preg_match('/<h1[^>]*style="[^"]*color:#1d1d1b/', $html)===1);
+expect(str_contains($html,'prefers-color-scheme:dark'));
+expect(str_contains($html,'https://example.test/media/newsletter-template/dark.png'));
+$cta=newsletter_html(newsletter_content(['subject'=>'x','title'=>'x','text'=>'x','button_label'=>'Weiter','button_url'=>'https://example.test']), 'https://example.test/unsubscribe',['origin'=>'https://example.test']);
+expect(str_contains($cta,'class="sd-cta-text"'));
+expect(str_contains($cta,'background:transparent;border:2px solid #bceb02'));
+expect(!str_contains($cta,'bgcolor="#bceb02"'));
 foreach(['javascript:alert(1)','http://example.test','https://user:secret@example.test'] as $url){try{newsletter_content(['subject'=>'x','title'=>'x','text'=>'x','image_url'=>$url]);throw new RuntimeException('Unsafe URL accepted');}catch(InvalidArgumentException){}}
 try{newsletter_content(['subject'=>"x\r\nBcc: victim@example.test",'title'=>'x','text'=>'x']);throw new RuntimeException('Header injection accepted');}catch(InvalidArgumentException){}
 echo "Newsletter grouping and template checks passed.\n";
