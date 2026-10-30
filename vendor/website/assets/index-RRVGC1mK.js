@@ -1,5 +1,5 @@
-import {mountAdminPortal as sdMountAdminPortal} from "./admin-portal.js?v=20261030k";
-import {mountDealerPortal as sdMountDealerPortal} from "./dealer-portal.js?v=20261030a";
+import {mountAdminPortal as sdMountAdminPortal} from "./admin-portal.js?v=20261030l";
+import {mountDealerPortal as sdMountDealerPortal} from "./dealer-portal.js?v=20261030l";
 import {dealerLink as sdDealerLink} from "./dealer-link.js";
 import {savePaginatedPdf as sdSavePaginatedPdf,escapePdfText as sdEscapePdfText} from "./pdf-pagination.js?v=20261029b";
 import {allocationFromSelection as sdAllocationFromSelection,moduleFields as sdModuleFields} from "./module-allocation.js";
