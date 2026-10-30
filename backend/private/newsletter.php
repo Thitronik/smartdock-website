@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Smartdock;
+require_once __DIR__.'/newsletter-pdf.php';
 
 function newsletter_settings(array $config): array {
     $path=__DIR__.'/newsletter-settings.php';
@@ -24,7 +25,7 @@ function newsletter_upload(array $file,array $config): string {
     $source=@imagecreatefromstring($bytes);
     if(!$source)throw new \InvalidArgumentException('Die Bilddatei konnte nicht gelesen werden.');
     // Re-encode decoded pixels: no original filename, metadata or executable payload survives.
-    $width=min(1600,$info[0]);$height=max(1,(int)round($info[1]*$width/$info[0]));
+    $scale=min(1,1200/$info[0],800/$info[1]);$width=max(1,(int)round($info[0]*$scale));$height=max(1,(int)round($info[1]*$scale));
     $image=imagecreatetruecolor($width,$height);
     imagealphablending($image,false);imagesavealpha($image,true);
     imagecopyresampled($image,$source,0,0,0,0,$width,$height,$info[0],$info[1]);
@@ -77,6 +78,7 @@ function newsletter_html(array $content,string $unsubscribe,array $config): stri
     $button=$content['button_url']?'<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;border:0"><tr><td class="sd-cta" style="background:transparent;border:2px solid #bceb02;border-radius:24px;text-align:center"><a class="sd-cta-text" href="'.$e($content['button_url']).'" style="display:inline-block;padding:12px 22px;border:0;border-radius:22px;color:#1d1d1b;font:700 16px/24px Arial,Helvetica,sans-serif;text-decoration:none">'.$e($content['button_label']).'</a></td></tr></table>':'';
     $footer=nl2br($e($config['newsletter_footer']??'SMARTDOCK · Thitronik GmbH'));
     $imprint=$e($config['origin'].'/impressum/');$privacy=$e($config['origin'].'/datenschutz/');$unsubscribe=$e($unsubscribe);
+    $unsubscribeHtml=$unsubscribe!==''?'<a class="sd-link" href="'.$unsubscribe.'" style="color:#1d1d1b;text-decoration:underline">Newsletter abmelden</a>':'Testnewsletter – kein Abonnement.';
     return <<<HTML
 <!doctype html>
 <html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">
@@ -98,13 +100,13 @@ table{border-spacing:0;mso-table-lspace:0pt;mso-table-rspace:0pt}img{border:0;ou
 [data-ogsc] .sd-cta-text{color:#f4f5f6!important}
 @media(max-width:600px){.sd-pad{padding:24px!important}.sd-title{font-size:25px!important;line-height:32px!important}}
 </style></head>
-<body class="sd-page" bgcolor="#eceeef" style="margin:0;padding:0;background-color:#eceeef;color:#1d1d1b;font-family:Arial,Helvetica,sans-serif">
-<table class="sd-page" role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="#eceeef" style="width:100%;border:0;border-collapse:collapse;background-color:#eceeef"><tr><td align="center" style="padding:20px 12px;border:0">
+<body class="sd-page" bgcolor="#ffffff" style="margin:0;padding:0;background-color:#ffffff;color:#1d1d1b;font-family:Arial,Helvetica,sans-serif">
+<table class="sd-page" role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="width:100%;border:0;border-collapse:collapse;background-color:#ffffff"><tr><td align="center" style="padding:20px 12px;border:0">
 <!--[if mso]><table role="presentation" width="600" border="0" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
 <table role="presentation" width="600" border="0" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;border:0;border-collapse:collapse">
 <tr><td class="sd-brand sd-pad" background="$dark" bgcolor="#191c20" style="border:0;background-color:#191c20;background-image:url($dark);color:#ffffff;padding:28px;text-align:left"><img alt="SMARTDOCK" src="$logo" width="240" border="0" style="display:block;width:240px;max-width:100%;height:auto;border:0;color:#ffffff"></td></tr>
 <tr><td class="sd-content sd-pad" bgcolor="#ffffff" style="border:0;padding:32px;background-color:#ffffff;color:#1d1d1b;font:16px/26px Arial,Helvetica,sans-serif;text-align:left"><h1 class="sd-copy sd-title" style="margin:0 0 24px;color:#1d1d1b;font:700 28px/36px Arial,Helvetica,sans-serif">$title</h1>$image$text$button</td></tr>
-<tr><td class="sd-footer sd-pad" bgcolor="#f1f2f3" style="border:0;padding:24px;background-color:#f1f2f3;color:#1d1d1b;font:13px/21px Arial,Helvetica,sans-serif;text-align:left"><p class="sd-copy" style="margin:0 0 16px;color:#1d1d1b;font:13px/21px Arial,Helvetica,sans-serif">$footer</p><p style="margin:0 0 16px"><a class="sd-link" href="$imprint" style="color:#1d1d1b;text-decoration:underline">Impressum</a> · <a class="sd-link" href="$privacy" style="color:#1d1d1b;text-decoration:underline">Datenschutz</a></p><p style="margin:0"><a class="sd-link" href="$unsubscribe" style="color:#1d1d1b;text-decoration:underline">Newsletter abmelden</a></p></td></tr>
+<tr><td class="sd-footer sd-pad" bgcolor="#ffffff" style="border:0;padding:24px;background-color:#ffffff;color:#1d1d1b;font:13px/21px Arial,Helvetica,sans-serif;text-align:left"><p class="sd-copy" style="margin:0 0 16px;color:#1d1d1b;font:13px/21px Arial,Helvetica,sans-serif">$footer</p><p style="margin:0 0 16px"><a class="sd-link" href="$imprint" style="color:#1d1d1b;text-decoration:underline">Impressum</a> · <a class="sd-link" href="$privacy" style="color:#1d1d1b;text-decoration:underline">Datenschutz</a></p><p style="margin:0">$unsubscribeHtml</p></td></tr>
 </table><!--[if mso]></td></tr></table><![endif]-->
 </td></tr></table></body></html>
 HTML;
@@ -147,10 +149,14 @@ function newsletter_route(\PDO $db,array $config,array $user,string $action,arra
     if(empty($config[$action==='newsletter-test'?'newsletter_test_enabled':'newsletter_send_enabled'])||empty($config['newsletter_footer']))reply(503,['error'=>'Newsletterversand ist noch nicht freigegeben. Absender und Fußzeile müssen zuerst eingerichtet werden.']);
     access_limit($config,'newsletter-admin-send',(string)$user['id']);
     if($action==='newsletter-test'){
-        // Only the administrator or the private, fixed test mailbox; never a client-supplied recipient.
-        $recipient=$config['newsletter_test_recipient']??$user['email'];
-        queue_mail($db,$config,'newsletter_test',$recipient,'[TEST] '.$content['subject'],$content['text'],'newsletter-test-'.bin2hex(random_bytes(16)),null,null,[],[],newsletter_html($content,'#test-abmeldung',$config));
-        dispatch_mail($db,$config);reply(200,['ok'=>true,'recipient'=>$recipient]);
+        // Active, verified administrators only; never a client-supplied recipient.
+        $recipients=$db->query("SELECT DISTINCT u.email FROM sd_users u JOIN sd_staff_roles r ON r.user_id=u.id WHERE u.status='active' AND u.email_verified_at IS NOT NULL AND r.role='admin' AND r.revoked_at IS NULL")->fetchAll(\PDO::FETCH_COLUMN);
+        $testLink='';
+        $attachment=newsletter_attachment($content,$testLink,$config);
+        $db->beginTransaction();
+        try { foreach($recipients as $recipient)queue_mail($db,$config,'newsletter_test',$recipient,'[TEST] '.$content['subject'],$content['text'],'newsletter-test-'.bin2hex(random_bytes(16)),null,null,[],$attachment,newsletter_html($content,$testLink,$config));
+        $db->commit(); } catch (\Throwable $e) { $db->rollBack(); throw $e; }
+        dispatch_mail($db,$config);reply(200,['ok'=>true,'recipient'=>implode(', ',$recipients)]);
     }
     $db->beginTransaction();
     try{
@@ -164,7 +170,7 @@ function newsletter_route(\PDO $db,array $config,array $user,string $action,arra
         foreach($recipients as $s){
             $token=bin2hex(random_bytes(32));$q=$db->prepare("INSERT INTO sd_newsletter_tokens(subscriber_id,purpose,token_hash,expires_at) VALUES(?,'unsubscribe',?,DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 5 YEAR))");$q->execute([$s['id'],hash('sha256',$token,true)]);$tokenId=(int)$db->lastInsertId();
             $link=access_link($config,'newsletter-unsubscribe',$token);
-            queue_mail($db,$config,'newsletter_campaign',$s['email'],$content['subject'],$content['text']."\n\n".$content['button_url']."\n\n".$config['newsletter_footer']."\n\nNewsletter abmelden: ".$link,'newsletter-campaign-'.$id.'-'.$s['id'],null,null,['subscriber_id'=>$s['id'],'newsletter_token_id'=>$tokenId],[],newsletter_html($content,$link,$config));
+            queue_mail($db,$config,'newsletter_campaign',$s['email'],$content['subject'],$content['text']."\n\n".$content['button_url']."\n\n".$config['newsletter_footer']."\n\nNewsletter abmelden: ".$link,'newsletter-campaign-'.$id.'-'.$s['id'],null,null,['subscriber_id'=>$s['id'],'newsletter_token_id'=>$tokenId],newsletter_attachment($content,$link,$config),newsletter_html($content,$link,$config));
             $q=$db->prepare('UPDATE sd_mail_outbox SET campaign_id=? WHERE deduplication_key=?');$q->execute([$id,'newsletter-campaign-'.$id.'-'.$s['id']]);
         }
         $q=$db->prepare("UPDATE sd_newsletter_campaigns SET status='queued',recipient_count=?,queued_at=UTC_TIMESTAMP(6) WHERE id=?");$q->execute([count($recipients),$id]);

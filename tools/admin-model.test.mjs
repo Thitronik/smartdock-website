@@ -89,13 +89,13 @@ test('Adminlogin aktualisiert Sitzung vor Passwortprüfung; Fehler senden keine 
  for(const refreshFails of [false,true]){
   const calls=[];const handlers={};let sessions=0;const status={textContent:''};
   const root={innerHTML:'',addEventListener:(name,handler)=>handlers[name]=handler,removeEventListener(){},querySelector:()=>status};
-  const context={document:{getElementById:()=>null},AbortController,FormData:class{constructor(){return new Map([['email','test@example.invalid'],['password','fixture-password'],['otp','123456']]);}},fetch:async(url,options)=>{
+  const context={window:{addEventListener(){},removeEventListener(){}},document:{getElementById:()=>null},AbortController,FormData:class{constructor(){return new Map([['email','test@example.invalid'],['password','fixture-password'],['otp','123456']]);}},fetch:async(url,options)=>{
    const action=new URL(url,'https://test.smartdock.de').searchParams.get('action');calls.push({action,options});
    if(action==='session'){sessions++;return{ok:!(refreshFails&&sessions===2),status:503,json:async()=>({csrf:sessions===1?'old':'fresh',user:null,error:'Sitzung nicht erreichbar'})};}
    assert.equal(action,'login');assert.equal(options.headers['X-CSRF-Token'],'fresh');return{ok:false,status:401,json:async()=>({error:'Test: Zugangsdaten abgelehnt'})};
   }};vm.createContext(context);vm.runInContext(source.replace(/^import .*;$/m,'').replace('export function','function')+';mountServerAdmin(root)',Object.assign(context,{root}));
   await new Promise(resolve=>setImmediate(resolve));const button={disabled:false,isConnected:true};const password={value:'fixture-password'},otp={value:'123456'};
-  const form={id:'staff-login',classList:{contains:()=>false},reportValidity:()=>true,querySelector:s=>s==='button'?button:s.includes('password')?password:otp};
+  const form={id:'staff-login',matches:()=>false,classList:{contains:()=>false},reportValidity:()=>true,querySelector:s=>s==='button'?button:s.includes('password')?password:otp};
   await handlers.submit({target:form,preventDefault(){}});
   assert.deepEqual(calls.map(c=>c.action),refreshFails?['session','session']:['session','session','login']);
   assert.equal(password.value,'');assert.equal(otp.value,'');assert.equal(button.disabled,false);

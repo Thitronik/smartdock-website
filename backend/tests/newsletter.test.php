@@ -33,3 +33,7 @@ foreach(['<?php echo 1;','<svg xmlns="http://www.w3.org/2000/svg"></svg>',str_re
 $large=substr_replace($png,pack('NN',6001,1),16,8);
 try{\Smartdock\newsletter_image_info($large);throw new RuntimeException('Oversized dimensions accepted');}catch(InvalidArgumentException){}
 echo "Newsletter upload validation passed.\n";
+
+$pdf=\Smartdock\newsletter_pdf(newsletter_content(['subject'=>'Test','title'=>'SMARTDOCK News','text'=>str_repeat("Eine Nachricht.\n",120)]),'https://example.test/unsubscribe',['origin'=>'https://example.test']);
+expect(str_starts_with($pdf,'%PDF-'));
+expect(!str_contains($html,'bgcolor="#f1f2f3"'));

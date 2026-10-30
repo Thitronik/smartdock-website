@@ -8,7 +8,7 @@ $root=getenv('SD_TEST_STATE');if(!$root||!is_dir($root))throw new RuntimeExcepti
 require __DIR__.'/../private/security.php';
 if(count($argv)===1){
  if($db->query('SHOW TABLES')->fetch())throw new RuntimeException('Empty isolated database required.');
- foreach(['001_initial.sql','002_dealers_and_users.sql','003_access_requests_and_mail.sql','004_public_forms.sql'] as $file)$db->exec(file_get_contents(__DIR__.'/../../database/migrations/'.$file));
+ foreach(['001_initial.sql','002_dealers_and_users.sql','003_access_requests_and_mail.sql','004_public_forms.sql','005_newsletter_campaigns.sql','006_dealer_invitations.sql'] as $file)$db->exec(file_get_contents(__DIR__.'/../../database/migrations/'.$file));
  foreach(['state','sessions','mfa'] as $folder)mkdir($root.'/'.$folder,0700);
  $token=bin2hex(random_bytes(32));
  $config=['origin'=>'https://test.smartdock.de','dsn'=>$dsn,'database_user'=>getenv('SD_TEST_DB_USER'),'database_password'=>getenv('SD_TEST_DB_PASSWORD'),'state_directory'=>$root.'/state','session_directory'=>$root.'/sessions','mfa_directory'=>$root.'/mfa','rate_key'=>bin2hex(random_bytes(32)),'dummy_password_hash'=>password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT),'staff_email_domain'=>'thitronik.de','mail_from'=>'activation-ci-fixture@smartdock.de','staff_allowlist'=>['marketing@thitronik.de'],'staff_totp_secrets'=>[],'bootstrap'=>['token_hash'=>hash('sha256',$token),'email'=>'marketing@thitronik.de','expires_at'=>time()+3600]];

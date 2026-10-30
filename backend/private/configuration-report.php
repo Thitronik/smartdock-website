@@ -29,6 +29,7 @@ function configuration_price(array $s): array {
     $extras=[];foreach(['ankerwinde1'=>'Ankerwinde','ankerwinde2'=>'Ankerwinde','ankerwinch1'=>'Winch','ankerwinch2'=>'Winch','horn'=>'Horn'] as $k=>$label){if(isset($s[$k])&&!is_bool($s[$k]))throw new \InvalidArgumentException('Selection invalid.');if($s[$k]??false)$extras[]=$label;}
     $thrusters=[];foreach(['bugstrahlruder'=>'Bugstrahlruder','heckstrahlruder'=>'Heckstrahlruder'] as $k=>$label){if(isset($s[$k])&&!is_bool($s[$k]))throw new \InvalidArgumentException('Selection invalid.');if($s[$k]??false)$thrusters[]=$label;}
     $manufacturer=$s['thrusterManufacturer']??'';if(!is_string($manufacturer))throw new \InvalidArgumentException('Manufacturer invalid.');
+    if($thrusters&&$manufacturer==='QUICK ON/OFF'&&!in_array($s['thrusterType']??'',['TCD','THC'],true))throw new \InvalidArgumentException('QUICK TCD/THC required.');
     if(count($thrusters)===1&&$extras&&!str_contains(strtolower($manufacturer),'proportional'))$add('ACU','ACU ('.$thrusters[0].', '.array_shift($extras).')');
     elseif($thrusters)$add('TCU','TCU ('.implode(', ',$thrusters).')');
     while($extras){$pair=array_splice($extras,0,2);$labels=[];foreach(array_count_values($pair) as $label=>$count)$labels[]=$count.' '.($count===2?['Ankerwinde'=>'Ankerwinden','Winch'=>'Winches','Horn'=>'Horn'][$label]:$label);$add('WCU','WCU ('.implode(', ',$labels).')');}

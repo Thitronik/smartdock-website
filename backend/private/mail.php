@@ -35,9 +35,9 @@ function deliver_mail(array $config,array $mail,array $payload): bool {
         file_put_contents($file,json_encode($records,JSON_THROW_ON_ERROR));return true;
     }
     $html=nl2br(htmlspecialchars($payload['body'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8'));
-    $pattern='~'.preg_quote($config['origin'].'/api/index.php?action=','~').'(dealer-confirm|dealer-password|dealer-approve|staff-invitation|newsletter-confirm|newsletter-unsubscribe)&amp;token=[a-f0-9]{64}~';
+    $pattern='~'.preg_quote($config['origin'].'/api/index.php?action=','~').'(dealer-invitation|dealer-confirm|dealer-password|dealer-approve|staff-invitation|newsletter-confirm|newsletter-unsubscribe)&amp;token=[a-f0-9]{64}~';
     $html=preg_replace_callback($pattern,static function(array $match):string {
-        $label=match($match[1]){'dealer-approve'=>'Händler für den Händlerbereich freischalten!','dealer-password'=>'Passwort festlegen','newsletter-confirm'=>'Newsletter-Anmeldung bestätigen','newsletter-unsubscribe'=>'Abmelden',default=>'E-Mail bestätigen'};
+        $label=match($match[1]){'dealer-approve'=>'Händler für den Händlerbereich freischalten!','dealer-invitation'=>'Händlerzugang einrichten','dealer-password'=>'Passwort festlegen','newsletter-confirm'=>'Newsletter-Anmeldung bestätigen','newsletter-unsubscribe'=>'Abmelden',default=>'E-Mail bestätigen'};
         return '<a style="display:inline-block;padding:14px 20px;background:#bceb02;color:#1d1d1b;border-radius:8px;text-decoration:none;font-weight:bold" href="'.$match[0].'">'.$label.'</a>';
     },$html);
     if($newsletter&&is_string($payload['html']??null))$html=$payload['html'];

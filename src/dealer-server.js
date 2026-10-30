@@ -17,27 +17,24 @@ export async function connectDealerPortal(root,language){
  const session=await api('session');if(!root.isConnected)return;
  const previewNote=document.getElementById('preview-note');if(previewNote)previewNote.textContent=t[8];
  root.querySelectorAll('form button,#reset').forEach(button=>button.disabled=false);
- root.querySelector('.notice').textContent=t[8];
- root.querySelector('#request button').textContent=t[0];
+ root.querySelector('.notice').hidden=true;
+
  root.querySelector('#login-status').nextElementSibling.textContent='';
  const details=root.querySelector('.dealer-preview');details.hidden=true;
  async function showDealer(){
   const data=await api('dealer');if(!root.isConnected)return;
-  root.querySelector('.columns').hidden=true;root.querySelector('.notice').textContent=t[6];
+  root.querySelector('.columns').hidden=true;root.querySelector('.page-hero h1').textContent=({de:'Willkommen im Händlerbereich',en:'Welcome to the dealer area',fr:'Bienvenue dans l’espace revendeurs',nl:'Welkom in het dealerportaal',es:'Bienvenido al área de distribuidores'})[language]||'Willkommen im Händlerbereich';
   const p=document.createElement('p');p.textContent=data.companies.map(d=>d.company_name).join(' · ');result.replaceChildren(p);
-  const logout=document.createElement('button');logout.type='button';logout.textContent=t[2];logout.addEventListener('click',async()=>{if(busy)return;busy=true;try{await api('logout',{});location.reload();}catch(error){p.textContent=error.message;busy=false;}});result.append(logout);
-  details.hidden=false;details.open=true;details.querySelector('summary').textContent=t[6];details.querySelector('.notice').textContent=t[7];details.querySelectorAll('.tile p').forEach(node=>node.textContent=t[7]);
+  const logout=document.createElement('button');logout.type='button';logout.textContent=t[2];logout.addEventListener('click',async()=>{if(busy)return;busy=true;try{await api('logout',{});location.reload();}catch(error){p.textContent=error.message;busy=false;}});details.after(logout);
+  details.hidden=false;details.open=true;details.querySelector('summary').hidden=true;details.querySelector('.notice').hidden=true;details.querySelectorAll('.tile p').forEach(node=>node.hidden=true);
  }
  root.addEventListener('submit',async event=>{
-  const form=event.target;if(!['login','request'].includes(form.id))return;event.preventDefault();event.stopImmediatePropagation();if(busy||!form.reportValidity())return;
+  const form=event.target;if(form.id!=='login')return;event.preventDefault();event.stopImmediatePropagation();if(busy||!form.reportValidity())return;
   busy=true;const button=form.querySelector('button');button.disabled=true;
   try {
    if(form.id==='login'){
     const password=form.querySelector('[type=password]');const data={email:form.querySelector('[type=email]').value,password:password.value};password.value='';
     try{await api('login',data);}finally{data.password='';}await showDealer();
-   }else {
-    const data=Object.fromEntries(new FormData(form));data.privacy=form.querySelector('[name=privacy]').checked;data.language=language;
-    await api('dealer-request',data);result.textContent=t[3];result.focus();form.reset();
    }
   }catch(error){(form.id==='login'?status:result).textContent=error.message;}finally{busy=false;if(button.isConnected)button.disabled=false;}
  },true);
