@@ -48,7 +48,7 @@ function deliver_mail(array $config,array $mail,array $payload): bool {
         $mixed='sd-mixed-'.bin2hex(random_bytes(18));$body='--'.$mixed."\r\nContent-Type: ".$contentType."\r\n\r\n".$body;
         foreach($payload['attachments'] as $attachment){
             $name=$attachment['name']??'';$bytes=base64_decode($attachment['base64']??'',true);
-            if(!preg_match('/\ASMARTDOCK-[a-zA-Z0-9-]+\.pdf\z/D',$name)||!is_string($bytes)||!str_starts_with($bytes,'%PDF-')||strlen($bytes)>2000000)throw new \RuntimeException('PDF attachment invalid.');
+            if(!preg_match('/\ASMARTDOCK-[a-zA-Z0-9-]+\.pdf\z/D',$name)||!is_string($bytes)||!str_starts_with($bytes,'%PDF-')||strlen($bytes)>($newsletter?6000000:2000000))throw new \RuntimeException('PDF attachment invalid.');
             $body.='--'.$mixed."\r\nContent-Type: application/pdf; name=\"".$name."\"\r\nContent-Disposition: attachment; filename=\"".$name."\"\r\nContent-Transfer-Encoding: base64\r\n\r\n".chunk_split(base64_encode($bytes));
         }
         $body.='--'.$mixed."--\r\n";$contentType='multipart/mixed; boundary="'.$mixed.'"';
@@ -61,7 +61,7 @@ function dispatch_mail(\PDO $db,array $config,int $limit=5): void {
     for($i=0;$i<$limit;$i++) {
         $db->beginTransaction();
         try {
-            $q=$db->query("SELECT * FROM sd_mail_outbox WHERE message_type IN ('dealer_email_confirmation','dealer_approval_notification','dealer_password','dealer_decision','staff_activation','newsletter_confirmation','configuration_notification','configuration_confirmation','contact_notification','newsletter_campaign','newsletter_test') AND (message_type<>'newsletter_campaign' OR ".(!empty($config['newsletter_send_enabled'])?'1':'0').") AND (message_type<>'newsletter_test' OR ".(!empty($config['newsletter_test_enabled'])?'1':'0').") AND payload_encrypted IS NOT NULL AND attempts<5 AND available_at<=UTC_TIMESTAMP(6) AND (status IN ('queued','failed') OR (status='processing' AND locked_at<DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 10 MINUTE))) ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED");
+            $q=$db->query("SELECT * FROM sd_mail_outbox WHERE message_type IN ('dealer_invitation','dealer_email_confirmation','dealer_approval_notification','dealer_password','dealer_decision','staff_activation','newsletter_confirmation','configuration_notification','configuration_confirmation','contact_notification','newsletter_campaign','newsletter_test') AND (message_type<>'newsletter_campaign' OR ".(!empty($config['newsletter_send_enabled'])?'1':'0').") AND (message_type<>'newsletter_test' OR ".(!empty($config['newsletter_test_enabled'])?'1':'0').") AND payload_encrypted IS NOT NULL AND attempts<5 AND available_at<=UTC_TIMESTAMP(6) AND (status IN ('queued','failed') OR (status='processing' AND locked_at<DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 10 MINUTE))) ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED");
             $mail=$q->fetch();if(!$mail){$db->commit();return;}
             if($mail['message_type']==='newsletter_campaign') {
                 $q=$db->prepare("SELECT id FROM sd_newsletter_subscribers WHERE id=? AND status='confirmed'");$q->execute([$mail['subscriber_id']]);
