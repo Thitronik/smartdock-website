@@ -35,3 +35,5 @@
 
 /* Separate administration views, with a compact 2 × 2 entry grid. */
 .sd-admin-portal [hidden]{display:none!important}.admin-jump-nav.admin-home-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-width:760px;margin:32px auto;gap:24px}.admin-home-tiles a{aspect-ratio:1.5;display:flex;align-items:center;justify-content:center;text-align:center;font-size:1.3rem}.configuration-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}.configuration-completed{border-color:#bceb02!important;background:rgba(188,235,2,.06)}.admin-heading,.admin-heading>div{width:100%;text-align:center}.admin-heading .eyebrow{margin-inline:auto}@media(max-width:650px){.configuration-columns{grid-template-columns:1fr}.admin-jump-nav.admin-home-tiles{gap:12px}.admin-home-tiles a{font-size:1rem;aspect-ratio:1}}
+
+.sd-admin-portal .newsletter-saved-table{margin-top:24px}
