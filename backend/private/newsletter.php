@@ -123,6 +123,20 @@ function newsletter_route(\PDO $db,array $config,array $user,string $action,arra
         catch(\InvalidArgumentException $e){reply(400,['error'=>$e->getMessage()]);}
         reply(200,['url'=>$url]);
     }
+    if($action==='newsletter-subscriber-status'){
+        $id=(int)($data['id']??0);$status=$data['status']??'';
+        if($id<1||!in_array($status,['confirmed','unsubscribed'],true))reply(400,['error'=>'Ungültige Newsletteraktion.']);
+        $db->beginTransaction();
+        try{
+            $q=$db->prepare('SELECT * FROM sd_newsletter_subscribers WHERE id=? FOR UPDATE');$q->execute([$id]);$subscriber=$q->fetch();
+            if(!$subscriber||!in_array($subscriber['status'],['pending','confirmed'],true)||($status==='confirmed'&&$subscriber['status']!=='pending')){$db->rollBack();reply(409,['error'=>'Der Eintrag wurde bereits geändert. Bitte neu laden.']);}
+            $q=$db->prepare($status==='confirmed'?"UPDATE sd_newsletter_subscribers SET status='confirmed',confirmed_at=UTC_TIMESTAMP(6),unsubscribed_at=NULL WHERE id=?":"UPDATE sd_newsletter_subscribers SET status='unsubscribed',unsubscribed_at=UTC_TIMESTAMP(6) WHERE id=?");$q->execute([$id]);
+            $q=$db->prepare("UPDATE sd_newsletter_tokens SET consumed_at=UTC_TIMESTAMP(6) WHERE subscriber_id=? AND purpose='confirm' AND consumed_at IS NULL");$q->execute([$id]);
+            $q=$db->prepare('INSERT INTO sd_newsletter_events(subscriber_id,event_type,consent_version,consent_text) VALUES(?,?,?,?)');$q->execute([$id,$status,$subscriber['consent_version'],$subscriber['consent_text']]);
+            if($status==='unsubscribed'){$q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled',payload_encrypted=NULL,payload_json=NULL WHERE subscriber_id=? AND message_type='newsletter_campaign' AND status IN ('queued','failed')");$q->execute([$id]);}
+            $db->commit();reply(200,['ok'=>true]);
+        }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
+    }
     $ready=newsletter_ready($db);
     if($action==='newsletter-admin'){
         $dealers=$db->query("SELECT public_email,status FROM sd_dealer WHERE status='active'")->fetchAll();
