@@ -1,5 +1,5 @@
 // The server decides access on every request; this UI never grants a role.
-import {mountNewsletter} from './newsletter-admin.js?v=20261030m';
+import {mountNewsletter} from './newsletter-admin.js?v=20261030n';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Legacy internal company containers retain their memberships, but are not real dealers.
 function internalDealer(d){return ['Thitronik','SMARTDOCK Funktionstest'].includes(d.company_name)&&!d.public_email&&d.finder_status!=='approved';}
@@ -53,13 +53,14 @@ export function mountServerAdmin(root){
  }
  function dashboard(){
   if(disposed)return;const {dealers,memberships,user}=snapshot;
-  root.innerHTML=`<div class="admin-preview-banner"><span>HETZNER · TESTUMGEBUNG</span><button data-action="logout">Abmelden</button></div><header class="admin-heading"><div><p class="eyebrow">SMARTDOCK VERWALTUNG</p><h1>Guten Tag, ${escape(user.firstName)}.</h1><p>Händlerdaten, Zugänge und Anfragen an einem Ort.</p></div></header><nav class="admin-jump-nav" aria-label="Verwaltungsbereiche">${[['dealer-data','Händlerdaten'],['other-access','Weitere Händlerzugänge'],['configuration-requests','Konfigurationsanfragen'],['staff-area','Adminbereich']].map(([id,label])=>`<a href="?bereich=${id}" data-admin-page="${id}">${label}</a>`).join('')}</nav><section id="dealer-data" class="admin-card"><h2>Händlerdaten</h2>${companyEditor({id:0,country_code:"DE"})}<p>${dealers.filter(d=>!internalDealer(d)).length} Firmen · ${memberships.filter(m=>m.status==='pending').length} offene Zugangsfreigaben</p><label class="dealer-search">Nach Name, Unternehmen oder E-Mail suchen<input id="dealer-search" type="search" value="${escape(dealerQuery)}" placeholder="Händlerdaten durchsuchen …"></label><div id="dealer-results"></div><nav id="dealer-pagination" class="section-pagination" aria-label="Seiten der Händlerdaten"></nav></section><section id="other-access" class="admin-card"><h2>Händlerbereich – weitere Zugänge</h2><p>Zugänge ohne öffentliche Firmenzuordnung, etwa zum internen Testen. Du kannst sie einer bestehenden Firma zuordnen.</p>${extraAccessTable(memberships.filter(extraAccess))}</section><div class="admin-notice"></div><p class="admin-toast" role="status" aria-live="polite"></p>`;
+  root.innerHTML=`<div class="admin-preview-banner"><span>HETZNER · TESTUMGEBUNG</span><button data-action="logout">Abmelden</button></div><header class="admin-heading"><div><p class="eyebrow">SMARTDOCK VERWALTUNG</p><h1>Guten Tag, ${escape(user.firstName)}.</h1><p>Händlerdaten, Zugänge und Anfragen an einem Ort.</p></div></header><nav class="admin-jump-nav" aria-label="Verwaltungsbereiche">${[['dealer-data','Händlerdaten'],['newsletter','Newsletter'],['configuration-requests','Konfigurationsanfragen'],['staff-area','Adminbereich']].map(([id,label])=>`<a href="?bereich=${id}" data-admin-page="${id}">${label}</a>`).join('')}</nav><section id="dealer-data" class="admin-card"><h2>Händlerdaten</h2>${companyEditor({id:0,country_code:"DE"})}<p>${dealers.filter(d=>!internalDealer(d)).length} Firmen · ${memberships.filter(m=>m.status==='pending').length} offene Zugangsfreigaben</p><label class="dealer-search">Nach Name, Unternehmen oder E-Mail suchen<input id="dealer-search" type="search" value="${escape(dealerQuery)}" placeholder="Händlerdaten durchsuchen …"></label><div id="dealer-results"></div><nav id="dealer-pagination" class="section-pagination" aria-label="Seiten der Händlerdaten"></nav></section><section id="other-access" class="admin-card"><h2>Händlerbereich – weitere Zugänge</h2><p>Zugänge ohne öffentliche Firmenzuordnung, etwa zum internen Testen. Du kannst sie einer bestehenden Firma zuordnen.</p>${extraAccessTable(memberships.filter(extraAccess))}</section><div class="admin-notice"></div><p class="admin-toast" role="status" aria-live="polite"></p>`;
   dealerList();
  }
  async function load(){snapshot=await api('admin');dashboard();extraControls();showPage();}
  function showPage(){
-  const section=new URL(location.href).searchParams.get('bereich')||'';
-  const groups={'dealer-data':['dealer-data'],'other-access':['other-access'],'configuration-requests':['configuration-requests'],'staff-area':['staff-area','contact-newsletter','newsletter-studio']};
+  const requested=new URL(location.href).searchParams.get('bereich')||'';
+  const section=requested==='other-access'?'dealer-data':requested;
+  const groups={'dealer-data':['dealer-data','other-access'],'newsletter':['contact-newsletter','newsletter-studio'],'configuration-requests':['configuration-requests'],'staff-area':['staff-area']};
   root.querySelectorAll('.admin-card').forEach(el=>el.hidden=!(groups[section]||[]).includes(el.id));
   root.querySelector('.admin-jump-nav').classList.toggle('admin-home-tiles',!groups[section]);
   root.querySelector('.admin-notice').hidden=true;
