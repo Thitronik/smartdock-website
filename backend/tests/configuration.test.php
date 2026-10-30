@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require __DIR__.'/../private/configuration-report.php';
-use function Smartdock\{configuration_reference,configuration_price,configuration_summary,configuration_pdf};
+use function Smartdock\{configuration_reference,configuration_price,configuration_summary,configuration_pdf,configuration_nonbinding_notice};
 function expect(bool $value,string $message):void {if(!$value)throw new RuntimeException($message);}
 $attempts=[];
 $reference=configuration_reference(static function($candidate)use(&$attempts){$attempts[]=$candidate;return count($attempts)===3;});
@@ -31,3 +31,7 @@ echo "Configuration price, validation, summary and PDF checks passed.\n";
 
 foreach(['TCD','THC'] as $type){$selection=array_replace($base,['bugstrahlruder'=>true,'thrusterManufacturer'=>'QUICK ON/OFF','thrusterType'=>$type]);$price=configuration_price($selection);expect(str_contains(configuration_summary($contact,$selection,$price,'SD-1234-5678'),$type),'QUICK type included in summary');}
 try{configuration_price(array_replace($base,['bugstrahlruder'=>true,'thrusterManufacturer'=>'QUICK ON/OFF']));throw new LogicException('Missing QUICK type accepted');}catch(InvalidArgumentException){}
+
+$dealerSelection=$base; $dealerSelection["dealer"]=["company_name"=>"Einbaupartner Muster","street"=>"Hafenweg","house_number"=>"7","postal_code"=>"24340","city"=>"Eckernförde"];
+expect(str_contains(configuration_summary($contact,$dealerSelection,$p,"SD-1234-5678"),"Einbauhändler: Einbaupartner Muster"),"Selected installation partner in internal mail summary");
+expect(str_contains(configuration_nonbinding_notice(),"Angebotsvorbereitung"),"Customer notice purpose");

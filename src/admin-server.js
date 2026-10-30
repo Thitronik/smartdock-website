@@ -1,5 +1,5 @@
 // The server decides access on every request; this UI never grants a role.
-import {mountNewsletter} from './newsletter-admin.js?v=20261030n';
+import {mountNewsletter} from './newsletter-admin.js?v=20261030o';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Legacy internal company containers retain their memberships, but are not real dealers.
 function internalDealer(d){return ['Thitronik','SMARTDOCK Funktionstest'].includes(d.company_name)&&!d.public_email&&d.finder_status!=='approved';}

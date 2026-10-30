@@ -42,6 +42,9 @@ function configuration_price(array $s): array {
     return ['version'=>'website-2026-10','items'=>$lines,'subtotal'=>$subtotal,'bundleDiscount'=>-$bundle,'actionDiscount'=>-$discount,'totalPrice'=>round($subtotal-$bundle-$discount,2),'currency'=>$c['currency'],'vat'=>$c['vat']];
 }
 function configuration_money(float $amount,string $currency): string {return number_format($amount,2,',','.').' '.$currency;}
+function configuration_nonbinding_notice(): string {
+    return 'Durch das Zusammenstellen und Absenden deiner Konfiguration ist weder ein Vertrag noch eine Bestellung oder eine sonstige rechtliche beziehungsweise finanzielle Verpflichtung entstanden. Deine Konfiguration dient ausschließlich der unverbindlichen Angebotsvorbereitung.';
+}
 function configuration_summary(array $contact,array $s,array $price,string $reference): string {
     $out=['Referenz: '.$reference,'Name: '.$contact['name'],'E-Mail: '.$contact['email']];
     foreach(['company'=>'Unternehmen','phone'=>'Telefon'] as $key=>$label)if(!empty($contact[$key]))$out[]=$label.': '.$contact[$key];
