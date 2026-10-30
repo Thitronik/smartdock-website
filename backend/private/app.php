@@ -115,6 +115,7 @@ function run(array $config): never {
         ]);
     }
     if($action==='staff-invite'){staff_invite($db,$config,$user,$data);}
+    if($action==='staff-delete'){staff_delete($db,$config,$user,$data);}
     if($action==='staff-revoke'){staff_revoke($db,$config,$user,$data);}
     if($action==='dealer-confirmation-resend'){dealer_confirmation_reminder($db,$config,$user,$data);}
     if($action==='dealer-update') {
@@ -133,6 +134,22 @@ function run(array $config): never {
             $q=$db->prepare('SELECT id FROM sd_dealer WHERE id=? FOR UPDATE');$q->execute([$id]);if(!$q->fetch()){$db->rollBack();reply(404,['error'=>'Firma nicht gefunden.']);}
             $q=$db->prepare('UPDATE sd_dealer SET company_name=?,original_address=?,street=?,house_number=?,postal_code=?,city=?,country_code=?,public_email=?,public_phone=?,website=?,latitude=?,longitude=? WHERE id=?');
             $q->execute([...array_values($v),$lat,$lng,$id]);audit($db,(int)$user['id'],'dealer.updated','dealer',$id,['fields'=>array_keys($v)]);$db->commit();
+        }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
+        reply(200,['ok'=>true]);
+    }
+    if($action==='membership-delete') {
+        require_staff($user,['admin','approver']);
+        $id=filter_var($data['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        if(!$id)reply(400,['error'=>'Zugang fehlt.']);
+        $db->beginTransaction();
+        try {
+            $q=$db->prepare('SELECT m.id,m.status,u.email_normalized FROM sd_dealer_memberships m JOIN sd_users u ON u.id=m.user_id WHERE m.id=? FOR UPDATE');$q->execute([$id]);$target=$q->fetch();
+            if(!$target){$db->rollBack();reply(404,['error'=>'Zugang nicht gefunden.']);}
+            if(!access_can_delete($target['status'],$target['email_normalized']===staff_owner_email())){$db->rollBack();reply(409,['error'=>'Nur zuvor gesperrte Zugänge dürfen gelöscht werden. Das Marketing-Hauptkonto ist geschützt.']);}
+            $q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled' WHERE status IN ('queued','failed') AND user_token_id IN (SELECT id FROM sd_user_tokens WHERE membership_id=?)");$q->execute([$id]);
+            // Delete only this company access, not other memberships or the firm.
+            $q=$db->prepare("DELETE FROM sd_dealer_memberships WHERE id=? AND status='suspended'");$q->execute([$id]);
+            audit($db,(int)$user['id'],'membership.deleted','membership',$id,[]);$db->commit();
         }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
         reply(200,['ok'=>true]);
     }

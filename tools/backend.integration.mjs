@@ -39,7 +39,7 @@ try{
  assert.match(form.headers.get('content-security-policy'),/script-src 'self'/);assert.match(form.text,/src="\/api\/bootstrap-qr.js"/);
  await bootstrap.page('bootstrap&token='+initial.bootstrapToken);
  const reopened=await bootstrap.page('bootstrap');assert.equal(reopened.text.match(/data-testid="totp-secret"[^>]*>([A-Z2-7]+)</)[1],secret,'Reopening the same link preserves the authenticator key');
- assert.match(form.text,/<details class="setup-secret">/);assert.doesNotMatch(form.text,/<details[^>]*\sopen/);
+ assert.match(form.text,/<div class="setup-secret">/);assert.ok(form.text.indexOf('name="password"')<form.text.indexOf('id="setup-qr"'));
  const formCsrf=form.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1];
  assert.equal((await bootstrap.page('bootstrap&check=1',{csrf:'wrong'})).status,403);
  const probe=await bootstrap.page('bootstrap&check=1',{csrf:formCsrf});assert.equal(probe.status,200);assert.match(probe.text,/Verbindungsprüfung erfolgreich/);
@@ -141,6 +141,8 @@ try{
  assert.equal((await resetClient.page('dealer-password',{csrf:resetPage.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],password:'Fictional-Reset-Password!',repeat:'Fictional-Reset-Password!'})).status,200);
  assert.equal((await newcomer.call('dealer')).status,401,'Password reset revokes existing sessions');
  assert.equal((await admin.call('finder-decision',{id:1,status:'approved'})).status,200);assert.equal((await dealer.call('dealer')).status,200);
+ assert.equal((await admin.call('membership-delete',{id:1})).status,409,'Active dealer access cannot be deleted');
+ assert.equal((await guest.call('membership-delete',{id:1})).status,401);
  assert.equal((await admin.call('membership-decision',{id:1,status:'suspended'})).status,200);assert.equal((await dealer.call('dealer')).status,403);
  // Public forms persist only validated requests; email links require an explicit POST.
  const publicStatus=()=>JSON.parse(execFileSync(php,['backend/tests/fixture.php','--public-status'],{env,encoding:'utf8'}));
@@ -212,6 +214,8 @@ try{
  const staffRows=(await admin.call('admin')).body.staffManagement.accounts;
  assert.equal(staffRows.find(a=>a.email==='marketing@thitronik.de').protected,true);
  const added=staffRows.find(a=>a.email===staffInput.email);
+ assert.equal((await admin.call('staff-delete',{id:added.id})).status,409,'Active admin cannot be deleted');
+ assert.equal((await admin.call('staff-delete',{id:1})).status,409,'Owner cannot be deleted');
  assert.equal((await admin.call('staff-revoke',{id:added.id})).status,200);
  assert.equal((await staffClient.call('admin')).status,401,'Revocation invalidates active sessions');
  assert.equal((await admin.call('staff-invite',{...staffInput,email:'ci.cancelled@thitronik.de'})).status,200);
@@ -220,6 +224,11 @@ try{
  const cancelledMail=(await mails()).filter(m=>m.type==='staff_activation').at(-1);
  const cancelledClient=client();await cancelledClient.page('staff-invitation&token='+cancelledMail.body.match(/token=([a-f0-9]{64})/)[1]);
  assert.equal((await cancelledClient.page('staff-invitation')).status,403,'Revoked invitation cannot activate');
+ assert.equal((await admin.call('staff-delete',{id:cancelled.id})).status,200,'Suspended admin can be deleted');
+ assert.ok(!(await admin.call('admin')).body.staffManagement.accounts.some(a=>a.id===cancelled.id));
+ const firmsBefore=(await admin.call('admin')).body.dealers.length;
+ assert.equal((await admin.call('membership-delete',{id:1})).status,200,'Suspended membership can be deleted');
+ const afterDelete=(await admin.call('admin')).body;assert.ok(!afterDelete.memberships.some(m=>m.id===1));assert.equal(afterDelete.dealers.length,firmsBefore,'Deleting access preserves firms');
  const replay=client();await replay.call('session');assert.equal((await replay.call('login',{email:'marketing@thitronik.de',password:'FictionalPassword-OnlyForCI!',otp:fixture.otp})).status,401);
  execFileSync(php,['backend/tests/fixture.php','--remove-proof'],{env});assert.equal((await admin.call('admin')).status,403,'Mail proof is checked on existing sessions');
  const noProof=client();await noProof.call('session');assert.equal((await noProof.call('login',{email:'marketing@thitronik.de',password:setup.password,otp:otp(secret)})).status,401);

@@ -124,3 +124,8 @@ function store_staff_secret(array $config,string $email,string $secret): void {
     $file=@fopen(mfa_path($config,$email),'x');if(!$file)throw new \RuntimeException('MFA already configured.');
     try{chmod(mfa_path($config,$email),0600);if(fwrite($file,$bytes)!==strlen($bytes)||!fflush($file))throw new \RuntimeException('MFA unavailable.');}finally{fclose($file);}
 }
+
+// Deletion never substitutes for the explicit suspension step.
+function access_can_delete(string $status,bool $protected=false): bool {
+    return $status==='suspended'&&!$protected;
+}

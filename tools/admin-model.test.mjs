@@ -102,4 +102,5 @@ test('Händlerdatensuche findet Firmennamen, Mitarbeiter und E-Mail ohne fremde 
  const dealers=[{id:1,company_name:'Bootswerft',public_email:'kontakt@werft.example'},{id:2,company_name:'Marina',public_email:'info@marina.example'}];const members=[{dealer_id:1,first_name:'Brigitte',last_name:'Müller',email:'brigitte@werft.example'}];
  for(const query of ['boots','BRIGITTE','müller','brigitte@werft.example'])assert.equal(context.search(dealers,members,query)[0].id,1);
  assert.equal(context.search(dealers,members,'unbekannt').length,0);assert.equal(context.search(dealers,members,'').length,2);
+ const withInternal=[...dealers,{id:3,company_name:'Thitronik',finder_status:'pending'},{id:4,company_name:'SMARTDOCK Funktionstest',finder_status:'pending'},{id:5,company_name:'Thitronik GmbH',public_email:'team@thitronik.de',finder_status:'approved'}];assert.equal(context.search(withInternal,members,'').length,3);assert.equal(context.search(withInternal,members,'Thitronik')[0].id,5);
 });

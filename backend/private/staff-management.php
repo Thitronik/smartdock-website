@@ -62,6 +62,26 @@ function staff_revoke(\PDO $db,array $config,array $owner,array $data): never {
     }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
     reply(200,['ok'=>true]);
 }
+function staff_delete(\PDO $db,array $config,array $owner,array $data): never {
+    require_staff_owner($owner);
+    $id=filter_var($data['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+    if(!$id)reply(400,['error'=>'Konto fehlt.']);
+    $db->beginTransaction();
+    try {
+        $q=$db->prepare('SELECT id,status,email_normalized FROM sd_users WHERE id=? FOR UPDATE');$q->execute([$id]);$target=$q->fetch();
+        if(!$target){$db->rollBack();reply(404,['error'=>'Konto nicht gefunden.']);}
+        if(!access_can_delete($target['status'],$target['email_normalized']===staff_owner_email())){$db->rollBack();reply(409,['error'=>'Nur zuvor gesperrte Adminzugänge dürfen gelöscht werden. Das Marketing-Hauptkonto ist geschützt.']);}
+        $q=$db->prepare("SELECT id FROM sd_admin_audit_events WHERE action='staff.invited' AND target_type='user' AND target_id=? UNION SELECT user_id FROM sd_staff_roles WHERE user_id=? LIMIT 1");$q->execute([$id,$id]);
+        if(!$q->fetchColumn()){$db->rollBack();reply(404,['error'=>'Kein Adminzugang.']);}
+        $q=$db->prepare('SELECT id FROM sd_dealer_memberships WHERE user_id=? LIMIT 1');$q->execute([$id]);
+        if($q->fetchColumn()){$db->rollBack();reply(409,['error'=>'Bitte zuerst die Händlerzugänge dieses Kontos sperren und löschen.']);}
+        $q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled' WHERE user_id=? AND status IN ('queued','failed')");$q->execute([$id]);
+        $q=$db->prepare("DELETE FROM sd_users WHERE id=? AND status='suspended'");$q->execute([$id]);
+        $file=mfa_path($config,$target['email_normalized']);if(is_file($file)&&!unlink($file))throw new \RuntimeException('Authenticator cleanup failed.');
+        audit($db,(int)$owner['id'],'staff.deleted','user',$id,[]);$db->commit();
+    }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
+    reply(200,['ok'=>true]);
+}
 function staff_invitation_page(array $config): never {
     require_once __DIR__.'/bootstrap.php';
     header('Content-Type: text/html; charset=UTF-8');header('Referrer-Policy: no-referrer');

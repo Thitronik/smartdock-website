@@ -11,6 +11,9 @@ check(Smartdock\matching_dealer_domain('new@boat.example.evil',$firms)===null,'D
 check(Smartdock\matching_dealer_domain('new@boat.example',array_merge($firms,[['id'=>3,'public_email'=>'sales@boat.example']]))===null,'Shared domain across firms requires manual assignment');
 check(Smartdock\matching_dealer_domain('new@gmail.com',[['id'=>1,'public_email'=>'other@gmail.com']])===null,'Freemail never automatically groups companies');
 check(Smartdock\matching_dealer_domain('new@thitronik.de',[['id'=>1,'public_email'=>'other@thitronik.de']])===null,'Internal test access not automatically assigned');
+foreach(['active','invited','approved','pending','rejected',''] as $state)check(!Smartdock\access_can_delete($state),'Unblocked access cannot be deleted: '.$state);
+check(Smartdock\access_can_delete('suspended'),'Suspended access can be deleted');
+check(!Smartdock\access_can_delete('suspended',true),'Protected owner cannot be deleted even when suspended');
 $allow=['admin@example.invalid'];
 check(staff_allowed(' Admin@Example.invalid ',$allow,'example.invalid'),'Exact normalized staff identity');
 check(!staff_allowed('other@example.invalid',$allow,'example.invalid'),'Same domain is insufficient');
