@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace Smartdock;
 require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/staff-management.php';
+require_once __DIR__ . '/newsletter.php';
 
 function reply(int $status, array $data): never {
     http_response_code($status);
@@ -56,12 +57,16 @@ function run(array $config): never {
         bootstrap_request($config);
     }
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-    $read = in_array($action, ['session', 'admin', 'dealer','finder'], true);
+    $read = in_array($action, ['session', 'admin', 'dealer','finder','newsletter-admin'], true);
     if (($read && $method !== 'GET') || (!$read && $method !== 'POST')) reply(405, ['error' => 'Methode nicht erlaubt.']);
     $data = [];
     if (!$read) {
         if (($_SERVER['HTTP_ORIGIN'] ?? '') !== $config['origin']
             || !hash_equals($_SESSION['csrf'], $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) reply(403, ['error' => 'Anfrage nicht erlaubt.']);
+        if ($action === 'newsletter-upload') {
+            if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 5300000) reply(413, ['error'=>'Das Bild darf höchstens 5 MB groß sein.']);
+            if (strtolower(trim(explode(';', $_SERVER['CONTENT_TYPE'] ?? '')[0])) !== 'multipart/form-data') reply(415, ['error'=>'Bilddatei erforderlich.']);
+        } else {
         if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 16384) reply(413, ['error' => 'Anfrage zu groß.']);
         if (strtolower(trim(explode(';', $_SERVER['CONTENT_TYPE'] ?? '')[0])) !== 'application/json') reply(415, ['error' => 'JSON erforderlich.']);
         $raw = file_get_contents('php://input', false, null, 0, 16385);
@@ -70,6 +75,7 @@ function run(array $config): never {
         catch (\JsonException) { reply(400, ['error' => 'Ungültige Anfrage.']); }
         if (!$data instanceof \stdClass) reply(400, ['error' => 'Ungültige Anfrage.']);
         $data = (array)$data;
+        }
     }
     $db = database($config);
     $user = current_user($db, $config);
@@ -100,6 +106,7 @@ function run(array $config): never {
         reply(200, ['companies'=>$companies]);
     }
     require_staff($user);
+    if(in_array($action,['newsletter-upload','newsletter-admin','newsletter-save','newsletter-preview','newsletter-test','newsletter-send'],true))newsletter_route($db,$config,$user,$action,$data);
     if ($action === 'admin') {
         reply(200, [
             'user'=>public_user($user),

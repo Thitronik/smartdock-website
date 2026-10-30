@@ -1,4 +1,5 @@
 // The server decides access on every request; this UI never grants a role.
+import {mountNewsletter} from './newsletter-admin.js?v=20261030j';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Legacy internal company containers retain their memberships, but are not real dealers.
 function internalDealer(d){return ['Thitronik','SMARTDOCK Funktionstest'].includes(d.company_name)&&!d.public_email&&d.finder_status!=='approved';}
@@ -21,7 +22,7 @@ export function mountServerAdmin(root){
  const previewNote=document.getElementById('preview-note');if(previewNote)previewNote.textContent='HETZNER · TESTUMGEBUNG · Verwaltung mit separater Testdatenbank. Änderungen betreffen ausschließlich die Testseite.';
  const controller=new AbortController();let csrf='',disposed=false,busy=false,snapshot=null,dealerQuery='',dealerPage=1;
  async function api(action,data){
-  const response=await fetch('/api/index.php?action='+encodeURIComponent(action),{method:data===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:data===undefined?{}:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:data===undefined?undefined:JSON.stringify(data)});
+  const response=await fetch('/api/index.php?action='+encodeURIComponent(action),{method:data===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:data===undefined?{}:data instanceof FormData?{'X-CSRF-Token':csrf}:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:data===undefined?undefined:data instanceof FormData?data:JSON.stringify(data)});
   let result;try{result=await response.json();}catch{throw Error('Der Server hat keine gültige Antwort geliefert.');}
   if(!response.ok)throw Object.assign(Error(result.error||'Anfrage fehlgeschlagen.'),{status:response.status});
   if(result.csrf)csrf=result.csrf;return result;
@@ -70,6 +71,7 @@ export function mountServerAdmin(root){
    notice.before(staff);
   }else{const staff=document.createElement('section');staff.className='admin-card';staff.id='staff-area';staff.innerHTML='<h2>Adminbereich</h2><p>Admin-Einladungen werden vom geschützten Hauptkonto verwaltet.</p>';notice.before(staff);}
   const mail=document.createElement('details');mail.innerHTML='<summary>Versandstatus</summary><p>'+mailStatus.map(s=>escape(s.status)+': '+Number(s.count)).join(' · ')+'</p>'+(snapshot.user.roles.includes('admin')?'<button data-action="mail-retry">Fällige Mailaufträge erneut prüfen</button>':'');root.querySelector('#staff-area').append(mail);
+  if(snapshot.user.roles.includes('admin')){const studio=document.createElement('section');studio.className='admin-card';studio.id='newsletter-studio';other.after(studio);mountNewsletter(studio,api);}
 
  }
  async function submit(event){if(event.target.id==='staff-invite'){event.preventDefault();if(busy||!event.target.reportValidity())return;busy=true;try{await api('staff-invite',Object.fromEntries(new FormData(event.target)));await load();notice('Admin-Einladung zum Versand übergeben. Zugang erst nach E-Mail-Bestätigung, Passwort und Authenticator-Einrichtung.');}catch(error){notice(error.message);}finally{busy=false;}return;}if(event.target.classList.contains('company-edit')||event.target.classList.contains('company-assign')){event.preventDefault();if(busy||!event.target.reportValidity())return;busy=true;try{await api(event.target.classList.contains('company-edit')?'dealer-update':'membership-company',Object.fromEntries(new FormData(event.target)));await load();notice('Änderung gespeichert.');}catch(error){notice(error.message);}finally{busy=false;}return;}if(event.target.id!=='staff-login')return;event.preventDefault();if(busy||!event.target.reportValidity())return;busy=true;const form=event.target;const button=form.querySelector('button');button.disabled=true;

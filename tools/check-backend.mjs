@@ -11,6 +11,7 @@ const output=php(['backend/tests/security.test.php']);
 if(!output.includes('65 security checks passed.'))throw Error(output);
 console.log(output.trim());
 console.log('PHP syntax checks passed.');
+console.log(php(['backend/tests/newsletter.test.php']).trim());
 const cases=[];
 for(const country of Object.keys(countries))for(let bits=0;bits<128;bits++){
  const selected={ecu:bits&1?'2+ Motoren':null,tcu:bits&2?['Bugstrahlruder',...(bits&4?['Heckstrahlruder']:[])]:[],acu:bits&8?'2 Ankerwinden':'1 Ankerwinde',wcu:bits&16?'2 Winches':null,horn:!!(bits&32)};

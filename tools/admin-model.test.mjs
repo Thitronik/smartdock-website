@@ -2,9 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createDemoState,canAccessDealerArea,isFinderVisible,decideMembership,moveMembership,prepareInvitation,saveDealer} from '../src/admin-model.js';
 import {prepareDealerImport} from './prepare-dealer-import.mjs';
+import {newsletterCsv} from '../src/newsletter-admin.js';
+
+test('Newsletterexport enthält nur aktive Empfänger, maskiert Formeln und Anführungszeichen',()=>{
+ const csv=newsletterCsv([{email:'=attack@example.test',group:'dealer',status:'confirmed',language:'de',created_at:'2026-10-30'},{email:'inactive@example.test',status:'unsubscribed'},{email:'blocked@example.test',status:'blocked'},{email:'pending@example.test',status:'pending'}]);
+ assert.ok(csv.startsWith('\ufeff'));assert.match(csv,/"'=attack@example.test"/);assert.match(csv,/Händler/);assert.doesNotMatch(csv,/inactive|blocked|pending/);
+});
 
 test('Konfigurationsübersicht zeigt Anschrift, Komponenten und Summen ohne Rohdaten oder HTML-Ausführung',async()=>{
- const {readFile}=await import('node:fs/promises');const vm=await import('node:vm');const source=await readFile(new URL('../src/admin-server.js',import.meta.url),'utf8');const context={Intl};vm.createContext(context);vm.runInContext(source.replace('export function','function')+';this.render=configurationDetails',context);
+ const {readFile}=await import('node:fs/promises');const vm=await import('node:vm');const source=await readFile(new URL('../src/admin-server.js',import.meta.url),'utf8');const context={Intl};vm.createContext(context);vm.runInContext(source.replace(/^import .*;$/m,'').replace('export function','function')+';this.render=configurationDetails',context);
  const html=context.render({selection_json:JSON.stringify({street:'Musterstraße',houseNumber:'12',postalCode:'24340',city:'Eckernförde',country:'Deutschland',dealer:{company_name:'<img src=x onerror=alert(1)>'}}),price_snapshot_json:JSON.stringify({items:[{name:'WCU (1 Ankerwinde)',price:1250}],subtotal:1250,totalPrice:1250,vat:19,currency:'EUR'})});
  assert.match(html,/Musterstraße 12/);assert.match(html,/WCU \(1 Ankerwinde\)/);assert.match(html,/1\.250,00/);assert.match(html,/&lt;img/);assert.doesNotMatch(html,/<img|<pre|selection_json|totalPrice/);
  assert.match(context.render({selection_json:'{}'}),/kein Preisstand gespeichert/);
@@ -87,7 +93,7 @@ test('Adminlogin aktualisiert Sitzung vor Passwortprüfung; Fehler senden keine 
    const action=new URL(url,'https://test.smartdock.de').searchParams.get('action');calls.push({action,options});
    if(action==='session'){sessions++;return{ok:!(refreshFails&&sessions===2),status:503,json:async()=>({csrf:sessions===1?'old':'fresh',user:null,error:'Sitzung nicht erreichbar'})};}
    assert.equal(action,'login');assert.equal(options.headers['X-CSRF-Token'],'fresh');return{ok:false,status:401,json:async()=>({error:'Test: Zugangsdaten abgelehnt'})};
-  }};vm.createContext(context);vm.runInContext(source.replace('export function','function')+';mountServerAdmin(root)',Object.assign(context,{root}));
+  }};vm.createContext(context);vm.runInContext(source.replace(/^import .*;$/m,'').replace('export function','function')+';mountServerAdmin(root)',Object.assign(context,{root}));
   await new Promise(resolve=>setImmediate(resolve));const button={disabled:false,isConnected:true};const password={value:'fixture-password'},otp={value:'123456'};
   const form={id:'staff-login',classList:{contains:()=>false},reportValidity:()=>true,querySelector:s=>s==='button'?button:s.includes('password')?password:otp};
   await handlers.submit({target:form,preventDefault(){}});
@@ -98,7 +104,7 @@ test('Adminlogin aktualisiert Sitzung vor Passwortprüfung; Fehler senden keine 
 });
 
 test('Händlerdatensuche findet Firmennamen, Mitarbeiter und E-Mail ohne fremde Treffer',async()=>{
- const {readFile}=await import('node:fs/promises');const vm=await import('node:vm');const source=await readFile(new URL('../src/admin-server.js',import.meta.url),'utf8');const context={Intl};vm.createContext(context);vm.runInContext(source.replace('export function','function')+';this.search=filterDealerRows',context);
+ const {readFile}=await import('node:fs/promises');const vm=await import('node:vm');const source=await readFile(new URL('../src/admin-server.js',import.meta.url),'utf8');const context={Intl};vm.createContext(context);vm.runInContext(source.replace(/^import .*;$/m,'').replace('export function','function')+';this.search=filterDealerRows',context);
  const dealers=[{id:1,company_name:'Bootswerft',public_email:'kontakt@werft.example'},{id:2,company_name:'Marina',public_email:'info@marina.example'}];const members=[{dealer_id:1,first_name:'Brigitte',last_name:'Müller',email:'brigitte@werft.example'}];
  for(const query of ['boots','BRIGITTE','müller','brigitte@werft.example'])assert.equal(context.search(dealers,members,query)[0].id,1);
  assert.equal(context.search(dealers,members,'unbekannt').length,0);assert.equal(context.search(dealers,members,'').length,2);

@@ -24,3 +24,11 @@
 .sd-admin-portal :is(#configuration-requests,#contact-newsletter)>details[open],
 .sd-admin-portal :is(#configuration-requests,#contact-newsletter)>details:focus-within{border-color:#bceb02}
 @media(prefers-reduced-motion:reduce){.sd-admin-portal :is(#configuration-requests,#contact-newsletter)>details{transition:none}}
+
+/* Newsletterstudio uses the same portal cards and brand color. */
+.sd-admin-portal .newsletter-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:24px 0}
+.sd-admin-portal .newsletter-editor{border:1px solid #bceb02;border-radius:18px;padding:24px;margin:24px auto;max-width:900px;scroll-margin-top:140px}
+.sd-admin-portal .newsletter-editor label{display:block;margin:20px auto;max-width:700px}
+.sd-admin-portal .newsletter-editor input,.sd-admin-portal .newsletter-editor textarea{width:100%;box-sizing:border-box}
+.sd-admin-portal .newsletter-review iframe{display:block;width:100%;height:680px;border:0;background:white;border-radius:12px}
+@media(max-width:600px){.sd-admin-portal .newsletter-editor{padding:14px}.sd-admin-portal .newsletter-actions button{width:100%}}
