@@ -3,6 +3,7 @@ import {mountNewsletter} from './newsletter-admin.js?v=20261030k';
 const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // Legacy internal company containers retain their memberships, but are not real dealers.
 function internalDealer(d){return ['Thitronik','SMARTDOCK Funktionstest'].includes(d.company_name)&&!d.public_email&&d.finder_status!=='approved';}
+function extraDealerAccess(m,dealers){const d=dealers.find(d=>Number(d.id)===Number(m.dealer_id));return !d||internalDealer(d);}
 function filterDealerRows(dealers,memberships,query){const q=query.trim().toLocaleLowerCase('de');return dealers.filter(d=>!internalDealer(d)).filter(d=>[d.company_name,d.public_email,...memberships.filter(m=>Number(m.dealer_id)===Number(d.id)).flatMap(m=>[m.first_name,m.last_name,m.email,m.first_name+' '+m.last_name])].some(v=>String(v||'').toLocaleLowerCase('de').includes(q)));}
 function configurationDetails(record){
  let s={},p=null;try{s=JSON.parse(record.selection_json||'{}');p=JSON.parse(record.price_snapshot_json||'null');}catch{return '<p>Die gespeicherte Konfiguration konnte nicht gelesen werden.</p>';}
@@ -34,7 +35,7 @@ export function mountServerAdmin(root){
  }
  const statuses={approved:'Freigegeben',unlisted:'Nicht auf der Karte',suspended:'Gesperrt',pending:'Wartet auf Prüfung',rejected:'Abgelehnt'};
  const canApprove=()=>snapshot.user.roles.some(x=>['admin','approver'].includes(x));
- const extraAccess=m=>{const d=snapshot.dealers.find(d=>Number(d.id)===Number(m.dealer_id));return !d||(d.finder_status!=='approved'&&!d.public_email);};
+ const extraAccess=m=>extraDealerAccess(m,snapshot.dealers);
  function memberAction(m){if(!canApprove())return '';const protectedAccount=m.email.toLowerCase()==='marketing@thitronik.de';return `${m.status!=='approved'?`<button data-membership="${Number(m.id)}" data-status="approved">Zugang freigeben</button>`:''}${m.status!=='suspended'?`<button data-membership="${Number(m.id)}" data-status="suspended">Zugang sperren</button>`:protectedAccount?'':`<button class="delete-access" data-membership-delete="${Number(m.id)}">Zugang löschen</button>`}`;}
 
  function assignment(m){return canApprove()?`<details><summary>Zur Firma hinzufügen</summary><form class="company-assign"><input type="hidden" name="id" value="${Number(m.id)}"><label>Firma auswählen<select name="dealer_id" required><option value="">Bitte auswählen …</option>${snapshot.dealers.filter(d=>!internalDealer(d)&&Number(d.id)!==Number(m.dealer_id)).map(d=>`<option value="${Number(d.id)}">${escape(d.company_name)}</option>`).join('')}</select></label><p>Nach einem Firmenwechsel muss der Zugang erneut freigegeben werden.</p><button>Zuordnung speichern</button></form></details>`:'';}

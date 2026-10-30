@@ -151,6 +151,7 @@ function newsletter_route(\PDO $db,array $config,array $user,string $action,arra
     if($action==='newsletter-test'){
         // Active, verified administrators only; never a client-supplied recipient.
         $recipients=$db->query("SELECT DISTINCT u.email FROM sd_users u JOIN sd_staff_roles r ON r.user_id=u.id WHERE u.status='active' AND u.email_verified_at IS NOT NULL AND r.role='admin' AND r.revoked_at IS NULL")->fetchAll(\PDO::FETCH_COLUMN);
+        $recipients=array_values(array_filter($recipients,static fn($email)=>str_ends_with(strtolower($email),'@'.($config['staff_email_domain']??'thitronik.de'))));
         $testLink='';
         $attachment=newsletter_attachment($content,$testLink,$config);
         $db->beginTransaction();

@@ -14,6 +14,7 @@ if(count($argv)===1){
  $config=['origin'=>'https://test.smartdock.de','dsn'=>$dsn,'database_user'=>getenv('SD_TEST_DB_USER'),'database_password'=>getenv('SD_TEST_DB_PASSWORD'),'state_directory'=>$root.'/state','session_directory'=>$root.'/sessions','mfa_directory'=>$root.'/mfa','rate_key'=>bin2hex(random_bytes(32)),'dummy_password_hash'=>password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT),'staff_email_domain'=>'thitronik.de','mail_from'=>'activation-ci-fixture@smartdock.de','staff_allowlist'=>['marketing@thitronik.de'],'staff_totp_secrets'=>[],'bootstrap'=>['token_hash'=>hash('sha256',$token),'email'=>'marketing@thitronik.de','expires_at'=>time()+3600]];
  $config['dealer_approval_email']='management@example.invalid';
  $config['inquiry_email']='inquiries@example.invalid';
+ $config['newsletter_test_enabled']=true;$config['newsletter_footer']='SMARTDOCK CI fixture';
  file_put_contents($root.'/config.php','<?php return '.var_export($config,true).';');chmod($root.'/config.php',0600);
  echo json_encode(['bootstrapToken'=>$token],JSON_THROW_ON_ERROR);exit;
 }

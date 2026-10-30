@@ -191,6 +191,11 @@ try{
  assert.equal((await staffClient.call('admin')).body.staffManagement,null);
  assert.equal((await staffClient.call('staff-invite',{...staffInput,email:'ci.other@thitronik.de'})).status,403);
  assert.equal((await staffClient.call('staff-revoke',{id:1})).status,403);
+ const campaign=await admin.call('newsletter-save',{audience:'customer',subject:'CI newsletter',title:'CI proof',text:'Fictional newsletter content',button_label:'More',button_url:'https://example.invalid'});assert.equal(campaign.status,200);
+ assert.equal((await dealer.call('newsletter-test',{id:campaign.body.id})).status,403);
+ assert.equal((await admin.call('newsletter-test',{id:campaign.body.id})).status,200);
+ const testNewsletters=(await mails()).filter(m=>m.type==='newsletter_test');assert.deepEqual(testNewsletters.map(m=>m.to).sort(),['marketing@thitronik.de',staffInput.email].sort());
+ for(const mail of testNewsletters){assert.equal(mail.attachments.length,1);assert.equal(Buffer.from(mail.attachments[0].base64,'base64').subarray(0,5).toString(),'%PDF-');assert.match(mail.html,/Testnewsletter – kein Abonnement/);assert.doesNotMatch(mail.html,/haendlerbereich/);}
  const staffRows=(await admin.call('admin')).body.staffManagement.accounts;
  assert.equal(staffRows.find(a=>a.email==='marketing@thitronik.de').protected,true);
  const added=staffRows.find(a=>a.email===staffInput.email);
