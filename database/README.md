@@ -1,5 +1,14 @@
 # SMARTDOCK Datenbank
 
+## Newsletterstudio – 30.10.2026
+
+Migration `005_newsletter_campaigns.sql` wurde nach einer privaten SQL-Sicherung
+auf **smartda_test** ausgeführt; phpMyAdmin bestätigte beide Anweisungen erfolgreich.
+Nicht erneut ausführen. Sie ergänzt `sd_newsletter_campaigns` und Kampagnenbezüge
+sowie zwei Mailtypen in der Outbox. Die Produktivdatenbank wurde nicht verändert.
+Der Testversand ist aktiviert, der Gruppenversand bleibt bis zum Abschluss der
+Versandprüfung deaktiviert. Details: [Newsletterstudio](../docs/betrieb/newsletterstudio.md).
+
 ## Aktueller Teststand – 28.10.2026
 
 Die getrennte Hetzner-Datenbank `smartda_test` enthält Migrationen 001, 002, 003 und

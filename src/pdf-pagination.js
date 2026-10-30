@@ -93,6 +93,7 @@ export async function savePaginatedPdf(element, renderCanvas, pdf, filename) {
   document.body.appendChild(element);
   try {
     await document.fonts?.ready;
+    await Promise.all([...element.querySelectorAll('img')].map(image => image.decode()));
     const width = element.getBoundingClientRect().width;
     const pdfWidth = pdf.internal.pageSize.getWidth();
     const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -108,6 +109,16 @@ export async function savePaginatedPdf(element, renderCanvas, pdf, filename) {
     const capacity = Math.floor((pdfHeight * width / pdfWidth - 2 * margin) * scale) / scale;
     const raster = canvas.getContext('2d');
     if (!raster) throw new Error('PDF-Bild konnte nicht gelesen werden');
+    // Das Markenbild separat auftragen: der übernommene HTML-Rasterer lässt
+    // eingebettete PNGs in dieser Vorlage trotz erfolgreichem Laden aus.
+    const origin = element.getBoundingClientRect();
+    for (const logo of element.querySelectorAll('img[data-pdf-logo]')) {
+      const box = logo.getBoundingClientRect();
+      raster.save();
+      raster.setTransform(1, 0, 0, 1, 0, 0);
+      raster.drawImage(logo, (box.left - origin.left) * scale, (box.top - origin.top) * scale, box.width * scale, box.height * scale);
+      raster.restore();
+    }
     const lines = pdfInkLines(raster.getImageData(0, 0, canvas.width, canvas.height), scale);
     const bounds = measurePdf(element, capacity);
     bounds.bottom = Math.min(canvas.height / scale, Math.max(bounds.bottom, (lines.at(-1)?.end || 0) + 2));

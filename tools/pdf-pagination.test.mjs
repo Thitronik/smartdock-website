@@ -65,12 +65,13 @@ test('Freitext bleibt Text und kann das PDF-Layout nicht durch HTML verändern',
 
 test('Rasterausschnitte sind fortlaufend, mit Seitenrändern und ohne Negativpositionen', async () => {
   const original = { document: globalThis.document, NodeFilter: globalThis.NodeFilter, getComputedStyle: globalThis.getComputedStyle };
-  const images = [], crops = []; let removed = false, saved = '', pageCount = 1;
-  const rect = { width: 800, height: 2200, top: 0, bottom: 2200 };
+  const images = [], crops = [], logoDraws = []; let logoDecoded=false; let removed = false, saved = '', pageCount = 1;
+  const rect = { left:0, width: 800, height: 2200, top: 0, bottom: 2200 };
   const totals = { getBoundingClientRect: () => ({ top: 1900, bottom: 2100 }) };
+  const logo = { decode: async()=>{logoDecoded=true;},getBoundingClientRect:()=>({left:76,top:72,width:260,height:27}) };
   const footer = { getBoundingClientRect: () => ({ top: 2120, bottom: 2140 }) };
   const element = { getBoundingClientRect: () => rect, remove: () => { removed = true; },
-    querySelectorAll: selector => selector === '[data-pdf-keep]' ? [totals, footer] : [],
+    querySelectorAll: selector => selector === '[data-pdf-keep]' ? [totals, footer] : ['img','img[data-pdf-logo]'].includes(selector)?[logo]:[],
     querySelector: selector => selector === '[data-pdf-totals]' ? totals : footer };
   const pdf = { internal: { pageSize: { getWidth: () => 210, getHeight: () => 297 } },
     addImage: (...args) => images.push(args), addPage: () => pageCount++, save: name => { saved = name; } };
@@ -80,7 +81,8 @@ test('Rasterausschnitte sind fortlaufend, mit Seitenrändern und ohne Negativpos
   globalThis.NodeFilter = { SHOW_TEXT: 4 };
   globalThis.getComputedStyle = () => ({ paddingTop: '60px', paddingBottom: '60px' });
   try {
-    await savePaginatedPdf(element, async () => ({ width: 1600, height: 4400, getContext: () => ({ getImageData: () => ({ data: new Uint8ClampedArray(0), width: 0, height: 0 }) }) }), pdf, 'test.pdf');
+    await savePaginatedPdf(element, async () => ({ width: 1600, height: 4400, getContext: () => ({ save(){},restore(){},setTransform(...args){assert.deepEqual(args,[1,0,0,1,0,0]);},drawImage(...args){logoDraws.push(args);}, getImageData: () => ({ data: new Uint8ClampedArray(0), width: 0, height: 0 }) }) }), pdf, 'test.pdf');
+    assert.equal(logoDecoded,true);assert.deepEqual(logoDraws[0],[logo,152,144,520,54]);
     assert.equal(saved, 'test.pdf'); assert.equal(removed, true);
     assert.equal(images.length, pageCount);
     assert.equal(crops[0][2], 120);

@@ -33,7 +33,9 @@
           const language=location.pathname.match(/^\/(en|fr|nl|es)(?:\/|$)/)?.[1]||'de';
           const response=await originalFetch('/api/index.php?action='+actions[match[1]],{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrf},body:JSON.stringify({...data,language,sd_website:form?.querySelector('[name="sd_website"]')?.value||'',privacy:!!form?.querySelector('[data-sd-privacy]')})});
           if(!response.ok)return response;
-          const accepted=await response.json();return new Response(JSON.stringify({...data,...accepted,preview:false}),{status:200,headers:{'Content-Type':'application/json'}});
+          const accepted=await response.json();
+          const reference=match[1]==='configuration_requests'?{referenceNumber:accepted.id}:{};
+          return new Response(JSON.stringify({...data,...accepted,...reference,preview:false}),{status:200,headers:{'Content-Type':'application/json'}});
         }catch{return new Response(JSON.stringify({message:'SMARTDOCK test backend unavailable.'}),{status:503,headers:{'Content-Type':'application/json'}});}
       }
       if (match[1] === 'configuration_requests') {

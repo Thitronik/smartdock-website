@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace Smartdock;
 require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/staff-management.php';
+require_once __DIR__ . '/newsletter.php';
 
 function reply(int $status, array $data): never {
     http_response_code($status);
@@ -56,12 +57,16 @@ function run(array $config): never {
         bootstrap_request($config);
     }
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-    $read = in_array($action, ['session', 'admin', 'dealer','finder'], true);
+    $read = in_array($action, ['session', 'admin', 'dealer','finder','newsletter-admin'], true);
     if (($read && $method !== 'GET') || (!$read && $method !== 'POST')) reply(405, ['error' => 'Methode nicht erlaubt.']);
     $data = [];
     if (!$read) {
         if (($_SERVER['HTTP_ORIGIN'] ?? '') !== $config['origin']
             || !hash_equals($_SESSION['csrf'], $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) reply(403, ['error' => 'Anfrage nicht erlaubt.']);
+        if ($action === 'newsletter-upload') {
+            if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 5300000) reply(413, ['error'=>'Das Bild darf höchstens 5 MB groß sein.']);
+            if (strtolower(trim(explode(';', $_SERVER['CONTENT_TYPE'] ?? '')[0])) !== 'multipart/form-data') reply(415, ['error'=>'Bilddatei erforderlich.']);
+        } else {
         if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 16384) reply(413, ['error' => 'Anfrage zu groß.']);
         if (strtolower(trim(explode(';', $_SERVER['CONTENT_TYPE'] ?? '')[0])) !== 'application/json') reply(415, ['error' => 'JSON erforderlich.']);
         $raw = file_get_contents('php://input', false, null, 0, 16385);
@@ -70,6 +75,7 @@ function run(array $config): never {
         catch (\JsonException) { reply(400, ['error' => 'Ungültige Anfrage.']); }
         if (!$data instanceof \stdClass) reply(400, ['error' => 'Ungültige Anfrage.']);
         $data = (array)$data;
+        }
     }
     $db = database($config);
     $user = current_user($db, $config);
@@ -100,21 +106,25 @@ function run(array $config): never {
         reply(200, ['companies'=>$companies]);
     }
     require_staff($user);
+    if(in_array($action,['newsletter-upload','newsletter-admin','newsletter-save','newsletter-preview','newsletter-test','newsletter-send'],true))newsletter_route($db,$config,$user,$action,$data);
     if ($action === 'admin') {
         reply(200, [
             'user'=>public_user($user),
             'staffManagement'=>staff_management_snapshot($db,$config,$user),
             'dealers'=>$db->query('SELECT id,company_name,original_address,street,house_number,postal_code,city,country_code,public_email,public_phone,website,latitude,longitude,status,finder_status FROM sd_dealer ORDER BY company_name')->fetchAll(),
             'memberships'=>$db->query('SELECT m.id,m.dealer_id,m.user_id,m.status,u.first_name,u.last_name,u.email,u.status AS user_status FROM sd_dealer_memberships m JOIN sd_users u ON u.id=m.user_id ORDER BY m.requested_at DESC')->fetchAll(),
-            'requests'=>$db->query("SELECT r.*,u.email FROM sd_dealer_access_requests r JOIN sd_users u ON u.id=r.user_id WHERE r.status<>'email_pending' ORDER BY r.created_at DESC")->fetchAll(),
+            'requests'=>$db->query("SELECT r.*,u.email FROM sd_dealer_access_requests r JOIN sd_users u ON u.id=r.user_id ORDER BY r.created_at DESC")->fetchAll(),
             'mailStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_mail_outbox GROUP BY status')->fetchAll(),
             'contacts'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,message,language,status,created_at FROM sd_contact_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
-            'configurations'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,selection_json,status,created_at FROM sd_configuration_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
+            'configurations'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,selection_json,price_snapshot_json,status,created_at FROM sd_configuration_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
+            'newsletterSubscribers'=>$db->query('SELECT email,status,created_at,confirmed_at FROM sd_newsletter_subscribers ORDER BY created_at DESC')->fetchAll(),
             'newsletterStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_newsletter_subscribers GROUP BY status')->fetchAll(),
         ]);
     }
     if($action==='staff-invite'){staff_invite($db,$config,$user,$data);}
+    if($action==='staff-delete'){staff_delete($db,$config,$user,$data);}
     if($action==='staff-revoke'){staff_revoke($db,$config,$user,$data);}
+    if($action==='dealer-confirmation-resend'){dealer_confirmation_reminder($db,$config,$user,$data);}
     if($action==='dealer-update') {
         require_staff($user,['admin','approver']);
         $id=filter_var($data['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);if(!$id)reply(400,['error'=>'Firma fehlt.']);
@@ -131,6 +141,22 @@ function run(array $config): never {
             $q=$db->prepare('SELECT id FROM sd_dealer WHERE id=? FOR UPDATE');$q->execute([$id]);if(!$q->fetch()){$db->rollBack();reply(404,['error'=>'Firma nicht gefunden.']);}
             $q=$db->prepare('UPDATE sd_dealer SET company_name=?,original_address=?,street=?,house_number=?,postal_code=?,city=?,country_code=?,public_email=?,public_phone=?,website=?,latitude=?,longitude=? WHERE id=?');
             $q->execute([...array_values($v),$lat,$lng,$id]);audit($db,(int)$user['id'],'dealer.updated','dealer',$id,['fields'=>array_keys($v)]);$db->commit();
+        }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
+        reply(200,['ok'=>true]);
+    }
+    if($action==='membership-delete') {
+        require_staff($user,['admin','approver']);
+        $id=filter_var($data['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        if(!$id)reply(400,['error'=>'Zugang fehlt.']);
+        $db->beginTransaction();
+        try {
+            $q=$db->prepare('SELECT m.id,m.status,u.email_normalized FROM sd_dealer_memberships m JOIN sd_users u ON u.id=m.user_id WHERE m.id=? FOR UPDATE');$q->execute([$id]);$target=$q->fetch();
+            if(!$target){$db->rollBack();reply(404,['error'=>'Zugang nicht gefunden.']);}
+            if(!access_can_delete($target['status'],$target['email_normalized']===staff_owner_email())){$db->rollBack();reply(409,['error'=>'Nur zuvor gesperrte Zugänge dürfen gelöscht werden. Das Marketing-Hauptkonto ist geschützt.']);}
+            $q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled' WHERE status IN ('queued','failed') AND user_token_id IN (SELECT id FROM sd_user_tokens WHERE membership_id=?)");$q->execute([$id]);
+            // Delete only this company access, not other memberships or the firm.
+            $q=$db->prepare("DELETE FROM sd_dealer_memberships WHERE id=? AND status='suspended'");$q->execute([$id]);
+            audit($db,(int)$user['id'],'membership.deleted','membership',$id,[]);$db->commit();
         }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
         reply(200,['ok'=>true]);
     }
@@ -158,10 +184,13 @@ function run(array $config): never {
         if(!$id||!$dealerId)reply(400,['error'=>'Bitte eine Firma auswählen.']);
         $db->beginTransaction();
         try {
-            $q=$db->prepare("SELECT id,dealer_id FROM sd_dealer_memberships WHERE id=? AND status='pending' FOR UPDATE");$q->execute([$id]);$old=$q->fetch();
+            $q=$db->prepare("SELECT id,dealer_id,user_id FROM sd_dealer_memberships WHERE id=? FOR UPDATE");$q->execute([$id]);$old=$q->fetch();
             $q=$db->prepare("SELECT id FROM sd_dealer WHERE id=? AND status='active'");$q->execute([$dealerId]);
-            if(!$old||!$q->fetch()){$db->rollBack();reply(400,['error'=>'Nur offene Anfragen können einer aktiven Firma zugeordnet werden.']);}
-            $q=$db->prepare('UPDATE sd_dealer_memberships SET dealer_id=? WHERE id=?');$q->execute([$dealerId,$id]);
+            if(!$old||!$q->fetch()){$db->rollBack();reply(400,['error'=>'Der Zugang muss vorhanden und die gewählte Firma aktiv sein.']);}
+            if((int)$old['dealer_id']===$dealerId){$db->rollBack();reply(200,['ok'=>true]);}
+            $q=$db->prepare('SELECT id FROM sd_dealer_memberships WHERE dealer_id=? AND user_id=?');$q->execute([$dealerId,$old['user_id']]);if($q->fetch()){$db->rollBack();reply(409,['error'=>'Dieser Mitarbeiter ist der Firma bereits zugeordnet.']);}
+            $q=$db->prepare("UPDATE sd_dealer_memberships SET dealer_id=?,status='pending',decided_at=NULL,decided_by=NULL WHERE id=?");$q->execute([$dealerId,$id]);
+            $q=$db->prepare("UPDATE sd_user_tokens SET revoked_at=UTC_TIMESTAMP(6) WHERE membership_id=? AND consumed_at IS NULL AND revoked_at IS NULL");$q->execute([$id]);
             audit($db,(int)$user['id'],'membership.company','membership',$id,['from'=>$old['dealer_id'],'to'=>$dealerId]);$db->commit();
         }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
         reply(200,['ok'=>true]);

@@ -14,11 +14,13 @@ try{
  let errors='';server.stderr.on('data',b=>errors+=b);
  const base='http://127.0.0.1:9473/?action=';
  for(let i=0;i<50;i++){try{await fetch(base+'session');break;}catch{if(i===49)throw Error(errors);await new Promise(r=>setTimeout(r,100));}}
- function client(){let cookie='',csrf='';return {async page(action,form){
-  const response=await fetch(base+action,{method:form?'POST':'GET',headers:{Cookie:cookie,...(form?{Origin:'https://test.smartdock.de'}:{})},body:form?new URLSearchParams(form):undefined,redirect:'manual'});
+ // Independent simulated visitors have separate IP limits in the local-only router.
+ let clientNumber=0;
+ function client(){const testClient=String(++clientNumber);let cookie='',csrf='';return {async page(action,form){
+  const response=await fetch(base+action,{method:form?'POST':'GET',headers:{Cookie:cookie,'X-SD-Test-Client':testClient,...(form?{Origin:'https://test.smartdock.de'}:{})},body:form?new URLSearchParams(form):undefined,redirect:'manual'});
   const set=response.headers.get('set-cookie');if(set)cookie=set.split(';')[0];return {status:response.status,text:await response.text(),headers:response.headers};
  },async call(action,data,options={}){
-  const headers={Cookie:cookie,...options.headers};
+  const headers={Cookie:cookie,'X-SD-Test-Client':testClient,...options.headers};
   if(data!==undefined){headers['Content-Type']='application/json';headers.Origin='https://test.smartdock.de';headers['X-CSRF-Token']=csrf;Object.assign(headers,options.headers);}
   const response=await fetch(base+action,{method:data===undefined?'GET':'POST',headers,body:data===undefined?undefined:JSON.stringify(data)});
   const set=response.headers.get('set-cookie');if(set)cookie=set.split(';')[0];
@@ -37,7 +39,7 @@ try{
  assert.match(form.headers.get('content-security-policy'),/script-src 'self'/);assert.match(form.text,/src="\/api\/bootstrap-qr.js"/);
  await bootstrap.page('bootstrap&token='+initial.bootstrapToken);
  const reopened=await bootstrap.page('bootstrap');assert.equal(reopened.text.match(/data-testid="totp-secret"[^>]*>([A-Z2-7]+)</)[1],secret,'Reopening the same link preserves the authenticator key');
- assert.match(form.text,/<details class="setup-secret">/);assert.doesNotMatch(form.text,/<details[^>]*\sopen/);
+ assert.match(form.text,/<div class="setup-secret">/);assert.ok(form.text.indexOf('name="password"')<form.text.indexOf('id="setup-qr"'));
  const formCsrf=form.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1];
  assert.equal((await bootstrap.page('bootstrap&check=1',{csrf:'wrong'})).status,403);
  const probe=await bootstrap.page('bootstrap&check=1',{csrf:formCsrf});assert.equal(probe.status,200);assert.match(probe.text,/Verbindungsprüfung erfolgreich/);
@@ -95,7 +97,18 @@ try{
  assert.equal((await newcomer.call('dealer-request',{...request,privacy:false})).status,400);
  assert.equal((await newcomer.call('dealer-request',request)).status,200);
  const mails=async()=>JSON.parse(await readFile(path.join(state,'outbox-mails.json'),'utf8'));
- const confirmation=(await mails()).find(m=>m.type==='dealer_email_confirmation');assert.equal(confirmation.to,request.email);
+ const firstConfirmation=(await mails()).find(m=>m.type==='dealer_email_confirmation');
+ const pendingRequest=(await admin.call('admin')).body.requests.find(r=>r.email===request.email);
+ assert.equal(pendingRequest.status,'email_pending');
+ assert.equal((await dealer.call('dealer-confirmation-resend',{id:pendingRequest.id})).status,403);
+ assert.equal((await admin.call('dealer-confirmation-resend',{id:pendingRequest.id})).status,200);
+ assert.equal((await newcomer.call('dealer-request',{...request,company:'Must not overwrite original company'})).status,200);
+ const afterResend=(await admin.call('admin')).body.requests.filter(r=>r.email===request.email);
+ assert.equal(afterResend.length,1);assert.equal(afterResend[0].company_name,request.company);
+ const confirmation=(await mails()).filter(m=>m.type==='dealer_email_confirmation').at(-1);assert.equal(confirmation.to,request.email);
+ assert.notEqual(confirmation.body,firstConfirmation.body);
+ const oldVerification=client();await oldVerification.page('dealer-confirm&token='+firstConfirmation.body.match(/action=dealer-confirm&token=([a-f0-9]{64})/)[1]);
+ assert.equal((await oldVerification.page('dealer-confirm')).status,403,'A reminder invalidates the earlier link');
  const confirmToken=confirmation.body.match(/action=dealer-confirm&token=([a-f0-9]{64})/)[1];
  const verified=client();assert.equal((await verified.page('dealer-confirm&token='+confirmToken)).status,303);
  const confirmationPage=await verified.page('dealer-confirm');assert.equal(confirmationPage.status,200);
@@ -103,6 +116,7 @@ try{
  assert.equal((await verified.page('dealer-confirm',{csrf:'wrong'})).status,403);
  assert.equal((await verified.page('dealer-confirm',{csrf:confirmationPage.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1]})).status,200);
  assert.equal((await verified.page('dealer-confirm')).status,403,'Verification token cannot be replayed');
+ assert.equal((await admin.call('dealer-confirmation-resend',{id:pendingRequest.id})).status,409,'Verified requests cannot be reminded');
  const approval=(await mails()).find(m=>m.type==='dealer_approval_notification');assert.equal(approval.to,'management@example.invalid');
  const approvalToken=approval.body.match(/action=dealer-approve&token=([a-f0-9]{64})/)[1];
  const scanner=client();await scanner.page('dealer-approve&token='+approvalToken);assert.equal((await scanner.page('dealer-approve')).status,403,'Approval email alone grants no access');
@@ -127,6 +141,8 @@ try{
  assert.equal((await resetClient.page('dealer-password',{csrf:resetPage.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],password:'Fictional-Reset-Password!',repeat:'Fictional-Reset-Password!'})).status,200);
  assert.equal((await newcomer.call('dealer')).status,401,'Password reset revokes existing sessions');
  assert.equal((await admin.call('finder-decision',{id:1,status:'approved'})).status,200);assert.equal((await dealer.call('dealer')).status,200);
+ assert.equal((await admin.call('membership-delete',{id:1})).status,409,'Active dealer access cannot be deleted');
+ assert.equal((await guest.call('membership-delete',{id:1})).status,401);
  assert.equal((await admin.call('membership-decision',{id:1,status:'suspended'})).status,200);assert.equal((await dealer.call('dealer')).status,403);
  // Public forms persist only validated requests; email links require an explicit POST.
  const publicStatus=()=>JSON.parse(execFileSync(php,['backend/tests/fixture.php','--public-status'],{env,encoding:'utf8'}));
@@ -138,23 +154,28 @@ try{
  assert.equal((await publicClient.call('contact-request',contact,{headers:{'X-CSRF-Token':'wrong'}})).status,403);
  assert.equal((await publicClient.call('contact-request',contact)).status,200);assert.equal(publicStatus().contacts,1);
  assert.equal((await mails()).find(m=>m.type==='contact_notification').to,'inquiries@example.invalid');
- const configuration={email:contact.email,firstName:'Example',lastName:'Visitor',referenceNumber:'TEST-123456',privacy:true,language:'de',motorCount:2,price:0,status:'completed',dealer_id:99};
- const created=await publicClient.call('configuration-request',configuration);assert.equal(created.status,200);
+ const configuration={email:contact.email,firstName:'Example',lastName:'Visitor',referenceNumber:'TEST-123456',privacy:true,language:'de',motorCount:2,price:0,status:'completed',dealer_id:99,street:'Musterstraße',houseNumber:'12',postalCode:'24340',city:'Eckernförde',country:'Deutschland'};
+ const created=await publicClient.call('configuration-request',configuration);assert.equal(created.status,200);assert.match(created.body.id,/^SD-\d{4}-\d{4}$/);
  assert.equal((await publicClient.call('configuration-request',configuration)).body.id,created.body.id,'Repeated submission is idempotent');
- const stored=publicStatus().configurations;assert.equal(stored.length,1);assert.equal(stored[0].price_snapshot_json,null);assert.equal(stored[0].status,'new');assert.equal(JSON.parse(stored[0].selection_json).dealer_id,undefined);
+ const stored=publicStatus().configurations;assert.equal(stored.length,1);assert.equal(JSON.parse(stored[0].price_snapshot_json).totalPrice,3950);assert.equal(stored[0].status,'new');assert.equal(JSON.parse(stored[0].selection_json).dealer_id,undefined);
+ const confirmations=(await mails()).filter(m=>m.type==='configuration_confirmation');assert.equal(confirmations.length,1);assert.equal(confirmations[0].to,contact.email);assert.equal(confirmations[0].attachments.length,1);assert.equal(Buffer.from(confirmations[0].attachments[0].base64,'base64').subarray(0,5).toString(),'%PDF-');
+ const notifications=(await mails()).filter(m=>m.type==='configuration_notification');assert.equal(notifications.length,1);assert.match(notifications[0].body,/Musterstraße 12/);assert.match(notifications[0].body,/ECU \(2\+ Motoren\)/);assert.match(notifications[0].body,/3.950,00 EUR/);
+ assert.equal(stored[0].public_reference,created.body.id);assert.ok(notifications[0].body.includes(created.body.id));assert.ok(confirmations[0].body.includes(created.body.id));assert.ok(confirmations[0].attachments[0].name.includes(created.body.id));
  const adminForms=(await admin.call('admin')).body;assert.equal(adminForms.contacts.length,1);assert.equal(adminForms.configurations.length,1);
+ assert.equal((await publicClient.call('configuration-request',{...configuration,referenceNumber:'BAD-DEALER',installationService:'Ja',dealerId:999999})).status,400);
+ assert.equal((await publicClient.call('configuration-request',{...configuration,referenceNumber:'NO-ADDRESS',street:''})).status,400);
+ const installationClient=client();await installationClient.call('session');await new Promise(resolve=>setTimeout(resolve,2100));
+ assert.equal((await admin.call('dealer-update',{id:1,company_name:'Example Company',country_code:'DE',public_email:'installer@example.invalid',street:'Dealer Road',house_number:'3',postal_code:'12345',city:'Test City',latitude:54,longitude:10})).status,200);
+ assert.equal((await admin.call('finder-decision',{id:1,status:'approved'})).status,200);
+ const installed=await installationClient.call('configuration-request',{...configuration,referenceNumber:'INSTALL-123',installationService:'Ja',dealerId:1,dealerEmail:'attacker@example.invalid'});assert.equal(installed.status,200);
+ const installationMails=(await mails()).filter(m=>m.body.includes(installed.body.id));assert.equal(installationMails.length,3);assert.equal(installationMails.filter(m=>m.to==='inquiries@example.invalid').length,2);assert.ok(!installationMails.some(m=>m.to==='installer@example.invalid'||m.to==='attacker@example.invalid'));assert.match(installationMails.find(m=>m.subject.includes('Einbau gewählt')).body,/Example Company/);
  const newsletter={email:'reader@example.invalid',language:'en'};
  assert.equal((await publicClient.call('newsletter-request',newsletter)).status,200);
  const newsletterMail=(await mails()).find(m=>m.type==='newsletter_confirmation');assert.equal(newsletterMail.to,newsletter.email);
- assert.equal(publicStatus().newsletter[0].status,'pending');
- const nlToken=newsletterMail.body.match(/action=newsletter-confirm&token=([a-f0-9]{64})/)[1];
+ assert.equal(publicStatus().newsletter[0].status,'confirmed','Direct registration is active immediately');
+ assert.doesNotMatch(newsletterMail.body,/action=newsletter-confirm/,'No confirmation link sent');
  const unsubscribeToken=newsletterMail.body.match(/action=newsletter-unsubscribe&token=([a-f0-9]{64})/)[1];
- const reader=client();assert.equal((await reader.page('newsletter-confirm&token='+nlToken)).status,303);
- const nlForm=await reader.page('newsletter-confirm');assert.equal(nlForm.status,200);assert.equal(publicStatus().newsletter[0].status,'pending','Email-scanner GET cannot confirm');
- const nlCsrf=nlForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1];
- assert.equal((await reader.page('newsletter-confirm',{csrf:'wrong'})).status,403);
- assert.equal((await reader.page('newsletter-confirm',{csrf:nlCsrf})).status,200);assert.equal(publicStatus().newsletter[0].status,'confirmed');
- assert.equal((await reader.page('newsletter-confirm',{csrf:nlCsrf})).status,403);
+ const reader=client();
  assert.equal((await publicClient.call('newsletter-request',newsletter)).status,200);assert.equal((await mails()).filter(m=>m.type==='newsletter_confirmation').length,1,'Duplicate request sends no additional mail');
  await reader.page('newsletter-unsubscribe&token='+unsubscribeToken);const unsubForm=await reader.page('newsletter-unsubscribe');assert.equal(publicStatus().newsletter[0].status,'confirmed');
  assert.equal((await reader.page('newsletter-unsubscribe',{csrf:unsubForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1]})).status,200);assert.equal(publicStatus().newsletter[0].status,'unsubscribed');
@@ -188,6 +209,8 @@ try{
  const staffRows=(await admin.call('admin')).body.staffManagement.accounts;
  assert.equal(staffRows.find(a=>a.email==='marketing@thitronik.de').protected,true);
  const added=staffRows.find(a=>a.email===staffInput.email);
+ assert.equal((await admin.call('staff-delete',{id:added.id})).status,409,'Active admin cannot be deleted');
+ assert.equal((await admin.call('staff-delete',{id:1})).status,409,'Owner cannot be deleted');
  assert.equal((await admin.call('staff-revoke',{id:added.id})).status,200);
  assert.equal((await staffClient.call('admin')).status,401,'Revocation invalidates active sessions');
  assert.equal((await admin.call('staff-invite',{...staffInput,email:'ci.cancelled@thitronik.de'})).status,200);
@@ -196,6 +219,11 @@ try{
  const cancelledMail=(await mails()).filter(m=>m.type==='staff_activation').at(-1);
  const cancelledClient=client();await cancelledClient.page('staff-invitation&token='+cancelledMail.body.match(/token=([a-f0-9]{64})/)[1]);
  assert.equal((await cancelledClient.page('staff-invitation')).status,403,'Revoked invitation cannot activate');
+ assert.equal((await admin.call('staff-delete',{id:cancelled.id})).status,200,'Suspended admin can be deleted');
+ assert.ok(!(await admin.call('admin')).body.staffManagement.accounts.some(a=>a.id===cancelled.id));
+ const firmsBefore=(await admin.call('admin')).body.dealers.length;
+ assert.equal((await admin.call('membership-delete',{id:1})).status,200,'Suspended membership can be deleted');
+ const afterDelete=(await admin.call('admin')).body;assert.ok(!afterDelete.memberships.some(m=>m.id===1));assert.equal(afterDelete.dealers.length,firmsBefore,'Deleting access preserves firms');
  const replay=client();await replay.call('session');assert.equal((await replay.call('login',{email:'marketing@thitronik.de',password:'FictionalPassword-OnlyForCI!',otp:fixture.otp})).status,401);
  execFileSync(php,['backend/tests/fixture.php','--remove-proof'],{env});assert.equal((await admin.call('admin')).status,403,'Mail proof is checked on existing sessions');
  const noProof=client();await noProof.call('session');assert.equal((await noProof.call('login',{email:'marketing@thitronik.de',password:setup.password,otp:otp(secret)})).status,401);

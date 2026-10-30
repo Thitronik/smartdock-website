@@ -16,6 +16,10 @@ return [
     'staff_allowlist' => [], // exact normalized addresses, never domain wildcard
     'staff_email_domain' => 'thitronik.de', // domain AND individual approval required
     'mail_from' => '', // existing Hetzner mailbox @smartdock.de; empty disables setup
+    'newsletter_send_enabled' => false, // enable only after sender/delivery verification
+    'newsletter_test_enabled' => false,
+    'newsletter_test_recipient' => '', // fixed authorized test mailbox; never client input
+    'newsletter_footer' => '', // approved company/contact/legal footer, plain text
     'dealer_approval_email' => '', // private management recipient for verified requests
     'inquiry_email' => '', // private recipient for contact/configuration notifications
     'staff_totp_secrets' => [], // normalized email => private Base32 secret

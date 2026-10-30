@@ -36,7 +36,7 @@ test('Der Build erzeugt beide Anwendungen, fünf Sprach-Einstiege und alle histo
   const root = await createOutput();
   const pages = await createOutput(PAGES_BASE);
   assert.equal([...root.keys()].filter(name => name.endsWith('.html')).length, 122);
-  assert.equal(root.size, 207);
+  assert.equal(root.size, 208);
   assert.equal(pages.size, root.size + 1);
   for (const language of ['', 'en/', 'fr/', 'nl/', 'es/']) {
     assert.ok(root.has(language + 'index.html'));
@@ -100,6 +100,19 @@ test('Lokale Konfigurationsvorschau speichert wie Pages nur im aktuellen Tab', a
     assert.equal(saved.value.preview, true);
     assert.equal(saved.key, 'smartdock-last-test-configuration');
   }
+});
+
+test('Hetzner-Bestätigung zeigt die Serverreferenz statt der lokalen Formularnummer', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const source = await readFile(new URL('../src/preview.js', import.meta.url), 'utf8');
+  const form={querySelector:selector=>selector==='[data-sd-privacy]'?{}:null};
+  const context={URL,Request,Response,location:{hostname:'test.smartdock.de',href:'https://test.smartdock.de/',pathname:'/'},
+    document:{addEventListener(){},activeElement:{closest:()=>form}},
+    window:{fetch:async url=>new Response(JSON.stringify(url.includes('action=session')?{csrf:'test'}:{ok:true,id:'SD-0000-0123'}),{status:200})}};
+  vm.runInNewContext(source,context);
+  const response=await context.window.fetch('/hcgi/platform/api/collections/configuration_requests/records',{method:'POST',body:JSON.stringify({referenceNumber:'LOCAL-123456'})});
+  const data=await response.json();
+  assert.equal(data.id,'SD-0000-0123');assert.equal(data.referenceNumber,data.id);assert.equal(data.preview,false);
 });
 
  test('Händlerseiten bleiben ohne Backend und enthalten keine geschützten Inhalte', async () => {
@@ -224,7 +237,7 @@ test('Verwaltungsvorschau veröffentlicht keine Backend- oder Importdateien',asy
  for(const hostname of ["thitronik.github.io","www.smartdock.de","smartdock.de"]){
  const root={innerHTML:""},styles=[];const context={URL,location:{hostname},document:{getElementById:()=>root,querySelector:()=>null,createElement:()=>({dataset:{}}),head:{append:link=>styles.push(link)}}};
  vm.runInNewContext(source+";mountAdminPortal();",context);
- assert.equal(styles[0].href,"https://thitronik.github.io/smartdock-website/assets/admin-portal.css?v=20261028e");assert.match(root.innerHTML,/Zugang geschlossen/);assert.doesNotMatch(root.innerHTML,/<button|<form|<input|Beispieldaten öffnen/);
+ assert.equal(styles[0].href,"https://thitronik.github.io/smartdock-website/assets/admin-portal.css?v=20261030j");assert.match(root.innerHTML,/Zugang geschlossen/);assert.doesNotMatch(root.innerHTML,/<button|<form|<input|Beispieldaten öffnen/);
  }
  const files=await createOutput();assert.ok(files.has("admin/index.html"));assert.ok(!files.has("verwaltung/index.html"));
  });

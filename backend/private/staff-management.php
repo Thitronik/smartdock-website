@@ -20,7 +20,12 @@ function staff_address_authorized(\PDO $db,array $config,array $user): bool {
 function staff_management_snapshot(\PDO $db,array $config,array $user): ?array {
     if(!staff_is_owner($user))return null;
     $rows=$db->query("SELECT u.id,u.first_name,u.last_name,u.email,u.email_normalized,u.status,MAX(s.revoked_at IS NULL AND s.role='admin') AS active_role FROM sd_users u LEFT JOIN sd_staff_roles s ON s.user_id=u.id WHERE s.user_id IS NOT NULL OR EXISTS(SELECT 1 FROM sd_admin_audit_events a WHERE a.target_id=u.id AND a.target_type='user' AND a.action='staff.invited') GROUP BY u.id ORDER BY u.email")->fetchAll();
-    foreach($rows as &$row){$row['protected']=$row['email_normalized']===staff_owner_email();unset($row['email_normalized']);}
+    foreach($rows as &$row){
+        $row['protected']=$row['email_normalized']===staff_owner_email();
+        // Display the shared marketing account as a team in the admin list.
+        if($row['protected']){$row['first_name']='Marketing';$row['last_name']='';}
+        unset($row['email_normalized']);
+    }
     return ['ownerEmail'=>staff_owner_email(),'accounts'=>$rows];
 }
 function staff_invite(\PDO $db,array $config,array $owner,array $data): never {
@@ -36,7 +41,7 @@ function staff_invite(\PDO $db,array $config,array $owner,array $data): never {
         $q=$db->prepare("INSERT INTO sd_users(first_name,last_name,email,email_normalized,status) VALUES(?,?,?,?,'invited')");$q->execute([$first,$last,$email,$email]);$id=(int)$db->lastInsertId();
         $token=access_token($db,$id,'verify_email',null,null,7*24);
         audit($db,(int)$owner['id'],'staff.invited','user',$id,['token_id'=>$token['id']]);
-        queue_mail($db,$config,'staff_activation',$email,'SMARTDOCK: Einladung zur Administration',"Sie wurden vom SMARTDOCK Marketing-Hauptkonto zur Administration eingeladen.\n\nBestätigen Sie Ihre E-Mail-Adresse und richten Sie Ihr persönliches Passwort und den Authenticator ein:\n\n".access_link($config,'staff-invitation',$token['raw'])."\n\nE-Mail-Adresse für die spätere Anmeldung: ".$email."\nDer Link ist einmalig und 7 Tage gültig. Ohne diese Einrichtung ist kein Adminzugang möglich.",'staff-invitation-'.$token['id'],$id,$token['id']);
+        queue_mail($db,$config,'staff_activation',$email,'SMARTDOCK: Einladung zur Administration',"Du wurdest vom SMARTDOCK Marketing-Hauptkonto zur Administration eingeladen.\n\nBestätige deine E-Mail-Adresse und richte dein persönliches Passwort und den Authenticator ein:\n\n".access_link($config,'staff-invitation',$token['raw'])."\n\nE-Mail-Adresse für die spätere Anmeldung: ".$email."\nDer Link ist einmalig und 7 Tage gültig. Ohne diese Einrichtung ist kein Adminzugang möglich.",'staff-invitation-'.$token['id'],$id,$token['id']);
         $db->commit();
     }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
     dispatch_mail($db,$config);reply(200,['ok'=>true]);
@@ -57,6 +62,26 @@ function staff_revoke(\PDO $db,array $config,array $owner,array $data): never {
     }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
     reply(200,['ok'=>true]);
 }
+function staff_delete(\PDO $db,array $config,array $owner,array $data): never {
+    require_staff_owner($owner);
+    $id=filter_var($data['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+    if(!$id)reply(400,['error'=>'Konto fehlt.']);
+    $db->beginTransaction();
+    try {
+        $q=$db->prepare('SELECT id,status,email_normalized FROM sd_users WHERE id=? FOR UPDATE');$q->execute([$id]);$target=$q->fetch();
+        if(!$target){$db->rollBack();reply(404,['error'=>'Konto nicht gefunden.']);}
+        if(!access_can_delete($target['status'],$target['email_normalized']===staff_owner_email())){$db->rollBack();reply(409,['error'=>'Nur zuvor gesperrte Adminzugänge dürfen gelöscht werden. Das Marketing-Hauptkonto ist geschützt.']);}
+        $q=$db->prepare("SELECT id FROM sd_admin_audit_events WHERE action='staff.invited' AND target_type='user' AND target_id=? UNION SELECT user_id FROM sd_staff_roles WHERE user_id=? LIMIT 1");$q->execute([$id,$id]);
+        if(!$q->fetchColumn()){$db->rollBack();reply(404,['error'=>'Kein Adminzugang.']);}
+        $q=$db->prepare('SELECT id FROM sd_dealer_memberships WHERE user_id=? LIMIT 1');$q->execute([$id]);
+        if($q->fetchColumn()){$db->rollBack();reply(409,['error'=>'Bitte zuerst die Händlerzugänge dieses Kontos sperren und löschen.']);}
+        $q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled' WHERE user_id=? AND status IN ('queued','failed')");$q->execute([$id]);
+        $q=$db->prepare("DELETE FROM sd_users WHERE id=? AND status='suspended'");$q->execute([$id]);
+        $file=mfa_path($config,$target['email_normalized']);if(is_file($file)&&!unlink($file))throw new \RuntimeException('Authenticator cleanup failed.');
+        audit($db,(int)$owner['id'],'staff.deleted','user',$id,[]);$db->commit();
+    }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
+    reply(200,['ok'=>true]);
+}
 function staff_invitation_page(array $config): never {
     require_once __DIR__.'/bootstrap.php';
     header('Content-Type: text/html; charset=UTF-8');header('Referrer-Policy: no-referrer');
@@ -70,7 +95,7 @@ function staff_invitation_page(array $config): never {
         session_regenerate_id(true);$_SESSION['staff_invite_hash']=$hash;header('Location: /api/index.php?action=staff-invitation',true,303);exit;
     }
     header('Referrer-Policy: same-origin');$hash=$_SESSION['staff_invite_hash']??'';
-    if(!preg_match('/^[a-f0-9]{64}$/D',$hash))$finish('Bitte den Einladungslink aus Ihrer E-Mail öffnen.');
+    if(!preg_match('/^[a-f0-9]{64}$/D',$hash))$finish('Bitte den Einladungslink aus deiner E-Mail öffnen.');
     $db=database($config);
     $sql="SELECT u.*,t.id AS token_id,a.actor_user_id AS inviter FROM sd_user_tokens t JOIN sd_users u ON u.id=t.user_id JOIN sd_admin_audit_events a ON a.target_id=u.id AND a.target_type='user' AND a.action='staff.invited' AND JSON_UNQUOTE(JSON_EXTRACT(a.details_json,'$.token_id'))=CAST(t.id AS CHAR) JOIN sd_users owner ON owner.id=a.actor_user_id JOIN sd_staff_roles os ON os.user_id=owner.id AND os.role='admin' AND os.revoked_at IS NULL WHERE t.token_hash=UNHEX(?) AND t.purpose='verify_email' AND t.revoked_at IS NULL AND t.consumed_at IS NULL AND t.expires_at>UTC_TIMESTAMP(6) AND u.status='invited' AND u.password_hash IS NULL AND u.email_verified_at IS NULL AND owner.email_normalized=? AND owner.status='active'";
     $q=$db->prepare($sql);$q->execute([$hash,staff_owner_email()]);$user=$q->fetch();
@@ -80,7 +105,7 @@ function staff_invitation_page(array $config): never {
         if(($_SERVER['HTTP_ORIGIN']??'')!==$config['origin']||!is_string($_POST['csrf']??null)||!hash_equals($_SESSION['csrf'],$_POST['csrf']))$finish('Anfrage nicht erlaubt.');
         $password=$_POST['password']??null;$repeat=$_POST['repeat']??null;$otp=$_POST['otp']??null;
         if(!is_string($password)||!is_string($repeat)||strlen($password)<12||strlen($password)>72||!hash_equals($password,$repeat))$error='Passwörter müssen übereinstimmen und 12 bis 72 Zeichen lang sein.';
-        elseif(!is_string($otp)||totp_step($secret,$otp,time())===null)$error='Bitte den aktuellen Code aus Ihrer Authenticator-App eingeben.';
+        elseif(!is_string($otp)||totp_step($secret,$otp,time())===null)$error='Bitte den aktuellen Code aus deiner Authenticator-App eingeben.';
         else{
             $stored=false;$db->beginTransaction();
             try{
@@ -91,10 +116,10 @@ function staff_invitation_page(array $config): never {
                 $q=$db->prepare("INSERT INTO sd_staff_roles(user_id,role,granted_by) VALUES(?,'admin',?)");$q->execute([$fresh['id'],$fresh['inviter']]);
                 $q=$db->prepare('UPDATE sd_user_tokens SET consumed_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$fresh['token_id']]);
                 audit($db,(int)$fresh['id'],'staff.email_verified','user',(int)$fresh['id'],['email_hash'=>hash('sha256',$fresh['email_normalized']),'token_id'=>(int)$fresh['token_id']]);
-                $db->commit();unset($_SESSION['staff_invite_hash'],$_SESSION['staff_invite_secret']);session_regenerate_id(true);$finish('Ihr Adminzugang ist aktiv. Melden Sie sich mit Ihrer E-Mail-Adresse, Ihrem Passwort und Authenticator an.',200);
+                $db->commit();unset($_SESSION['staff_invite_hash'],$_SESSION['staff_invite_secret']);session_regenerate_id(true);$finish('Dein Adminzugang ist aktiv. Melde dich mit deiner E-Mail-Adresse, deinem Passwort und Authenticator an.',200);
             }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();if($stored)unlink(mfa_path($config,$user['email_normalized']));throw $e;}
         }
     }
     $e=static fn(string $s):string=>access_escape($s);$provisioning='otpauth://totp/'.rawurlencode('SMARTDOCK:'.$user['email_normalized']).'?secret='.$secret.'&issuer=SMARTDOCK&algorithm=SHA1&digits=6&period=30';
-    echo bootstrap_document('SMARTDOCK · Adminzugang einrichten','<h1>Adminzugang einrichten</h1><p>E-Mail-Adresse: <strong>'.$e($user['email']).'</strong></p><p>In Ihrer Authenticator-App ein zeitbasiertes Konto hinzufügen und den QR-Code scannen.</p><details class="setup-qr"><summary>QR-Code anzeigen</summary><div id="setup-qr" data-provisioning="'.$e($provisioning).'"></div></details><details class="setup-secret"><summary>Einrichtungsschlüssel anzeigen</summary><code>'.$e($secret).'</code></details><form method="post" action="/api/index.php?action=staff-invitation"><input type="hidden" name="csrf" value="'.$e($_SESSION['csrf']).'"><label>Neues Passwort<input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="72" required></label><label>Passwort wiederholen<input name="repeat" type="password" autocomplete="new-password" minlength="12" maxlength="72" required></label><label>Aktueller Authenticator-Code<input name="otp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label><p role="status">'.$e($error).'</p><button class="primary-button">E-Mail bestätigen und Adminzugang aktivieren</button></form>');exit;
+    echo bootstrap_document('SMARTDOCK · Adminzugang einrichten','<h1>Adminzugang einrichten</h1><p>E-Mail-Adresse: <strong>'.$e($user['email']).'</strong></p><form method="post" action="/api/index.php?action=staff-invitation"><input type="hidden" name="csrf" value="'.$e($_SESSION['csrf']).'"><h2>1. Passwort festlegen</h2><p>Wähle ein eigenes Passwort mit mindestens 12 Zeichen.</p><label>Neues Passwort<input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="72" required></label><label>Passwort wiederholen<input name="repeat" type="password" autocomplete="new-password" minlength="12" maxlength="72" required></label>'.authenticator_setup_fields($provisioning,$secret).'<p role="status">'.$e($error).'</p><button class="primary-button">E-Mail bestätigen und Adminzugang aktivieren</button></form>');exit;
 }

@@ -1,0 +1,226 @@
+{
+  "Belgien": {
+    "code": "BE",
+    "vat": 21,
+    "currency": "EUR",
+    "locale": "nl-BE",
+    "rate": 1
+  },
+  "Bulgarien": {
+    "code": "BG",
+    "vat": 20,
+    "currency": "EUR",
+    "locale": "bg-BG",
+    "rate": 1
+  },
+  "Dänemark": {
+    "code": "DK",
+    "vat": 25,
+    "currency": "EUR",
+    "locale": "da-DK",
+    "rate": 1
+  },
+  "Deutschland": {
+    "code": "DE",
+    "vat": 19,
+    "currency": "EUR",
+    "locale": "de-DE",
+    "rate": 1
+  },
+  "Estland": {
+    "code": "EE",
+    "vat": 24,
+    "currency": "EUR",
+    "locale": "et-EE",
+    "rate": 1
+  },
+  "Finnland": {
+    "code": "FI",
+    "vat": 25.5,
+    "currency": "EUR",
+    "locale": "fi-FI",
+    "rate": 1
+  },
+  "Frankreich": {
+    "code": "FR",
+    "vat": 20,
+    "currency": "EUR",
+    "locale": "fr-FR",
+    "rate": 1
+  },
+  "Griechenland": {
+    "code": "GR",
+    "vat": 24,
+    "currency": "EUR",
+    "locale": "el-GR",
+    "rate": 1
+  },
+  "Irland": {
+    "code": "IE",
+    "vat": 23,
+    "currency": "EUR",
+    "locale": "en-IE",
+    "rate": 1
+  },
+  "Italien": {
+    "code": "IT",
+    "vat": 22,
+    "currency": "EUR",
+    "locale": "it-IT",
+    "rate": 1
+  },
+  "Kroatien": {
+    "code": "HR",
+    "vat": 25,
+    "currency": "EUR",
+    "locale": "hr-HR",
+    "rate": 1
+  },
+  "Lettland": {
+    "code": "LV",
+    "vat": 21,
+    "currency": "EUR",
+    "locale": "lv-LV",
+    "rate": 1
+  },
+  "Litauen": {
+    "code": "LT",
+    "vat": 21,
+    "currency": "EUR",
+    "locale": "lt-LT",
+    "rate": 1
+  },
+  "Luxemburg": {
+    "code": "LU",
+    "vat": 17,
+    "currency": "EUR",
+    "locale": "fr-LU",
+    "rate": 1
+  },
+  "Malta": {
+    "code": "MT",
+    "vat": 18,
+    "currency": "EUR",
+    "locale": "mt-MT",
+    "rate": 1
+  },
+  "Niederlande": {
+    "code": "NL",
+    "vat": 21,
+    "currency": "EUR",
+    "locale": "nl-NL",
+    "rate": 1
+  },
+  "Österreich": {
+    "code": "AT",
+    "vat": 20,
+    "currency": "EUR",
+    "locale": "de-AT",
+    "rate": 1
+  },
+  "Polen": {
+    "code": "PL",
+    "vat": 23,
+    "currency": "EUR",
+    "locale": "pl-PL",
+    "rate": 1
+  },
+  "Portugal": {
+    "code": "PT",
+    "vat": 23,
+    "currency": "EUR",
+    "locale": "pt-PT",
+    "rate": 1
+  },
+  "Rumänien": {
+    "code": "RO",
+    "vat": 21,
+    "currency": "EUR",
+    "locale": "ro-RO",
+    "rate": 1
+  },
+  "Schweden": {
+    "code": "SE",
+    "vat": 25,
+    "currency": "EUR",
+    "locale": "sv-SE",
+    "rate": 1
+  },
+  "Schweiz": {
+    "code": "CH",
+    "vat": 8.1,
+    "currency": "CHF",
+    "locale": "de-CH",
+    "rate": 0.95
+  },
+  "Slowakei": {
+    "code": "SK",
+    "vat": 23,
+    "currency": "EUR",
+    "locale": "sk-SK",
+    "rate": 1
+  },
+  "Slowenien": {
+    "code": "SI",
+    "vat": 22,
+    "currency": "EUR",
+    "locale": "sl-SI",
+    "rate": 1
+  },
+  "Spanien": {
+    "code": "ES",
+    "vat": 21,
+    "currency": "EUR",
+    "locale": "es-ES",
+    "rate": 1
+  },
+  "Tschechien": {
+    "code": "CZ",
+    "vat": 21,
+    "currency": "EUR",
+    "locale": "cs-CZ",
+    "rate": 1
+  },
+  "Ungarn": {
+    "code": "HU",
+    "vat": 27,
+    "currency": "EUR",
+    "locale": "hu-HU",
+    "rate": 1
+  },
+  "Vereinigtes Königreich": {
+    "code": "GB",
+    "vat": 0,
+    "currency": "EUR",
+    "locale": "en-GB",
+    "rate": 1
+  },
+  "Zypern": {
+    "code": "CY",
+    "vat": 19,
+    "currency": "EUR",
+    "locale": "el-CY",
+    "rate": 1
+  },
+  "Außerhalb der EU": {
+    "code": "NONEU",
+    "vat": 0,
+    "currency": "EUR",
+    "locale": "en",
+    "rate": 1
+  },
+  "NON-EU (Export)": {
+    "code": "NONEU",
+    "vat": 0,
+    "currency": "EUR",
+    "locale": "en",
+    "rate": 1
+  },
+  "Other": {
+    "code": "NONEU",
+    "vat": 0,
+    "currency": "EUR",
+    "locale": "en",
+    "rate": 1
+  }
+}

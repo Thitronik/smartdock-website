@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Smartdock;
+require_once __DIR__.'/newsletter.php';
 
 // Tokens remain encrypted at rest. The encryption key never leaves private config.
 function mail_key(array $config): string {return hash_hmac('sha256','smartdock-mail-v1',$config['rate_key'],true);}
@@ -16,13 +17,16 @@ function mail_decrypt(array $config,string $record): array {
     if($plain===false)throw new \RuntimeException('Mail authentication failed.');
     return json_decode($plain,true,16,JSON_THROW_ON_ERROR);
 }
-function queue_mail(\PDO $db,array $config,string $type,string $email,string $subject,string $body,string $dedup,?int $userId=null,?int $tokenId=null,array $refs=[]): void {
+function queue_mail(\PDO $db,array $config,string $type,string $email,string $subject,string $body,string $dedup,?int $userId=null,?int $tokenId=null,array $refs=[],array $attachments=[],?string $html=null): void {
     $email=normalized_email($email);
     $q=$db->prepare('INSERT INTO sd_mail_outbox(message_type,recipient_email,template_version,payload_encrypted,deduplication_key,user_id,user_token_id,subscriber_id,newsletter_token_id,configuration_request_id,contact_request_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)');
-    $q->execute([$type,$email,'transactional-v1',mail_encrypt($config,['subject'=>$subject,'body'=>$body]),$dedup,$userId,$tokenId,$refs['subscriber_id']??null,$refs['newsletter_token_id']??null,$refs['configuration_request_id']??null,$refs['contact_request_id']??null]);
+    $q->execute([$type,$email,'transactional-v1',mail_encrypt($config,['subject'=>$subject,'body'=>$body,'attachments'=>$attachments,'html'=>$html]),$dedup,$userId,$tokenId,$refs['subscriber_id']??null,$refs['newsletter_token_id']??null,$refs['configuration_request_id']??null,$refs['contact_request_id']??null]);
 }
 function deliver_mail(array $config,array $mail,array $payload): bool {
+    $config=newsletter_settings($config);
     $from=$config['mail_from']??'';
+    $newsletter=in_array($mail['message_type'],['newsletter_campaign','newsletter_test'],true);
+    if($newsletter){if(empty($config[$mail['message_type']==='newsletter_test'?'newsletter_test_enabled':'newsletter_send_enabled']))throw new \RuntimeException('Newsletter disabled.');$from='newsletter@smartdock.de';}
     if(!preg_match('/\A[a-zA-Z0-9._+-]+@smartdock\.de\z/D',$from))throw new \RuntimeException('Mail sender unavailable.');
     if(PHP_SAPI==='cli-server'&&getenv('SD_BACKEND_TEST_RUN')==='1') {
         $file=getenv('SD_TEST_STATE').'/outbox-mails.json';
@@ -34,25 +38,42 @@ function deliver_mail(array $config,array $mail,array $payload): bool {
     $pattern='~'.preg_quote($config['origin'].'/api/index.php?action=','~').'(dealer-confirm|dealer-password|dealer-approve|staff-invitation|newsletter-confirm|newsletter-unsubscribe)&amp;token=[a-f0-9]{64}~';
     $html=preg_replace_callback($pattern,static function(array $match):string {
         $label=match($match[1]){'dealer-approve'=>'Händler für den Händlerbereich freischalten!','dealer-password'=>'Passwort festlegen','newsletter-confirm'=>'Newsletter-Anmeldung bestätigen','newsletter-unsubscribe'=>'Abmelden',default=>'E-Mail bestätigen'};
-        return '<a style="display:inline-block;padding:14px 20px;background:#c8f500;color:#171b1f;border-radius:8px;text-decoration:none;font-weight:bold" href="'.$match[0].'">'.$label.'</a>';
+        return '<a style="display:inline-block;padding:14px 20px;background:#bceb02;color:#1d1d1b;border-radius:8px;text-decoration:none;font-weight:bold" href="'.$match[0].'">'.$label.'</a>';
     },$html);
+    if($newsletter&&is_string($payload['html']??null))$html=$payload['html'];
     $boundary='sd-'.bin2hex(random_bytes(18));
-    $body='--'.$boundary."\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n".chunk_split(base64_encode($payload['body'])).'--'.$boundary."\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n".chunk_split(base64_encode('<!doctype html><html lang="de"><body style="font-family:Arial,sans-serif;line-height:1.6">'.$html.'</body></html>')).'--'.$boundary."--\r\n";
-    return mail($mail['recipient_email'],'=?UTF-8?B?'.base64_encode($payload['subject']).'?=',$body,['From'=>'SMARTDOCK <'.$from.'>','MIME-Version'=>'1.0','Content-Type'=>'multipart/alternative; boundary="'.$boundary.'"'],'-f'.$from);
+    $body='--'.$boundary."\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n".chunk_split(base64_encode($payload['body'])).'--'.$boundary."\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n".chunk_split(base64_encode($newsletter?$html:'<!doctype html><html lang="de"><body style="font-family:Arial,sans-serif;line-height:1.6">'.$html.'</body></html>')).'--'.$boundary."--\r\n";
+    $contentType='multipart/alternative; boundary="'.$boundary.'"';
+    if(!empty($payload['attachments'])) {
+        $mixed='sd-mixed-'.bin2hex(random_bytes(18));$body='--'.$mixed."\r\nContent-Type: ".$contentType."\r\n\r\n".$body;
+        foreach($payload['attachments'] as $attachment){
+            $name=$attachment['name']??'';$bytes=base64_decode($attachment['base64']??'',true);
+            if(!preg_match('/\ASMARTDOCK-[a-zA-Z0-9-]+\.pdf\z/D',$name)||!is_string($bytes)||!str_starts_with($bytes,'%PDF-')||strlen($bytes)>2000000)throw new \RuntimeException('PDF attachment invalid.');
+            $body.='--'.$mixed."\r\nContent-Type: application/pdf; name=\"".$name."\"\r\nContent-Disposition: attachment; filename=\"".$name."\"\r\nContent-Transfer-Encoding: base64\r\n\r\n".chunk_split(base64_encode($bytes));
+        }
+        $body.='--'.$mixed."--\r\n";$contentType='multipart/mixed; boundary="'.$mixed.'"';
+    }
+    return mail($mail['recipient_email'],'=?UTF-8?B?'.base64_encode($payload['subject']).'?=',$body,['From'=>'SMARTDOCK <'.$from.'>','MIME-Version'=>'1.0','Content-Type'=>$contentType],'-f'.$from);
 }
 // Runs after commit; a failed hand-off remains retryable. SMTP cannot promise exactly once.
 function dispatch_mail(\PDO $db,array $config,int $limit=5): void {
+    $config=newsletter_settings($config);
     for($i=0;$i<$limit;$i++) {
         $db->beginTransaction();
         try {
-            $q=$db->query("SELECT * FROM sd_mail_outbox WHERE message_type IN ('dealer_email_confirmation','dealer_approval_notification','dealer_password','dealer_decision','staff_activation','newsletter_confirmation','configuration_notification','contact_notification') AND payload_encrypted IS NOT NULL AND attempts<5 AND available_at<=UTC_TIMESTAMP(6) AND (status IN ('queued','failed') OR (status='processing' AND locked_at<DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 10 MINUTE))) ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED");
+            $q=$db->query("SELECT * FROM sd_mail_outbox WHERE message_type IN ('dealer_email_confirmation','dealer_approval_notification','dealer_password','dealer_decision','staff_activation','newsletter_confirmation','configuration_notification','configuration_confirmation','contact_notification','newsletter_campaign','newsletter_test') AND (message_type<>'newsletter_campaign' OR ".(!empty($config['newsletter_send_enabled'])?'1':'0').") AND (message_type<>'newsletter_test' OR ".(!empty($config['newsletter_test_enabled'])?'1':'0').") AND payload_encrypted IS NOT NULL AND attempts<5 AND available_at<=UTC_TIMESTAMP(6) AND (status IN ('queued','failed') OR (status='processing' AND locked_at<DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 10 MINUTE))) ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED");
             $mail=$q->fetch();if(!$mail){$db->commit();return;}
+            if($mail['message_type']==='newsletter_campaign') {
+                $q=$db->prepare("SELECT id FROM sd_newsletter_subscribers WHERE id=? AND status='confirmed'");$q->execute([$mail['subscriber_id']]);
+                if(!$q->fetch()){$q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled',payload_encrypted=NULL,payload_json=NULL WHERE id=?");$q->execute([$mail['id']]);$db->commit();continue;}
+            }
+            if(in_array($mail['message_type'],['newsletter_campaign','newsletter_test'],true)&&empty($config[$mail['message_type']==='newsletter_test'?'newsletter_test_enabled':'newsletter_send_enabled'])){$db->commit();return;}
             if($mail['user_token_id']) {
                 $q=$db->prepare('SELECT id FROM sd_user_tokens WHERE id=? AND consumed_at IS NULL AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP(6)');$q->execute([$mail['user_token_id']]);
                 if(!$q->fetch()){$q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled',payload_encrypted=NULL,payload_json=NULL WHERE id=?");$q->execute([$mail['id']]);$db->commit();continue;}
             }
             if($mail['newsletter_token_id']) {
-                $q=$db->prepare("SELECT t.id FROM sd_newsletter_tokens t JOIN sd_newsletter_subscribers s ON s.id=t.subscriber_id WHERE t.id=? AND t.consumed_at IS NULL AND t.expires_at>UTC_TIMESTAMP(6) AND s.status='pending'");$q->execute([$mail['newsletter_token_id']]);
+                $q=$db->prepare("SELECT t.id FROM sd_newsletter_tokens t JOIN sd_newsletter_subscribers s ON s.id=t.subscriber_id WHERE t.id=? AND t.consumed_at IS NULL AND t.expires_at>UTC_TIMESTAMP(6) AND ((t.purpose='confirm' AND s.status='pending') OR (t.purpose='unsubscribe' AND s.status='confirmed'))");$q->execute([$mail['newsletter_token_id']]);
                 if(!$q->fetch()){$q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled',payload_encrypted=NULL,payload_json=NULL WHERE id=?");$q->execute([$mail['id']]);$db->commit();continue;}
             }
             $owner=bin2hex(random_bytes(16));$q=$db->prepare("UPDATE sd_mail_outbox SET status='processing',attempts=attempts+1,locked_at=UTC_TIMESTAMP(6),locked_by=? WHERE id=?");$q->execute([$owner,$mail['id']]);$db->commit();
