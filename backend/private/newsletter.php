@@ -69,13 +69,12 @@ function newsletter_html(array $content,string $unsubscribe,array $config): stri
     $e=static fn($s)=>htmlspecialchars($s,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
     $logo=$e($config['origin'].'/media/positionhold/sd-logo_variant_green-white_rgb_png-DJz8V.png');
     $dark=$e($config['origin'].'/media/newsletter-template/dark.png');
-    $green=$e($config['origin'].'/media/newsletter-template/green.png');
     $title=$e($content['title']);
     // Repeat foreground/background pairs at the content cells and text elements.
     // Email clients can discard body styles or recolor only part of a table.
     $text='<p class="sd-copy" style="margin:0 0 24px;color:#1d1d1b;font:16px/26px Arial,Helvetica,sans-serif">'.nl2br($e($content['text'])).'</p>';
     $image=$content['image_url']?'<img alt="" width="536" border="0" style="display:block;width:100%;max-width:536px;height:auto;border:0;margin:0 0 24px" src="'.$e($content['image_url']).'">':'';
-    $button=$content['button_url']?'<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:0"><tr><td class="sd-cta" bgcolor="#bceb02" style="background-color:#bceb02;background-image:url('.$green.');border:0;border-radius:24px;text-align:center"><a class="sd-cta-text" href="'.$e($content['button_url']).'" style="display:inline-block;padding:14px 24px;border:0;border-radius:24px;color:#1d1d1b;-webkit-text-fill-color:#1d1d1b;font:700 16px/24px Arial,Helvetica,sans-serif;text-decoration:none"><span class="sd-cta-label" style="color:#1d1d1b;background-image:linear-gradient(#1d1d1b,#1d1d1b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">'.$e($content['button_label']).'</span></a></td></tr></table>':'';
+    $button=$content['button_url']?'<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;border:0"><tr><td class="sd-cta" style="background:transparent;border:2px solid #bceb02;border-radius:24px;text-align:center"><a class="sd-cta-text" href="'.$e($content['button_url']).'" style="display:inline-block;padding:12px 22px;border:0;border-radius:22px;color:#1d1d1b;font:700 16px/24px Arial,Helvetica,sans-serif;text-decoration:none">'.$e($content['button_label']).'</a></td></tr></table>':'';
     $footer=nl2br($e($config['newsletter_footer']??'SMARTDOCK · Thitronik GmbH'));
     $imprint=$e($config['origin'].'/impressum/');$privacy=$e($config['origin'].'/datenschutz/');$unsubscribe=$e($unsubscribe);
     return <<<HTML
@@ -84,7 +83,6 @@ function newsletter_html(array $content,string $unsubscribe,array $config): stri
 <style>
 :root{color-scheme:light dark;supported-color-schemes:light dark}
 table{border-spacing:0;mso-table-lspace:0pt;mso-table-rspace:0pt}img{border:0;outline:none;text-decoration:none}
-@supports(-webkit-background-clip:text){.sd-cta-label{background-image:linear-gradient(#1d1d1b,#1d1d1b);-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent!important}}
 @media(prefers-color-scheme:dark){
 .sd-page{background-color:#191c20!important;background-image:url($dark)!important;color:#f4f5f6!important}
 .sd-content{background-color:#191c20!important;background-image:url($dark)!important;color:#f4f5f6!important}
@@ -92,13 +90,12 @@ table{border-spacing:0;mso-table-lspace:0pt;mso-table-rspace:0pt}img{border:0;ou
 .sd-footer{background-color:#191c20!important;background-image:url($dark)!important;color:#f4f5f6!important}
 .sd-link{color:#bceb02!important}
 .sd-brand{background-color:#191c20!important;background-image:url($dark)!important}
-.sd-cta{background-color:#bceb02!important;background-image:url($green)!important}
-.sd-cta-text{color:#1d1d1b!important;-webkit-text-fill-color:#1d1d1b!important}
+.sd-cta-text{color:#f4f5f6!important}
 }
 [data-ogsc] .sd-copy{color:#f4f5f6!important}[data-ogsc] .sd-link{color:#bceb02!important}
 [data-ogsb] .sd-content{background-color:#191c20!important;background-image:url($dark)!important}[data-ogsb] .sd-footer{background-color:#191c20!important;background-image:url($dark)!important}
 [data-ogsb] .sd-brand{background-color:#191c20!important;background-image:url($dark)!important}
-[data-ogsc] .sd-cta-text{color:#1d1d1b!important;-webkit-text-fill-color:#1d1d1b!important}
+[data-ogsc] .sd-cta-text{color:#f4f5f6!important}
 @media(max-width:600px){.sd-pad{padding:24px!important}.sd-title{font-size:25px!important;line-height:32px!important}}
 </style></head>
 <body class="sd-page" bgcolor="#eceeef" style="margin:0;padding:0;background-color:#eceeef;color:#1d1d1b;font-family:Arial,Helvetica,sans-serif">
