@@ -44,7 +44,7 @@ function render_configuration_pdf(array $contact,array $s,array $price,string $r
     $pdf->textAt(105,21,'Datum: '.(new \DateTimeImmutable('now',new \DateTimeZone('Europe/Berlin')))->format('d.m.Y'),10.4,'',[115,115,115],89.25,'R');
     $pdf->textAt(100,28,'Referenz: '.$reference,10.4,'B',[23,23,23],94.25,'R');
     $pdf->SetDrawColor(23,23,23);$pdf->SetLineWidth(.5);$pdf->Line($left,40,$right,40);
-    $y=51;$pdf->textAt($left,$y,'Ausgewählte Module',13.4,'B');$pdf->textAt(138.25,$y,'Ihre Konfiguration',13.4,'B');
+    $y=51;$pdf->textAt($left,$y,'Ausgewählte Module',13.4,'B');$pdf->textAt(138.25,$y,'Deine Konfiguration',13.4,'B');
     $moduleY=$y+11;
     foreach($price['items'] as $item){$lines=$pdf->lines($item['name'],78,11.9,'');$height=max(13,count($lines)*5.5+6);$moduleY=$pdf->room($moduleY,$height);foreach($lines as $i=>$line)$pdf->textAt($left,$moduleY+$i*5.5,$line,11.9,'',[64,64,64]);$pdf->textAt(94,$moduleY,$money($item['price']),11.9,'B',[23,23,23],33.75,'R');$pdf->SetDrawColor(229,229,229);$pdf->SetLineWidth(.25);$pdf->Line($left,$moduleY+$height-3,127.75,$moduleY+$height-3);$moduleY+=$height;}
     $cards=[];

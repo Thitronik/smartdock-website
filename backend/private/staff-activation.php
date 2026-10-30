@@ -32,7 +32,7 @@ function staff_activation_reconfirm(\PDO $db,array $config,array $user): never {
             $q=$db->prepare('SELECT user_id FROM sd_staff_roles WHERE user_id<>? AND revoked_at IS NULL LIMIT 1');$q->execute([$current['id']]);
             if($q->fetchColumn()){$db->rollBack();$finish('Weitere Zugänge benötigen eine separate persönliche Freigabe.',403);}
             staff_activation_pending($db,$config,$current);$db->commit();
-            $finish('Der Aktivierungslink wurde zum Versand an Ihr persönlich freigegebenes Thitronik-Postfach übergeben. Passwort und Authenticator bleiben erhalten. Bitte bestätigen Sie die E-Mail-Adresse über diesen Link.');
+            $finish('Der Aktivierungslink wurde zum Versand an dein persönlich freigegebenes Thitronik-Postfach übergeben. Passwort und Authenticator bleiben erhalten. Bitte bestätige die E-Mail-Adresse über diesen Link.');
         }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}finally{flock($lock,LOCK_UN);fclose($lock);}
     }
     echo bootstrap_document('SMARTDOCK · E-Mail nachbestätigen','<h1>E-Mail nachbestätigen</h1><p>Für den bereits eingerichteten Adminzugang fehlt noch die Bestätigung des Thitronik-Postfachs. Bis dahin ist die Administration gesperrt. Passwort und Authenticator bleiben erhalten.</p><form method="post" action="/api/index.php?action=bootstrap"><input type="hidden" name="csrf" value="'.htmlspecialchars($_SESSION['csrf'],ENT_QUOTES,'UTF-8').'"><button class="primary-button">Aktivierungslink per E-Mail anfordern</button></form>');exit;
@@ -42,7 +42,7 @@ function staff_activation_mail(array $config,string $email,string $token): bool 
     $from=$config['mail_from'] ?? '';
     if(!is_string($from)||!preg_match('/^[a-zA-Z0-9._+-]+@smartdock\.de$/D',$from))return false;
     $url=$config['origin'].'/api/index.php?action=activate-admin&token='.$token;
-    $body="Ihr persoenlich freigegebener SMARTDOCK-Adminzugang wartet auf Ihre E-Mail-Bestaetigung.\n\nOeffnen Sie diesen Link und bestaetigen Sie die Aktivierung:\n".$url."\n\nDer Link ist einmalig und 7 Tage gueltig. Erst danach koennen Sie sich mit Passwort und Authenticator anmelden.\nFalls Sie diese Einrichtung nicht veranlasst haben, aktivieren Sie den Zugang nicht.\n";
+    $body="Dein persoenlich freigegebener SMARTDOCK-Adminzugang wartet auf deine E-Mail-Bestaetigung.\n\nÖffne diesen Link und bestätige die Aktivierung:\n".$url."\n\nDer Link ist einmalig und 7 Tage gueltig. Erst danach kannst du dich mit Passwort und Authenticator anmelden.\nFalls du diese Einrichtung nicht veranlasst hast, aktiviere den Zugang nicht.\n";
     // CI capture is impossible on Apache/FPM and never sends real messages.
     if(PHP_SAPI==='cli-server'&&getenv('SD_BACKEND_TEST_RUN')==='1'){
         return file_put_contents(getenv('SD_TEST_STATE').'/activation-mail.json',json_encode(['to'=>$email,'body'=>$body],JSON_THROW_ON_ERROR))!==false;
@@ -65,7 +65,7 @@ function staff_activation_request(array $config): never {
     }
     header('Referrer-Policy: same-origin');
     $hash=$_SESSION['staff_activation_hash'] ?? '';
-    if(!preg_match('/^[a-f0-9]{64}$/D',$hash))$finish('Bitte den Aktivierungslink aus Ihrer E-Mail öffnen.');
+    if(!preg_match('/^[a-f0-9]{64}$/D',$hash))$finish('Bitte den Aktivierungslink aus deiner E-Mail öffnen.');
     $db=database($config);
     $query="SELECT t.id AS token_id,t.user_id,u.* FROM sd_user_tokens t JOIN sd_users u ON u.id=t.user_id WHERE t.token_hash=UNHEX(?) AND t.purpose='verify_email' AND t.consumed_at IS NULL AND t.revoked_at IS NULL AND t.expires_at>UTC_TIMESTAMP(6) AND u.status='invited' AND u.email_verified_at IS NULL";
     $q=$db->prepare($query);$q->execute([$hash]);$user=$q->fetch();
@@ -85,8 +85,8 @@ function staff_activation_request(array $config): never {
             $q=$db->prepare("INSERT INTO sd_staff_roles(user_id,role,granted_by) VALUES(?,'admin',?) ON DUPLICATE KEY UPDATE granted_at=UTC_TIMESTAMP(6),granted_by=VALUES(granted_by),revoked_at=NULL");$q->execute([$user['user_id'],$user['user_id']]);
             audit($db,(int)$user['user_id'],'staff.email_verified','user',(int)$user['user_id'],['email_hash'=>hash('sha256',$user['email_normalized']),'token_id'=>(int)$user['token_id']]);
             $db->commit();unset($_SESSION['staff_activation_hash']);session_regenerate_id(true);
-            $finish('Ihre E-Mail-Adresse ist bestätigt. Der persönlich freigegebene Adminzugang ist aktiv. Sie können sich jetzt unter /admin/ mit Passwort und Authenticator anmelden.',200);
+            $finish('Deine E-Mail-Adresse ist bestätigt. Der persönlich freigegebene Adminzugang ist aktiv. Du kannst dich jetzt unter /admin/ mit Passwort und Authenticator anmelden.',200);
         }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}finally{flock($lock,LOCK_UN);fclose($lock);}
     }
-    echo bootstrap_document('SMARTDOCK · Adminzugang bestätigen','<h1>Adminzugang bestätigen</h1><p>Dieser Schritt bestätigt den Zugriff auf Ihr Thitronik-Postfach und aktiviert den persönlich freigegebenen Adminzugang.</p><form method="post" action="/api/index.php?action=activate-admin"><input type="hidden" name="csrf" value="'.htmlspecialchars($_SESSION['csrf'],ENT_QUOTES,'UTF-8').'"><button class="primary-button">E-Mail bestätigen und Adminzugang aktivieren</button></form>');exit;
+    echo bootstrap_document('SMARTDOCK · Adminzugang bestätigen','<h1>Adminzugang bestätigen</h1><p>Dieser Schritt bestätigt den Zugriff auf dein Thitronik-Postfach und aktiviert den persönlich freigegebenen Adminzugang.</p><form method="post" action="/api/index.php?action=activate-admin"><input type="hidden" name="csrf" value="'.htmlspecialchars($_SESSION['csrf'],ENT_QUOTES,'UTF-8').'"><button class="primary-button">E-Mail bestätigen und Adminzugang aktivieren</button></form>');exit;
 }

@@ -74,7 +74,7 @@ function bootstrap_request(array $config): never {
                 staff_activation_pending($db,$config,['id'=>$id,'email_normalized'=>$setup['email']]);
                 $db->commit();
                 unset($_SESSION['bootstrap_hash'],$_SESSION['bootstrap_secret']);session_regenerate_id(true);
-                $closed('Die Einrichtung wurde gespeichert. Bitte bestätigen Sie Ihre E-Mail-Adresse über den einmaligen Aktivierungslink in Ihrem Thitronik-Postfach. Erst danach ist der Adminzugang aktiv.',200);
+                $closed('Die Einrichtung wurde gespeichert. Bitte bestätige deine E-Mail-Adresse über den einmaligen Aktivierungslink in deinem Thitronik-Postfach. Erst danach ist der Adminzugang aktiv.',200);
             }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();if($secretStored&&is_file(mfa_path($config,$setup['email'])))unlink(mfa_path($config,$setup['email']));throw $e;}
             finally{flock($lock,LOCK_UN);fclose($lock);}
         }

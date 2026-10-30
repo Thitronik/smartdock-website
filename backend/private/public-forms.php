@@ -73,13 +73,13 @@ function public_inquiry(\PDO $db,array $config,array $data,string $type): never 
             $summary=configuration_summary($contact,$selection,$price,$ref);
             $body="Eine neue SMARTDOCK Konfigurationsanfrage ist eingegangen.\n\n".$summary."\n\nAdministration: ".$config['origin'].'/admin/';
             $pdf=configuration_pdf($contact,$selection,$price,$ref);
-            queue_mail($db,$config,'configuration_confirmation',$email,'SMARTDOCK: Ihre Konfigurationsanfrage',"Vielen Dank für Ihre Anfrage, ".$name.".\n\nIhre Konfiguration mit Anschrift, ausgewählten Komponenten, Preisen und gegebenenfalls Einbauhändler finden Sie als PDF im Anhang.\n\nReferenz: ".$ref."\n\nWir prüfen Ihre Anfrage. Dies ist keine verbindliche Bestell- oder Terminbestätigung.",'configuration-customer-'.$ref,null,null,$refs,[['name'=>'SMARTDOCK-'.$ref.'.pdf','base64'=>base64_encode($pdf)]]);
+            queue_mail($db,$config,'configuration_confirmation',$email,'SMARTDOCK: Deine Konfigurationsanfrage',"Vielen Dank für deine Anfrage, ".$name.".\n\nDeine Konfiguration mit Anschrift, ausgewählten Komponenten, Preisen und gegebenenfalls Einbauhändler findest du als PDF im Anhang.\n\nReferenz: ".$ref."\n\nWir prüfen deine Anfrage. Dies ist keine verbindliche Bestell- oder Terminbestätigung.",'configuration-customer-'.$ref,null,null,$refs,[['name'=>'SMARTDOCK-'.$ref.'.pdf','base64'=>base64_encode($pdf)]]);
             if($selection['dealer']) {
                 // Test notifications must never contact a real installation dealer.
                 $isTest=parse_url($config['origin'],PHP_URL_HOST)==='test.smartdock.de';
                 $dealerRecipient=$isTest?$recipient:$selection['dealer']['public_email'];
-                $dealerBody=($isTest?"TEST – Händlerbenachrichtigung umgeleitet.\n\n":'')."Ihr Unternehmen ".$selection['dealer']['company_name']." wurde für den Einbauservice einer SMARTDOCK Konfiguration gewählt. Bitte stimmen Sie Machbarkeit und Termin mit dem Kunden ab.\n\n".$summary;
-                queue_mail($db,$config,'configuration_notification',$dealerRecipient,'SMARTDOCK: Ihr Unternehmen wurde für den Einbau gewählt',$dealerBody,'configuration-dealer-'.$ref,null,null,$refs);
+                $dealerBody=($isTest?"TEST – Händlerbenachrichtigung umgeleitet.\n\n":'')."Dein Unternehmen ".$selection['dealer']['company_name']." wurde für den Einbauservice einer SMARTDOCK Konfiguration gewählt. Bitte stimme Machbarkeit und Termin mit dem Kunden ab.\n\n".$summary;
+                queue_mail($db,$config,'configuration_notification',$dealerRecipient,'SMARTDOCK: Dein Unternehmen wurde für den Einbau gewählt',$dealerBody,'configuration-dealer-'.$ref,null,null,$refs);
             }
         }
         queue_mail($db,$config,$mailType,$recipient,$subject,$body,$type.'-'.$ref,null,null,$refs);$db->commit();
@@ -121,7 +121,7 @@ function newsletter_request(\PDO $db,array $config,array $data): never {
         $raw=bin2hex(random_bytes(32));$cancel=bin2hex(random_bytes(32));
         $q=$db->prepare("INSERT INTO sd_newsletter_tokens(subscriber_id,purpose,token_hash,expires_at) VALUES(?,'confirm',?,DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 24 HOUR))");$q->execute([$id,hash('sha256',$raw,true)]);$tokenId=(int)$db->lastInsertId();
         $q=$db->prepare("INSERT INTO sd_newsletter_tokens(subscriber_id,purpose,token_hash,expires_at) VALUES(?,'unsubscribe',?,DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 YEAR))");$q->execute([$id,hash('sha256',$cancel,true)]);
-        queue_mail($db,$config,'newsletter_confirmation',$email,'SMARTDOCK: Newsletter-Anmeldung bestätigen',"Bitte bestätigen Sie Ihre Newsletter-Anmeldung über diesen Link:\n\n".access_link($config,'newsletter-confirm',$raw)."\n\nDer Bestätigungslink gilt 24 Stunden. Erst nach Ihrer Bestätigung erhalten Sie den Newsletter. Wenn Sie dies nicht angefordert haben, ignorieren Sie diese E-Mail.\n\nAnmeldung abbrechen oder abmelden:\n".access_link($config,'newsletter-unsubscribe',$cancel),'newsletter-confirm-'.$tokenId,null,null,['subscriber_id'=>$id,'newsletter_token_id'=>$tokenId]);
+        queue_mail($db,$config,'newsletter_confirmation',$email,'SMARTDOCK: Newsletter-Anmeldung bestätigen',"Bitte bestätige deine Newsletter-Anmeldung über diesen Link:\n\n".access_link($config,'newsletter-confirm',$raw)."\n\nDer Bestätigungslink gilt 24 Stunden. Erst nach deiner Bestätigung erhältst du den Newsletter. Wenn du dies nicht angefordert hast, ignoriere diese E-Mail.\n\nAnmeldung abbrechen oder abmelden:\n".access_link($config,'newsletter-unsubscribe',$cancel),'newsletter-confirm-'.$tokenId,null,null,['subscriber_id'=>$id,'newsletter_token_id'=>$tokenId]);
         $db->commit();
     }catch(\PDOException $error){if($db->inTransaction())$db->rollBack();if($error->getCode()!=='23000')throw $error;reply(200,$result);}
     catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
@@ -147,8 +147,8 @@ function newsletter_page(array $config,string $action): never {
             $q=$db->prepare('UPDATE sd_newsletter_tokens SET consumed_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$token['id']]);
             if($purpose==='unsubscribe'){$q=$db->prepare("UPDATE sd_newsletter_tokens SET consumed_at=UTC_TIMESTAMP(6) WHERE subscriber_id=? AND purpose='confirm' AND consumed_at IS NULL");$q->execute([$subscriber['id']]);}
             $q=$db->prepare('INSERT INTO sd_newsletter_events(subscriber_id,event_type,consent_version,consent_text) VALUES(?,?,?,?)');$q->execute([$subscriber['id'],$purpose==='confirm'?'confirmed':'unsubscribed',$subscriber['consent_version'],$subscriber['consent_text']]);$db->commit();
-            unset($_SESSION['newsletter-'.$purpose]);access_html(200,$purpose==='confirm'?'Anmeldung bestätigt':'Abgemeldet','<p>'.($purpose==='confirm'?'Ihre Newsletter-Anmeldung ist bestätigt.':'Ihre Adresse ist vom Newsletter abgemeldet.').'</p>');
+            unset($_SESSION['newsletter-'.$purpose]);access_html(200,$purpose==='confirm'?'Anmeldung bestätigt':'Abgemeldet','<p>'.($purpose==='confirm'?'Deine Newsletter-Anmeldung ist bestätigt.':'Deine Adresse ist vom Newsletter abgemeldet.').'</p>');
         }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
     }
-    $title=$purpose==='confirm'?'Newsletter-Anmeldung bestätigen':'Vom Newsletter abmelden';access_html(200,$title,'<p>Bitte bestätigen Sie die gewünschte Aktion.</p>'.access_form($title));
+    $title=$purpose==='confirm'?'Newsletter-Anmeldung bestätigen':'Vom Newsletter abmelden';access_html(200,$title,'<p>Bitte bestätige die gewünschte Aktion.</p>'.access_form($title));
 }

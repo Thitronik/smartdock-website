@@ -23,7 +23,7 @@ function access_link(array $config,string $action,string $raw): string {return $
 function queue_dealer_confirmation(\PDO $db,array $config,array $user,int $requestId): void {
     $q=$db->prepare("UPDATE sd_user_tokens SET revoked_at=UTC_TIMESTAMP(6) WHERE user_id=? AND purpose='verify_email' AND access_request_id=? AND consumed_at IS NULL AND revoked_at IS NULL");$q->execute([$user['id'],$requestId]);
     $token=access_token($db,(int)$user['id'],'verify_email',null,$requestId);
-    queue_mail($db,$config,'dealer_email_confirmation',$user['email'],'SMARTDOCK: E-Mail-Adresse bestätigen',"Bitte bestätigen Sie Ihre Händler-Zugangsanfrage:\n\n".access_link($config,'dealer-confirm',$token['raw'])."\n\nDer Link ist 24 Stunden gültig. Die Bestätigung erteilt noch keinen Zugang. Wenn Sie keine Anfrage gestellt haben, ignorieren Sie diese E-Mail.",'dealer-confirm-'.$token['id'],(int)$user['id'],$token['id']);
+    queue_mail($db,$config,'dealer_email_confirmation',$user['email'],'SMARTDOCK: E-Mail-Adresse bestätigen',"Bitte bestätige deine Händler-Zugangsanfrage:\n\n".access_link($config,'dealer-confirm',$token['raw'])."\n\nDer Link ist 24 Stunden gültig. Die Bestätigung erteilt noch keinen Zugang. Wenn du keine Anfrage gestellt hast, ignoriere diese E-Mail.",'dealer-confirm-'.$token['id'],(int)$user['id'],$token['id']);
 }
 function dealer_confirmation_reminder(\PDO $db,array $config,array $staff,array $data): never {
     require_staff($staff,['admin','approver']);
@@ -49,7 +49,7 @@ function dealer_request(\PDO $db,array $config,array $data): never {
         $language=$data['language']??'de';if(!in_array($language,['de','en','fr','nl','es'],true))throw new \InvalidArgumentException('Invalid language.');
     }catch(\InvalidArgumentException){reply(400,['error'=>'Bitte die Pflichtfelder und den Datenschutzhinweis prüfen.']);}
     access_limit($config,'dealer-request',$email);
-    $response=['ok'=>true,'message'=>'Wenn eine neue Zugangsanfrage möglich ist, erhalten Sie eine E-Mail zur Bestätigung.'];
+    $response=['ok'=>true,'message'=>'Wenn eine neue Zugangsanfrage möglich ist, erhältst du eine E-Mail zur Bestätigung.'];
     if(!empty($data['website']))reply(200,$response);
     $db->beginTransaction();
     try {
@@ -80,12 +80,12 @@ function dealer_password_request(\PDO $db,array $config,array $data): never {
         if($user){queue_dealer_password($db,$config,$user);}
         $db->commit();
     }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
-    dispatch_mail($db,$config);reply(200,['ok'=>true,'message'=>'Falls ein freigeschalteter Händlerzugang vorliegt, erhalten Sie eine E-Mail zum Festlegen Ihres Passworts.']);
+    dispatch_mail($db,$config);reply(200,['ok'=>true,'message'=>'Falls ein freigeschalteter Händlerzugang vorliegt, erhältst du eine E-Mail zum Festlegen deines Passworts.']);
 }
 function queue_dealer_password(\PDO $db,array $config,array $user): void {
     $q=$db->prepare("UPDATE sd_user_tokens SET revoked_at=UTC_TIMESTAMP(6) WHERE user_id=? AND purpose IN ('set_password','reset_password') AND consumed_at IS NULL AND revoked_at IS NULL");$q->execute([$user['id']]);
     $token=access_token($db,(int)$user['id'],empty($user['password_hash'])?'set_password':'reset_password',null,null,1);
-    queue_mail($db,$config,'dealer_password',$user['email'],'SMARTDOCK: Passwort festlegen',"Ihr persönlicher Händlerzugang ist freigeschaltet. Legen Sie Ihr Passwort über diesen Link fest:\n\n".access_link($config,'dealer-password',$token['raw'])."\n\nDer Link gilt eine Stunde und kann einmal verwendet werden. Falls Sie dies nicht angefordert haben, ignorieren Sie diese E-Mail.",'dealer-password-'.$token['id'],(int)$user['id'],$token['id']);
+    queue_mail($db,$config,'dealer_password',$user['email'],'SMARTDOCK: Passwort festlegen',"Dein persönlicher Händlerzugang ist freigeschaltet. Lege dein Passwort über diesen Link fest:\n\n".access_link($config,'dealer-password',$token['raw'])."\n\nDer Link gilt eine Stunde und kann einmal verwendet werden. Falls du dies nicht angefordert hast, ignoriere diese E-Mail.",'dealer-password-'.$token['id'],(int)$user['id'],$token['id']);
 }
 function access_html(int $status,string $title,string $content): never {
     require_once __DIR__.'/bootstrap.php';http_response_code($status);header('Content-Type: text/html; charset=UTF-8');header('Referrer-Policy: same-origin');
@@ -145,7 +145,7 @@ function access_token_page(array $config,string $action): never {
     $staff=null;
     if($action==='dealer-approve') {
         $staff=current_user($db,$config);
-        if(!$staff||!array_intersect($staff['roles']??[],['admin','approver']))access_html(403,'Anmeldung erforderlich','<p>Bitte mit Ihrem freigeschalteten Thitronik-Konto <a href="/admin/" target="_blank" rel="noopener">die Administration in einem neuen Tab öffnen und anmelden</a>. Kehren Sie anschließend zu dieser Seite zurück und laden Sie sie neu.</p>');
+        if(!$staff||!array_intersect($staff['roles']??[],['admin','approver']))access_html(403,'Anmeldung erforderlich','<p>Bitte mit deinem freigeschalteten Thitronik-Konto <a href="/admin/" target="_blank" rel="noopener">die Administration in einem neuen Tab öffnen und anmelden</a>. Kehre anschließend zu dieser Seite zurück und lade sie neu.</p>');
     }
     $error='';
     if($method==='POST') {
@@ -177,7 +177,7 @@ function access_token_page(array $config,string $action): never {
                 }
                 $q=$db->prepare('UPDATE sd_user_tokens SET consumed_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$fresh['id']]);$db->commit();
                 unset($_SESSION['access-token-'.$action]);session_regenerate_id(true);dispatch_mail($db,$config);
-                $text=$action==='dealer-confirm'?'Ihre E-Mail-Adresse ist bestätigt. Die Geschäftsführung prüft nun Ihre Zugangsanfrage.':($action==='dealer-approve'?'Der persönliche Mitarbeiterzugang ist freigegeben. Die Person erhält eine E-Mail zum Festlegen des Passworts.':'Ihr Passwort wurde gespeichert. Sie können sich jetzt im Händlerbereich anmelden.');
+                $text=$action==='dealer-confirm'?'Deine E-Mail-Adresse ist bestätigt. Du erhältst in Kürze eine Antwort auf deine Zugangsanfrage.':($action==='dealer-approve'?'Der persönliche Mitarbeiterzugang ist freigegeben. Die Person erhält eine E-Mail zum Festlegen des Passworts.':'Dein Passwort wurde gespeichert. Du kannst dich jetzt im Händlerbereich anmelden.');
                 access_html(200,'Erfolgreich','<p>'.access_escape($text).'</p><p><a href="/haendlerbereich/">Zum Händlerbereich</a></p>');
             }catch(\Throwable $exception){if($db->inTransaction())$db->rollBack();throw $exception;}
         }
