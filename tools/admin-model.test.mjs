@@ -96,3 +96,10 @@ test('Adminlogin aktualisiert Sitzung vor Passwortprüfung; Fehler senden keine 
   assert.equal(status.textContent,refreshFails?'Sitzung nicht erreichbar':'Test: Zugangsdaten abgelehnt');
  }
 });
+
+test('Händlerdatensuche findet Firmennamen, Mitarbeiter und E-Mail ohne fremde Treffer',async()=>{
+ const {readFile}=await import('node:fs/promises');const vm=await import('node:vm');const source=await readFile(new URL('../src/admin-server.js',import.meta.url),'utf8');const context={Intl};vm.createContext(context);vm.runInContext(source.replace('export function','function')+';this.search=filterDealerRows',context);
+ const dealers=[{id:1,company_name:'Bootswerft',public_email:'kontakt@werft.example'},{id:2,company_name:'Marina',public_email:'info@marina.example'}];const members=[{dealer_id:1,first_name:'Brigitte',last_name:'Müller',email:'brigitte@werft.example'}];
+ for(const query of ['boots','BRIGITTE','müller','brigitte@werft.example'])assert.equal(context.search(dealers,members,query)[0].id,1);
+ assert.equal(context.search(dealers,members,'unbekannt').length,0);assert.equal(context.search(dealers,members,'').length,2);
+});

@@ -93,6 +93,13 @@ function access_html(int $status,string $title,string $content): never {
     echo bootstrap_document($title,'<h1>'.access_escape($title).'</h1>'.$content);exit;
 }
 function access_escape(string $text): string {return htmlspecialchars($text,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
+// Domain matching only groups verified requests; it never approves access.
+function matching_dealer_domain(string $email,array $dealers): ?int {
+    $domain=strtolower(substr(strrchr($email,'@')?:'',1));
+    if(!$domain||in_array($domain,['thitronik.de','gmail.com','googlemail.com','outlook.com','hotmail.com','live.com','icloud.com','me.com','gmx.de','gmx.net','web.de','yahoo.com','yahoo.de','aol.com','t-online.de','mail.de','freenet.de','proton.me','protonmail.com'],true))return null;
+    $ids=[];foreach($dealers as $dealer){$other=strtolower(substr(strrchr($dealer['public_email']??'','@')?:'',1));if($domain===$other)$ids[(int)$dealer['id']]=true;}
+    return count($ids)===1?(int)array_key_first($ids):null;
+}
 function confirm_dealer_request(\PDO $db,array $config,array $token,array $user): void {
     $q=$db->prepare("SELECT * FROM sd_dealer_access_requests WHERE id=? AND user_id=? AND status='email_pending' FOR UPDATE");$q->execute([$token['access_request_id'],$user['id']]);$request=$q->fetch();
     if(!$request)throw new \RuntimeException('Request unavailable.');
@@ -101,7 +108,9 @@ function confirm_dealer_request(\PDO $db,array $config,array $token,array $user)
     // Only an unambiguous full company/address match may reuse its company record.
     $q=$db->prepare("SELECT id FROM sd_dealer WHERE status='active' AND company_name=? AND street=? AND house_number=? AND postal_code=? AND city=? AND original_country=? LIMIT 2 FOR UPDATE");
     $q->execute([$request['company_name'],$request['street'],$request['house_number'],$request['postal_code'],$request['city'],$request['country']]);$matches=$q->fetchAll();
+    $domainDealer=matching_dealer_domain($user['email'],$db->query("SELECT id,public_email FROM sd_dealer WHERE status='active'")->fetchAll());
     if(count($matches)===1)$dealerId=(int)$matches[0]['id'];
+    elseif($domainDealer!==null)$dealerId=$domainDealer;
     else {
         // Imported international addresses remain intact. Staff can assign the
         // pending employee to an existing company before approving the request.

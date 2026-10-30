@@ -110,6 +110,7 @@ function run(array $config): never {
             'mailStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_mail_outbox GROUP BY status')->fetchAll(),
             'contacts'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,message,language,status,created_at FROM sd_contact_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
             'configurations'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,selection_json,price_snapshot_json,status,created_at FROM sd_configuration_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
+            'newsletterSubscribers'=>$db->query('SELECT email,status,created_at,confirmed_at FROM sd_newsletter_subscribers ORDER BY created_at DESC')->fetchAll(),
             'newsletterStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_newsletter_subscribers GROUP BY status')->fetchAll(),
         ]);
     }
@@ -159,10 +160,13 @@ function run(array $config): never {
         if(!$id||!$dealerId)reply(400,['error'=>'Bitte eine Firma auswählen.']);
         $db->beginTransaction();
         try {
-            $q=$db->prepare("SELECT id,dealer_id FROM sd_dealer_memberships WHERE id=? AND status='pending' FOR UPDATE");$q->execute([$id]);$old=$q->fetch();
+            $q=$db->prepare("SELECT id,dealer_id,user_id FROM sd_dealer_memberships WHERE id=? FOR UPDATE");$q->execute([$id]);$old=$q->fetch();
             $q=$db->prepare("SELECT id FROM sd_dealer WHERE id=? AND status='active'");$q->execute([$dealerId]);
-            if(!$old||!$q->fetch()){$db->rollBack();reply(400,['error'=>'Nur offene Anfragen können einer aktiven Firma zugeordnet werden.']);}
-            $q=$db->prepare('UPDATE sd_dealer_memberships SET dealer_id=? WHERE id=?');$q->execute([$dealerId,$id]);
+            if(!$old||!$q->fetch()){$db->rollBack();reply(400,['error'=>'Der Zugang muss vorhanden und die gewählte Firma aktiv sein.']);}
+            if((int)$old['dealer_id']===$dealerId){$db->rollBack();reply(200,['ok'=>true]);}
+            $q=$db->prepare('SELECT id FROM sd_dealer_memberships WHERE dealer_id=? AND user_id=?');$q->execute([$dealerId,$old['user_id']]);if($q->fetch()){$db->rollBack();reply(409,['error'=>'Dieser Mitarbeiter ist der Firma bereits zugeordnet.']);}
+            $q=$db->prepare("UPDATE sd_dealer_memberships SET dealer_id=?,status='pending',decided_at=NULL,decided_by=NULL WHERE id=?");$q->execute([$dealerId,$id]);
+            $q=$db->prepare("UPDATE sd_user_tokens SET revoked_at=UTC_TIMESTAMP(6) WHERE membership_id=? AND consumed_at IS NULL AND revoked_at IS NULL");$q->execute([$id]);
             audit($db,(int)$user['id'],'membership.company','membership',$id,['from'=>$old['dealer_id'],'to'=>$dealerId]);$db->commit();
         }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
         reply(200,['ok'=>true]);
