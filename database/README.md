@@ -1,5 +1,9 @@
 # SMARTDOCK Datenbank
 
+## Händler-Einladungen – 30.10.2026
+
+Migration `006_dealer_invitations.sql` wurde nach privater SQL-Sicherung auf **smartda_test** angewendet. Einladungstabelle, Mitgliedschaftsfelder Position/Telefon und Mailtyp wurden anschließend geprüft. **Nicht erneut ausführen.** Produktivdatenbank unverändert.
+
 ## Newsletterstudio – 30.10.2026
 
 Migration `005_newsletter_campaigns.sql` wurde nach einer privaten SQL-Sicherung

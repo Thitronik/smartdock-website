@@ -18,10 +18,10 @@ function form_uuid(): string {
 function public_inquiry(\PDO $db,array $config,array $data,string $type): never {
     form_guard($config,$data,$type,5);
     try {
-        $email=normalized_email(access_field($data,'email',254));$language=form_language($data);$company=access_field($data,'company',200,false);$phone=access_field($data,'phone',50,false);
+        $email=normalized_email(access_field($data,'email',254));$language=form_language($data);$company=$type==='contact'?access_field($data,'company',200,false):'';$phone=access_field($data,'phone',50,false);
         if(($data['privacy']??false)!==true)throw new \InvalidArgumentException('Privacy required.');
         if($type==='contact') {
-            $name=access_field($data,'name',200);$message=$data['message']??'';
+            $name=access_field($data,'firstName',95).' '.access_field($data,'lastName',95);$message=$data['message']??'';
             if(!is_string($message)||trim($message)===''||strlen($message)>12000||preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/',$message))throw new \InvalidArgumentException('Message invalid.');$message=trim($message);
         }else {
             $first=access_field($data,'firstName',95);$last=access_field($data,'lastName',95);$name=$first.' '.$last;
@@ -50,8 +50,7 @@ function public_inquiry(\PDO $db,array $config,array $data,string $type): never 
     $ref=form_uuid();$db->beginTransaction();
     try {
         if($type==='contact') {
-            $q=$db->prepare('INSERT INTO sd_contact_requests(public_reference,contact_name,email,company,phone,message,language,privacy_notice_version) VALUES(?,?,?,?,?,?,?,?)');$q->execute([$ref,$name,$email,$company?:null,$phone?:null,$message,$language,'public-forms-2026-10']);$id=(int)$db->lastInsertId();
-            $mailType='contact_notification';$refs=['contact_request_id'=>$id];$subject='SMARTDOCK: Neue Kontaktanfrage';
+            $mailType='contact_notification';$refs=[];$subject='SMARTDOCK: Neue Kontaktanfrage';
         }else {
             $dedup=hash('sha256',$email.'|'.$clientReference,true);$q=$db->prepare('SELECT public_reference FROM sd_configuration_requests WHERE idempotency_key=? FOR UPDATE');$q->execute([$dedup]);$existing=$q->fetchColumn();if($existing){$db->commit();reply(200,['id'=>$existing,'ok'=>true]);}
             $q=$db->prepare('INSERT INTO sd_configuration_requests(public_reference,idempotency_key,contact_name,email,company,phone,language,configuration_version,selection_json,price_snapshot_json,privacy_notice_version,privacy_acknowledged_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,UTC_TIMESTAMP(6))');
@@ -67,11 +66,11 @@ function public_inquiry(\PDO $db,array $config,array $data,string $type): never 
             });
             $mailType='configuration_notification';$refs=['configuration_request_id'=>$id];$subject='SMARTDOCK: Neue Konfigurationsanfrage';
         }
-        $body="Neue Anfrage: ".$ref."\nName: ".$name."\nE-Mail: ".$email."\nUnternehmen: ".$company."\nTelefon: ".$phone."\n\n".($type==='contact'?$message:'Die Konfiguration steht in der Administration. Auswahl und Preise müssen fachlich geprüft werden. Es wurde kein verbindliches Angebot erzeugt.')."\n\nAdministration: ".$config['origin'].'/admin/';
+        $body="Neue Anfrage: ".$ref."\nName: ".$name."\nE-Mail: ".$email."\nUnternehmen: ".$company."\nTelefon: ".$phone."\n\n".($type==='contact'?$message:'Die Konfiguration steht in der Administration. Auswahl und Preise müssen fachlich geprüft werden. Es wurde kein verbindliches Angebot erzeugt.');
         if($type!=='contact') {
             $contact=['name'=>$name,'email'=>$email,'company'=>$company,'phone'=>$phone];
             $summary=configuration_summary($contact,$selection,$price,$ref);
-            $body="Eine neue SMARTDOCK Konfigurationsanfrage ist eingegangen.\n\n".$summary."\n\nAdministration: ".$config['origin'].'/admin/';
+            $body="Eine neue SMARTDOCK Konfigurationsanfrage ist eingegangen.\n\n".$summary."\n\n".$config['origin'].'/admin/';
             $pdf=configuration_pdf($contact,$selection,$price,$ref);
             queue_mail($db,$config,'configuration_confirmation',$email,'SMARTDOCK: Deine Konfigurationsanfrage',"Vielen Dank für deine Anfrage, ".$name.".\n\nDeine Konfiguration mit Anschrift, ausgewählten Komponenten, Preisen und gegebenenfalls Einbauhändler findest du als PDF im Anhang.\n\nReferenz: ".$ref."\n\nWir prüfen deine Anfrage. Dies ist keine verbindliche Bestell- oder Terminbestätigung.",'configuration-customer-'.$ref,null,null,$refs,[['name'=>'SMARTDOCK-'.$ref.'.pdf','base64'=>base64_encode($pdf)]]);
             if($selection['dealer']) {

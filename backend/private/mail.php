@@ -35,9 +35,9 @@ function deliver_mail(array $config,array $mail,array $payload): bool {
         file_put_contents($file,json_encode($records,JSON_THROW_ON_ERROR));return true;
     }
     $html=nl2br(htmlspecialchars($payload['body'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8'));
-    $pattern='~'.preg_quote($config['origin'].'/api/index.php?action=','~').'(dealer-confirm|dealer-password|dealer-approve|staff-invitation|newsletter-confirm|newsletter-unsubscribe)&amp;token=[a-f0-9]{64}~';
+    $pattern='~'.preg_quote($config['origin'].'/api/index.php?action=','~').'(dealer-invitation|dealer-confirm|dealer-password|dealer-approve|staff-invitation|newsletter-confirm|newsletter-unsubscribe)&amp;token=[a-f0-9]{64}~';
     $html=preg_replace_callback($pattern,static function(array $match):string {
-        $label=match($match[1]){'dealer-approve'=>'Händler für den Händlerbereich freischalten!','dealer-password'=>'Passwort festlegen','newsletter-confirm'=>'Newsletter-Anmeldung bestätigen','newsletter-unsubscribe'=>'Abmelden',default=>'E-Mail bestätigen'};
+        $label=match($match[1]){'dealer-approve'=>'Händler für den Händlerbereich freischalten!','dealer-invitation'=>'Händlerzugang einrichten','dealer-password'=>'Passwort festlegen','newsletter-confirm'=>'Newsletter-Anmeldung bestätigen','newsletter-unsubscribe'=>'Abmelden',default=>'E-Mail bestätigen'};
         return '<a style="display:inline-block;padding:14px 20px;background:#bceb02;color:#1d1d1b;border-radius:8px;text-decoration:none;font-weight:bold" href="'.$match[0].'">'.$label.'</a>';
     },$html);
     if($newsletter&&is_string($payload['html']??null))$html=$payload['html'];
@@ -48,7 +48,7 @@ function deliver_mail(array $config,array $mail,array $payload): bool {
         $mixed='sd-mixed-'.bin2hex(random_bytes(18));$body='--'.$mixed."\r\nContent-Type: ".$contentType."\r\n\r\n".$body;
         foreach($payload['attachments'] as $attachment){
             $name=$attachment['name']??'';$bytes=base64_decode($attachment['base64']??'',true);
-            if(!preg_match('/\ASMARTDOCK-[a-zA-Z0-9-]+\.pdf\z/D',$name)||!is_string($bytes)||!str_starts_with($bytes,'%PDF-')||strlen($bytes)>2000000)throw new \RuntimeException('PDF attachment invalid.');
+            if(!preg_match('/\ASMARTDOCK-[a-zA-Z0-9-]+\.pdf\z/D',$name)||!is_string($bytes)||!str_starts_with($bytes,'%PDF-')||strlen($bytes)>($newsletter?6000000:2000000))throw new \RuntimeException('PDF attachment invalid.');
             $body.='--'.$mixed."\r\nContent-Type: application/pdf; name=\"".$name."\"\r\nContent-Disposition: attachment; filename=\"".$name."\"\r\nContent-Transfer-Encoding: base64\r\n\r\n".chunk_split(base64_encode($bytes));
         }
         $body.='--'.$mixed."--\r\n";$contentType='multipart/mixed; boundary="'.$mixed.'"';
@@ -61,7 +61,7 @@ function dispatch_mail(\PDO $db,array $config,int $limit=5): void {
     for($i=0;$i<$limit;$i++) {
         $db->beginTransaction();
         try {
-            $q=$db->query("SELECT * FROM sd_mail_outbox WHERE message_type IN ('dealer_email_confirmation','dealer_approval_notification','dealer_password','dealer_decision','staff_activation','newsletter_confirmation','configuration_notification','configuration_confirmation','contact_notification','newsletter_campaign','newsletter_test') AND (message_type<>'newsletter_campaign' OR ".(!empty($config['newsletter_send_enabled'])?'1':'0').") AND (message_type<>'newsletter_test' OR ".(!empty($config['newsletter_test_enabled'])?'1':'0').") AND payload_encrypted IS NOT NULL AND attempts<5 AND available_at<=UTC_TIMESTAMP(6) AND (status IN ('queued','failed') OR (status='processing' AND locked_at<DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 10 MINUTE))) ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED");
+            $q=$db->query("SELECT * FROM sd_mail_outbox WHERE message_type IN ('dealer_invitation','dealer_email_confirmation','dealer_approval_notification','dealer_password','dealer_decision','staff_activation','newsletter_confirmation','configuration_notification','configuration_confirmation','contact_notification','newsletter_campaign','newsletter_test') AND (message_type<>'newsletter_campaign' OR ".(!empty($config['newsletter_send_enabled'])?'1':'0').") AND (message_type<>'newsletter_test' OR ".(!empty($config['newsletter_test_enabled'])?'1':'0').") AND payload_encrypted IS NOT NULL AND attempts<5 AND available_at<=UTC_TIMESTAMP(6) AND (status IN ('queued','failed') OR (status='processing' AND locked_at<DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 10 MINUTE))) ORDER BY id LIMIT 1 FOR UPDATE SKIP LOCKED");
             $mail=$q->fetch();if(!$mail){$db->commit();return;}
             if($mail['message_type']==='newsletter_campaign') {
                 $q=$db->prepare("SELECT id FROM sd_newsletter_subscribers WHERE id=? AND status='confirmed'");$q->execute([$mail['subscriber_id']]);

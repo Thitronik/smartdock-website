@@ -1,5 +1,5 @@
 export function mountDealerPortal(language) {
- if(!document.querySelector('link[data-sd-dealer-styles]')){const link=document.createElement('link');link.rel='stylesheet';link.href=new URL('./dealer-portal.css?v=20261028e',import.meta.url).href;link.dataset.sdDealerStyles='';document.head.append(link);}
+ if(!document.querySelector('link[data-sd-dealer-styles]')){const link=document.createElement('link');link.rel='stylesheet';link.href=new URL('./dealer-portal.css?v=20261030m',import.meta.url).href;link.dataset.sdDealerStyles='';document.head.append(link);}
 
 const copy = {
  de: ["Händlerbereich","Dein Zugang zu SMARTDOCK","Melde dich mit deinem freigeschalteten Händlerkonto an oder frage einen Zugang an.","Anmelden","E-Mail-Adresse","Passwort","Zugang anfragen","Wir prüfen deine Zugangsanfrage. Nach der Freigabe erhältst du eine E-Mail, um dein Passwort sicher festzulegen.","Vorname","Nachname","Unternehmensname","Straße","Hausnummer","PLZ","Stadt","Land","Telefonnummer (optional)","Ich habe die Datenschutzhinweise zur Bearbeitung meiner Zugangsanfrage gelesen.","Anfrage prüfen (Vorschau)","Vorschau: Hier werden keine Daten gespeichert, E-Mails versendet oder Konten freigeschaltet. Bitte nur erfundene Testdaten verwenden.","Die Anmeldung wird mit der Hetzner-Anbindung verfügbar. Es wurde kein Login durchgeführt.","Vorschau deiner Zugangsanfrage","Anfrage vorbereitet – noch nicht versendet","Geplanter Empfänger","Händler für den Händlerbereich freischalten!","Diesen Button erhält das SMARTDOCK Team später in der Benachrichtigung. Die Freischaltung erfordert eine autorisierte Anmeldung.","Zurück zum Formular","Die geschützten Unterseiten werden erst nach Einrichtung der serverseitigen Anmeldung verfügbar.","Passwort vergessen?","Passwort-Zurücksetzen wird mit der Hetzner-Anbindung verfügbar.","Bitte bestätige den Datenschutzhinweis."],
@@ -14,26 +14,17 @@ const fields = [['first_name',8,'given-name'],['last_name',9,'family-name'],['co
 const home = (language==='de'?'':'/'+language)+'/';
 const privacy = {de:'/datenschutz/',en:'/en/privacy/',fr:'/fr/confidentialite/',nl:'/nl/privacy/',es:'/es/privacidad/'}[language] || '/datenschutz/';
 document.title = 'SMARTDOCK · '+t[0];
-document.getElementById('portal').innerHTML = `<div class="page-hero"><nav aria-label="Breadcrumb" class="breadcrumb-nav"><a class="breadcrumb-link" href="${home}">${({de:"Startseite",en:"Home",fr:"Accueil",nl:"Startpagina",es:"Inicio"})[language]}</a><span class="breadcrumb-separator" aria-hidden="true">&gt;</span><span class="breadcrumb-active" aria-current="page">${t[0]}</span></nav><p class="kicker">${t[0]}</p><h1>${t[1]}</h1><p class="intro">${t[2]}</p></div><p class="notice">${t[19]}</p><div class="columns"><section class="card"><h2>${t[3]}</h2><form id="login"><label for="login-email">${t[4]}</label><input id="login-email" type="email" autocomplete="username" required maxlength="254"><label for="password">${t[5]}</label><input id="password" type="password" autocomplete="current-password" required maxlength="256"><button>${t[3]}</button></form><p><button id="reset" type="button">${t[28]}</button></p><p id="login-status" role="status"></p><p class="muted">${t[27]}</p></section><section class="card"><h2>${t[6]}</h2><p class="muted">${t[7]}</p><form id="request"><div class="fields">${fields.map(([name,label,autocomplete])=>`<label>${t[label]}<input name="${name}" autocomplete="${autocomplete}" type="${name==='email'?'email':name==='phone'?'tel':'text'}" maxlength="${name==='email'?254:200}" ${name==='phone'?'':'required'}></label>`).join('')}</div><div class="trap" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div><label class="check"><input type="checkbox" name="privacy" required><span><a href="${privacy}" target="_blank" rel="noopener">${t[17]}</a></span></label><button>${t[18]}</button></form></section></div><section id="result" class="card" tabindex="-1" aria-live="polite"></section>`;
+document.getElementById('portal').innerHTML = `<div class="page-hero"><nav aria-label="Breadcrumb" class="breadcrumb-nav"><a class="breadcrumb-link" href="${home}">${({de:"Startseite",en:"Home",fr:"Accueil",nl:"Startpagina",es:"Inicio"})[language]}</a><span class="breadcrumb-separator" aria-hidden="true">&gt;</span><span class="breadcrumb-active" aria-current="page">${t[0]}</span></nav><p class="kicker">${t[0]}</p><h1>${t[1]}</h1></div><p class="notice">${t[19]}</p><div class="columns"><section class="card"><h2>${t[3]}</h2><form id="login"><label for="login-email">${t[4]}</label><input id="login-email" type="email" autocomplete="username" required maxlength="254"><label for="password">${t[5]}</label><input id="password" type="password" autocomplete="current-password" required maxlength="256"><button>${t[3]}</button></form><p><button id="reset" type="button">${t[28]}</button></p><p id="login-status" role="status"></p><p class="muted">${t[27]}</p></section></div><section id="result" class="card" tabindex="-1" aria-live="polite"></section>`;
 document.getElementById('login').addEventListener('submit',event=>{event.preventDefault();document.getElementById('password').value='';document.getElementById('login-status').textContent=t[20];});
 document.getElementById('reset').addEventListener('click',()=>{document.getElementById('login-status').textContent=t[29];});
-document.getElementById('request').addEventListener('submit',event=>{
- event.preventDefault();const form=event.currentTarget;if(!form.reportValidity())return;
- const data=new FormData(form);if(data.get('website'))return;
- for(const input of form.querySelectorAll('input[required]:not([type="checkbox"])')){if(!input.value.trim()){input.value='';input.reportValidity();return;}}
- const result=document.getElementById('result');
- result.innerHTML=`<p class="kicker">${t[22]}</p><h2>${t[21]}</h2><p>${t[23]}: <strong>smartdock@thitronik.de</strong></p><dl>${fields.map(([name,label])=>`<dt>${t[label]}</dt><dd>${escape(String(data.get(name)||'').trim())||'—'}</dd>`).join('')}</dl><p class="notice">${t[25]}</p><p><button type="button" disabled>${t[24]}</button></p><p>${({de:"Der Freischaltlink ist 7 Tage gültig.",en:"The approval link expires after 7 days.",fr:"Le lien de validation expire après 7 jours.",nl:"De goedkeuringslink verloopt na 7 dagen.",es:"El enlace de aprobación caduca a los 7 días."})[language] || "The approval link expires after 7 days."}</p><p class="muted">${t[19]}</p><button type="button" id="back">${t[26]}</button>`;
- result.focus();document.getElementById('back').addEventListener('click',()=>{result.innerHTML='';form.querySelector('input').focus();});
-});
-
 // Öffentlich ist ausschließlich diese ausdrücklich gekennzeichnete Layoutvorschau.
 // Echte Händlerunterlagen werden später nur durch das Hetzner-Backend ausgeliefert.
 const tileTitles = {
- de:['News & Termine','Werkstattunterlagen','Einbaurichtzeiten','Schulungen & Videos','Beratung & Unterstützung','Bestellen & Herunterladen'],
- en:['News & events','Workshop documents','Installation times','Training & videos','Advice & support','Order & download'],
- fr:['Actualités & événements','Documents atelier','Temps de montage','Formations & vidéos','Conseil & assistance','Commander & télécharger'],
- nl:['Nieuws & evenementen','Werkplaatsdocumenten','Inbouwtijden','Trainingen & video’s','Advies & ondersteuning','Bestellen & downloaden'],
- es:['Noticias y eventos','Documentación de taller','Tiempos de instalación','Formación y vídeos','Asesoramiento y asistencia','Pedidos y descargas']
+ de:['News & Termine','Serviceunterlagen','KI-Support','Schulungen & Videos','Bestellungen','RMA'],
+ en:['News & events','Service documents','AI support','Training & videos','Orders','RMA'],
+ fr:['Actualités & événements','Documents de service','Assistance IA','Formations & vidéos','Commandes','RMA'],
+ nl:['Nieuws & evenementen','Servicedocumenten','AI-ondersteuning','Trainingen & video’s','Bestellingen','RMA'],
+ es:['Noticias y eventos','Documentación de servicio','Soporte de IA','Formación y vídeos','Pedidos','RMA']
 };
 const previewLabels = {
  de:['Gestaltungsvorschau des Händlerbereichs','So wird Dein Händlerbereich aufgebaut. Diese Vorschau ist öffentlich; geschützte Inhalte folgen erst nach der Serveranbindung.','Inhalte werden vorbereitet.'],
@@ -43,14 +34,14 @@ const previewLabels = {
  es:['Vista previa del área de distribuidores','Esta vista previa es pública. El contenido protegido llegará tras conectar el servidor.','Contenido en preparación.']
 };
 const labels = previewLabels[language] || previewLabels.de;
-const tiles = ['news','documents','installation','training','support','downloads'];
+const tiles = ['news','documents','ai-support','training','orders','rma'];
 const layout = document.createElement('details');
 layout.className='dealer-preview';
 layout.innerHTML=`<summary>${labels[0]}</summary><p class="notice">${labels[1]}</p><div class="tile-grid">${tiles.map((key,i)=>`<article class="tile"><img src="${window.__sdPagesUrl?.('/media/dealer/'+key+'.png') || '/media/dealer/'+key+'.png'}" alt="" loading="lazy" width="1536" height="1024"><h3>${(tileTitles[language]||tileTitles.de)[i]}</h3><p>${labels[2]}</p></article>`).join('')}</div>`;
 document.getElementById('portal').append(layout);
 if(location.hostname==='test.smartdock.de') {
  document.querySelectorAll('#portal form button,#portal #reset').forEach(button=>button.disabled=true);
- import('./dealer-server.js?v=20261030a').then(({connectDealerPortal})=>connectDealerPortal(document.getElementById('portal'),language)).catch(()=>{document.getElementById('login-status').textContent='SMARTDOCK: Verbindung zur Testumgebung fehlgeschlagen.';});
+ import('./dealer-server.js?v=20261030m').then(({connectDealerPortal})=>connectDealerPortal(document.getElementById('portal'),language)).catch(()=>{document.getElementById('login-status').textContent='SMARTDOCK: Verbindung zur Testumgebung fehlgeschlagen.';});
 }
 
 }

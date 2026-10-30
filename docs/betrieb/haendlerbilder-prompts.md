@@ -10,3 +10,12 @@ Gemeinsamer Prompt: Use case: ads-marketing. Asset type: single landscape websit
 - `training.png`: Over-the-shoulder view of a technician watching a marine installation training video on a laptop aboard a modern yacht, screen shows a generic boat diagram, no legible text.
 - `support.png`: Two marine professionals in charcoal workwear discussing a yacht control installation beside an open helm console in a bright marina workshop.
 - `downloads.png`: Premium studio photo of a laptop and a tablet on a graphite desk showing abstract marine document thumbnails, a neatly rolled yacht blueprint nearby.
+
+
+## Aktualisierung 30.10.2026
+
+Drei neue KI-generierte, illustrative Motive (keine Produktfotos): `ai-support.png`, `orders.png`, `rma.png`. Originalausgaben bleiben im lokalen Bildarchiv erhalten.
+
+Gemeinsamer Prompt: Single landscape 16:9 dealer portal editorial photo, SMARTDOCK charcoal #191c20, subtle lime #bceb02 accents, realistic lighting, central crop-safe composition, no logo, no readable text, no watermark.
+
+Motive: Laptop with AI chat and boat diagram (KI-Support); packaged marine electronics and order tablet (Bestellungen); technician inspecting a marine control module beside a return box (RMA).

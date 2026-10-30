@@ -89,13 +89,13 @@ test('Adminlogin aktualisiert Sitzung vor Passwortprüfung; Fehler senden keine 
  for(const refreshFails of [false,true]){
   const calls=[];const handlers={};let sessions=0;const status={textContent:''};
   const root={innerHTML:'',addEventListener:(name,handler)=>handlers[name]=handler,removeEventListener(){},querySelector:()=>status};
-  const context={document:{getElementById:()=>null},AbortController,FormData:class{constructor(){return new Map([['email','test@example.invalid'],['password','fixture-password'],['otp','123456']]);}},fetch:async(url,options)=>{
+  const context={window:{addEventListener(){},removeEventListener(){}},document:{getElementById:()=>null},AbortController,FormData:class{constructor(){return new Map([['email','test@example.invalid'],['password','fixture-password'],['otp','123456']]);}},fetch:async(url,options)=>{
    const action=new URL(url,'https://test.smartdock.de').searchParams.get('action');calls.push({action,options});
    if(action==='session'){sessions++;return{ok:!(refreshFails&&sessions===2),status:503,json:async()=>({csrf:sessions===1?'old':'fresh',user:null,error:'Sitzung nicht erreichbar'})};}
    assert.equal(action,'login');assert.equal(options.headers['X-CSRF-Token'],'fresh');return{ok:false,status:401,json:async()=>({error:'Test: Zugangsdaten abgelehnt'})};
   }};vm.createContext(context);vm.runInContext(source.replace(/^import .*;$/m,'').replace('export function','function')+';mountServerAdmin(root)',Object.assign(context,{root}));
   await new Promise(resolve=>setImmediate(resolve));const button={disabled:false,isConnected:true};const password={value:'fixture-password'},otp={value:'123456'};
-  const form={id:'staff-login',classList:{contains:()=>false},reportValidity:()=>true,querySelector:s=>s==='button'?button:s.includes('password')?password:otp};
+  const form={id:'staff-login',matches:()=>false,classList:{contains:()=>false},reportValidity:()=>true,querySelector:s=>s==='button'?button:s.includes('password')?password:otp};
   await handlers.submit({target:form,preventDefault(){}});
   assert.deepEqual(calls.map(c=>c.action),refreshFails?['session','session']:['session','session','login']);
   assert.equal(password.value,'');assert.equal(otp.value,'');assert.equal(button.disabled,false);
@@ -109,4 +109,11 @@ test('Händlerdatensuche findet Firmennamen, Mitarbeiter und E-Mail ohne fremde 
  for(const query of ['boots','BRIGITTE','müller','brigitte@werft.example'])assert.equal(context.search(dealers,members,query)[0].id,1);
  assert.equal(context.search(dealers,members,'unbekannt').length,0);assert.equal(context.search(dealers,members,'').length,2);
  const withInternal=[...dealers,{id:3,company_name:'Thitronik',finder_status:'pending'},{id:4,company_name:'SMARTDOCK Funktionstest',finder_status:'pending'},{id:5,company_name:'Thitronik GmbH',public_email:'team@thitronik.de',finder_status:'approved'}];assert.equal(context.search(withInternal,members,'').length,3);assert.equal(context.search(withInternal,members,'Thitronik')[0].id,5);
+});
+
+
+test('Neue Firmen behalten ihre Mitarbeiter auch ohne Kartenfreigabe oder öffentliche E-Mail',async()=>{
+ const {readFile}=await import('node:fs/promises');const vm=await import('node:vm');const source=await readFile(new URL('../src/admin-server.js',import.meta.url),'utf8');const context={};vm.createContext(context);vm.runInContext(source.replace(/^import .*;$/m,'').replace('export function','function')+';this.extra=extraDealerAccess',context);
+ const dealers=[{id:1,company_name:'Neue Werft',finder_status:'unlisted',public_email:''},{id:2,company_name:'SMARTDOCK Funktionstest',finder_status:'unlisted',public_email:''}];
+ assert.equal(context.extra({dealer_id:1},dealers),false);assert.equal(context.extra({dealer_id:2},dealers),true);
 });

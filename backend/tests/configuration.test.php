@@ -28,3 +28,6 @@ if(is_file(__DIR__.'/.configuration-price-cases.json')){
 }
 if(in_array('--pdf',$argv,true))file_put_contents(__DIR__.'/.configuration-proof.pdf',$pdf);
 echo "Configuration price, validation, summary and PDF checks passed.\n";
+
+foreach(['TCD','THC'] as $type){$selection=array_replace($base,['bugstrahlruder'=>true,'thrusterManufacturer'=>'QUICK ON/OFF','thrusterType'=>$type]);$price=configuration_price($selection);expect(str_contains(configuration_summary($contact,$selection,$price,'SD-1234-5678'),$type),'QUICK type included in summary');}
+try{configuration_price(array_replace($base,['bugstrahlruder'=>true,'thrusterManufacturer'=>'QUICK ON/OFF']));throw new LogicException('Missing QUICK type accepted');}catch(InvalidArgumentException){}

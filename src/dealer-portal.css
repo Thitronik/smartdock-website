@@ -6,3 +6,5 @@
 .sd-dealer-portal{box-sizing:border-box}.sd-dealer-portal .card{text-align:center}.sd-dealer-portal .card p,.sd-dealer-portal .tile p{margin-inline:auto}.sd-dealer-portal .tile{text-align:center}.sd-dealer-portal input{box-sizing:border-box}
 /* Author grid rules must not override the authenticated view's hidden state. */
 .sd-dealer-portal [hidden]{display:none!important}
+
+.sd-dealer-portal .columns{grid-template-columns:minmax(0,620px);justify-content:center}.sd-dealer-portal>.dealer-preview+button{display:block;margin:32px auto}.sd-dealer-portal [hidden]{display:none!important}
