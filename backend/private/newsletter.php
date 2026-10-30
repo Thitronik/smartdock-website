@@ -67,8 +67,50 @@ function newsletter_content(array $data): array {
 }
 function newsletter_html(array $content,string $unsubscribe,array $config): string {
     $e=static fn($s)=>htmlspecialchars($s,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
-    $logo=$config['origin'].'/media/positionhold/sd-logo_variant_green-white_rgb_png-DJz8V.png';
-    return '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#eceeef;color:#1d1d1b;font:16px/1.6 Arial,sans-serif"><table role="presentation" width="100%"><tr><td align="center"><table role="presentation" width="600" style="width:100%;max-width:600px;background:white"><tr><td style="background:#191c20;padding:28px;text-align:left"><img alt="SMARTDOCK" width="240" style="max-width:100%;height:auto" src="'.$e($logo).'"></td></tr><tr><td style="padding:32px"><h1 style="font-size:28px">'.$e($content['title']).'</h1>'.($content['image_url']?'<img alt="" width="536" style="width:100%;height:auto" src="'.$e($content['image_url']).'">':'').'<p>'.nl2br($e($content['text'])).'</p>'.($content['button_url']?'<p><a style="display:inline-block;background:#bceb02;color:#1d1d1b;padding:14px 24px;border-radius:24px;font-weight:bold;text-decoration:none" href="'.$e($content['button_url']).'">'.$e($content['button_label']).'</a></p>':'').'</td></tr><tr><td style="padding:24px;background:#f1f2f3;font-size:13px">'.nl2br($e($config['newsletter_footer']??'SMARTDOCK · Thitronik GmbH')).'<p><a href="'.$e($config['origin'].'/impressum/').'">Impressum</a> · <a href="'.$e($config['origin'].'/datenschutz/').'">Datenschutz</a></p><p><a href="'.$e($unsubscribe).'">Newsletter abmelden</a></p></td></tr></table></td></tr></table></body></html>';
+    $logo=$e($config['origin'].'/media/positionhold/sd-logo_variant_green-white_rgb_png-DJz8V.png');
+    $dark=$e($config['origin'].'/media/newsletter-template/dark.png');
+    $green=$e($config['origin'].'/media/newsletter-template/green.png');
+    $title=$e($content['title']);
+    // Repeat foreground/background pairs at the content cells and text elements.
+    // Email clients can discard body styles or recolor only part of a table.
+    $text='<p class="sd-copy" style="margin:0 0 24px;color:#1d1d1b;font:16px/26px Arial,Helvetica,sans-serif">'.nl2br($e($content['text'])).'</p>';
+    $image=$content['image_url']?'<img alt="" width="536" border="0" style="display:block;width:100%;max-width:536px;height:auto;border:0;margin:0 0 24px" src="'.$e($content['image_url']).'">':'';
+    $button=$content['button_url']?'<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:0"><tr><td class="sd-cta" bgcolor="#bceb02" style="background-color:#bceb02;background-image:url('.$green.');border:0;border-radius:24px;text-align:center"><a class="sd-cta-text" href="'.$e($content['button_url']).'" style="display:inline-block;padding:14px 24px;border:0;border-radius:24px;color:#1d1d1b;-webkit-text-fill-color:#1d1d1b;font:700 16px/24px Arial,Helvetica,sans-serif;text-decoration:none"><span class="sd-cta-label" style="color:#1d1d1b;background-image:linear-gradient(#1d1d1b,#1d1d1b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">'.$e($content['button_label']).'</span></a></td></tr></table>':'';
+    $footer=nl2br($e($config['newsletter_footer']??'SMARTDOCK · Thitronik GmbH'));
+    $imprint=$e($config['origin'].'/impressum/');$privacy=$e($config['origin'].'/datenschutz/');$unsubscribe=$e($unsubscribe);
+    return <<<HTML
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">
+<style>
+:root{color-scheme:light dark;supported-color-schemes:light dark}
+table{border-spacing:0;mso-table-lspace:0pt;mso-table-rspace:0pt}img{border:0;outline:none;text-decoration:none}
+@supports(-webkit-background-clip:text){.sd-cta-label{background-image:linear-gradient(#1d1d1b,#1d1d1b);-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent!important}}
+@media(prefers-color-scheme:dark){
+.sd-page{background-color:#191c20!important;background-image:url($dark)!important;color:#f4f5f6!important}
+.sd-content{background-color:#191c20!important;background-image:url($dark)!important;color:#f4f5f6!important}
+.sd-copy{color:#f4f5f6!important}
+.sd-footer{background-color:#191c20!important;background-image:url($dark)!important;color:#f4f5f6!important}
+.sd-link{color:#bceb02!important}
+.sd-brand{background-color:#191c20!important;background-image:url($dark)!important}
+.sd-cta{background-color:#bceb02!important;background-image:url($green)!important}
+.sd-cta-text{color:#1d1d1b!important;-webkit-text-fill-color:#1d1d1b!important}
+}
+[data-ogsc] .sd-copy{color:#f4f5f6!important}[data-ogsc] .sd-link{color:#bceb02!important}
+[data-ogsb] .sd-content{background-color:#191c20!important;background-image:url($dark)!important}[data-ogsb] .sd-footer{background-color:#191c20!important;background-image:url($dark)!important}
+[data-ogsb] .sd-brand{background-color:#191c20!important;background-image:url($dark)!important}
+[data-ogsc] .sd-cta-text{color:#1d1d1b!important;-webkit-text-fill-color:#1d1d1b!important}
+@media(max-width:600px){.sd-pad{padding:24px!important}.sd-title{font-size:25px!important;line-height:32px!important}}
+</style></head>
+<body class="sd-page" bgcolor="#eceeef" style="margin:0;padding:0;background-color:#eceeef;color:#1d1d1b;font-family:Arial,Helvetica,sans-serif">
+<table class="sd-page" role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="#eceeef" style="width:100%;border:0;border-collapse:collapse;background-color:#eceeef"><tr><td align="center" style="padding:20px 12px;border:0">
+<!--[if mso]><table role="presentation" width="600" border="0" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+<table role="presentation" width="600" border="0" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;border:0;border-collapse:collapse">
+<tr><td class="sd-brand sd-pad" background="$dark" bgcolor="#191c20" style="border:0;background-color:#191c20;background-image:url($dark);color:#ffffff;padding:28px;text-align:left"><img alt="SMARTDOCK" src="$logo" width="240" border="0" style="display:block;width:240px;max-width:100%;height:auto;border:0;color:#ffffff"></td></tr>
+<tr><td class="sd-content sd-pad" bgcolor="#ffffff" style="border:0;padding:32px;background-color:#ffffff;color:#1d1d1b;font:16px/26px Arial,Helvetica,sans-serif;text-align:left"><h1 class="sd-copy sd-title" style="margin:0 0 24px;color:#1d1d1b;font:700 28px/36px Arial,Helvetica,sans-serif">$title</h1>$image$text$button</td></tr>
+<tr><td class="sd-footer sd-pad" bgcolor="#f1f2f3" style="border:0;padding:24px;background-color:#f1f2f3;color:#1d1d1b;font:13px/21px Arial,Helvetica,sans-serif;text-align:left"><p class="sd-copy" style="margin:0 0 16px;color:#1d1d1b;font:13px/21px Arial,Helvetica,sans-serif">$footer</p><p style="margin:0 0 16px"><a class="sd-link" href="$imprint" style="color:#1d1d1b;text-decoration:underline">Impressum</a> · <a class="sd-link" href="$privacy" style="color:#1d1d1b;text-decoration:underline">Datenschutz</a></p><p style="margin:0"><a class="sd-link" href="$unsubscribe" style="color:#1d1d1b;text-decoration:underline">Newsletter abmelden</a></p></td></tr>
+</table><!--[if mso]></td></tr></table><![endif]-->
+</td></tr></table></body></html>
+HTML;
 }
 function newsletter_ready(\PDO $db): bool {
     return (bool)$db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='sd_newsletter_campaigns'")->fetchColumn();
