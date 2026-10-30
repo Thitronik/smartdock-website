@@ -191,6 +191,9 @@ try{
  assert.equal((await staffClient.call('admin')).body.staffManagement,null);
  assert.equal((await staffClient.call('staff-invite',{...staffInput,email:'ci.other@thitronik.de'})).status,403);
  assert.equal((await staffClient.call('staff-revoke',{id:1})).status,403);
+ assert.equal((await dealer.call('newsletter-subscriber-status',{id:1,status:'unsubscribed'})).status,403);
+ assert.equal((await admin.call('newsletter-subscriber-status',{id:999999,status:'unsubscribed'})).status,409);
+ const activeSubscriptions=(await admin.call('admin')).body.newsletterSubscribers;assert.ok(activeSubscriptions.every(s=>['pending','confirmed'].includes(s.status)));
  const campaign=await admin.call('newsletter-save',{audience:'customer',subject:'CI newsletter',title:'CI proof',text:'Fictional newsletter content',button_label:'More',button_url:'https://example.invalid'});assert.equal(campaign.status,200);
  assert.equal((await dealer.call('newsletter-test',{id:campaign.body.id})).status,403);
  assert.equal((await admin.call('newsletter-test',{id:campaign.body.id})).status,200);

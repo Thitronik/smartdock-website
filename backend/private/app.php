@@ -108,7 +108,7 @@ function run(array $config): never {
         reply(200, ['companies'=>$companies]);
     }
     require_staff($user);
-    if(in_array($action,['newsletter-upload','newsletter-admin','newsletter-save','newsletter-preview','newsletter-test','newsletter-send'],true))newsletter_route($db,$config,$user,$action,$data);
+    if(in_array($action,['newsletter-subscriber-status','newsletter-upload','newsletter-admin','newsletter-save','newsletter-preview','newsletter-test','newsletter-send'],true))newsletter_route($db,$config,$user,$action,$data);
     if ($action === 'admin') {
         reply(200, [
             'user'=>public_user($user),
@@ -118,8 +118,8 @@ function run(array $config): never {
             'requests'=>$db->query("SELECT r.*,u.email FROM sd_dealer_access_requests r JOIN sd_users u ON u.id=r.user_id ORDER BY r.created_at DESC")->fetchAll(),
             'mailStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_mail_outbox GROUP BY status')->fetchAll(),
             'configurations'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,selection_json,price_snapshot_json,status,created_at FROM sd_configuration_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
-            'newsletterSubscribers'=>$db->query('SELECT email,status,created_at,confirmed_at FROM sd_newsletter_subscribers ORDER BY created_at DESC')->fetchAll(),
-            'newsletterStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_newsletter_subscribers GROUP BY status')->fetchAll(),
+            'newsletterSubscribers'=>$db->query("SELECT id,email,status,created_at,confirmed_at FROM sd_newsletter_subscribers WHERE status IN ('pending','confirmed') ORDER BY created_at DESC")->fetchAll(),
+            'newsletterStatus'=>$db->query("SELECT status,COUNT(*) AS count FROM sd_newsletter_subscribers WHERE status IN ('pending','confirmed') GROUP BY status")->fetchAll(),
         ]);
     }
     if($action==='staff-invite'){staff_invite($db,$config,$user,$data);}
