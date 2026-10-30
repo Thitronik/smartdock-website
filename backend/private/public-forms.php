@@ -72,7 +72,7 @@ function public_inquiry(\PDO $db,array $config,array $data,string $type): never 
             $summary=configuration_summary($contact,$selection,$price,$ref);
             $body="Eine neue SMARTDOCK Konfigurationsanfrage ist eingegangen.\n\n".$summary."\n\n".$config['origin'].'/admin/';
             $pdf=configuration_pdf($contact,$selection,$price,$ref);
-            queue_mail($db,$config,'configuration_confirmation',$email,'SMARTDOCK: Deine Konfigurationsanfrage',"Vielen Dank für deine Anfrage, ".$name.".\n\nDeine Konfiguration mit Anschrift, ausgewählten Komponenten, Preisen und gegebenenfalls Einbauhändler findest du als PDF im Anhang.\n\nReferenz: ".$ref."\n\nWir prüfen deine Anfrage. Dies ist keine verbindliche Bestell- oder Terminbestätigung.",'configuration-customer-'.$ref,null,null,$refs,[['name'=>'SMARTDOCK-'.$ref.'.pdf','base64'=>base64_encode($pdf)]]);
+            queue_mail($db,$config,'configuration_confirmation',$email,'SMARTDOCK: Deine Konfigurationsanfrage',"Vielen Dank für deine Anfrage, ".$name.".\n\nDeine Konfiguration mit Anschrift, ausgewählten Komponenten, Preisen und gegebenenfalls Einbauhändler findest du als PDF im Anhang.\n\nReferenz: ".$ref."\n\nWir prüfen deine Anfrage.\n\n".configuration_nonbinding_notice(),'configuration-customer-'.$ref,null,null,$refs,[['name'=>'SMARTDOCK-'.$ref.'.pdf','base64'=>base64_encode($pdf)]]);
             if($selection['dealer']) {
                 // Test notifications must never contact a real installation dealer.
                 $isTest=parse_url($config['origin'],PHP_URL_HOST)==='test.smartdock.de';
