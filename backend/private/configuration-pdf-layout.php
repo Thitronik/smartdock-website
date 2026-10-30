@@ -68,7 +68,9 @@ function render_configuration_pdf(array $contact,array $s,array $price,string $r
     $y+=$boxH+8;$pdf->textAt($left+8.4,$y+2,'Gesamtpreis',13.4,'B');$pdf->textAt(85,$y,$money($price['totalPrice']),20.8,'B',[188,235,2],100.85,'R');
     $y+=20;$pdf->SetDrawColor(229,229,229);$pdf->SetLineWidth(.25);$pdf->Line($left,$y,$right,$y);$y+=7;
     foreach($pdf->lines('Die angezeigten Preise sind unverbindliche Preisempfehlungen inkl. der gesetzlichen Mehrwertsteuer.',$width,8.9,'') as $line){$pdf->textAt($left,$y,$line,8.9,'',[163,163,163],$width,'C');$y+=4.2;}
-    $y+=3; $noticeLines=$pdf->lines(configuration_nonbinding_notice(),$width,8.9,''); $y=$pdf->room($y,count($noticeLines)*4.2+10);
+    $y+=3; $noticeLines=[];$noticeLine='';$pdf->SetFont('Helvetica','',8.9);
+    foreach(explode(' ',configuration_nonbinding_notice()) as $word){$candidate=trim($noticeLine.' '.$word);if($noticeLine!==''&&$pdf->GetStringWidth($pdf->encoded($candidate))>$width){$noticeLines[]=$noticeLine;$noticeLine=$word;}else{$noticeLine=$candidate;}}
+    if($noticeLine!=='')$noticeLines[]=$noticeLine; $y=$pdf->room($y,count($noticeLines)*4.2+10);
     foreach($noticeLines as $line){$pdf->textAt($left,$y,$line,8.9,'',[115,115,115],$width,'C');$y+=4.2;}
     $y+=3;
     $pdf->textAt($left,$y,'www.thitronik.de • smartdock@thitronik.de',8.9,'',[163,163,163],$width,'C');
