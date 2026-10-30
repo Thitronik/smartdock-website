@@ -62,7 +62,7 @@ function dispatch_mail(\PDO $db,array $config,int $limit=5): void {
                 if(!$q->fetch()){$q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled',payload_encrypted=NULL,payload_json=NULL WHERE id=?");$q->execute([$mail['id']]);$db->commit();continue;}
             }
             if($mail['newsletter_token_id']) {
-                $q=$db->prepare("SELECT t.id FROM sd_newsletter_tokens t JOIN sd_newsletter_subscribers s ON s.id=t.subscriber_id WHERE t.id=? AND t.consumed_at IS NULL AND t.expires_at>UTC_TIMESTAMP(6) AND s.status='pending'");$q->execute([$mail['newsletter_token_id']]);
+                $q=$db->prepare("SELECT t.id FROM sd_newsletter_tokens t JOIN sd_newsletter_subscribers s ON s.id=t.subscriber_id WHERE t.id=? AND t.consumed_at IS NULL AND t.expires_at>UTC_TIMESTAMP(6) AND ((t.purpose='confirm' AND s.status='pending') OR (t.purpose='unsubscribe' AND s.status='confirmed'))");$q->execute([$mail['newsletter_token_id']]);
                 if(!$q->fetch()){$q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled',payload_encrypted=NULL,payload_json=NULL WHERE id=?");$q->execute([$mail['id']]);$db->commit();continue;}
             }
             $owner=bin2hex(random_bytes(16));$q=$db->prepare("UPDATE sd_mail_outbox SET status='processing',attempts=attempts+1,locked_at=UTC_TIMESTAMP(6),locked_by=? WHERE id=?");$q->execute([$owner,$mail['id']]);$db->commit();

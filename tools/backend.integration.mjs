@@ -172,15 +172,10 @@ try{
  const newsletter={email:'reader@example.invalid',language:'en'};
  assert.equal((await publicClient.call('newsletter-request',newsletter)).status,200);
  const newsletterMail=(await mails()).find(m=>m.type==='newsletter_confirmation');assert.equal(newsletterMail.to,newsletter.email);
- assert.equal(publicStatus().newsletter[0].status,'pending');
- const nlToken=newsletterMail.body.match(/action=newsletter-confirm&token=([a-f0-9]{64})/)[1];
+ assert.equal(publicStatus().newsletter[0].status,'confirmed','Direct registration is active immediately');
+ assert.doesNotMatch(newsletterMail.body,/action=newsletter-confirm/,'No confirmation link sent');
  const unsubscribeToken=newsletterMail.body.match(/action=newsletter-unsubscribe&token=([a-f0-9]{64})/)[1];
- const reader=client();assert.equal((await reader.page('newsletter-confirm&token='+nlToken)).status,303);
- const nlForm=await reader.page('newsletter-confirm');assert.equal(nlForm.status,200);assert.equal(publicStatus().newsletter[0].status,'pending','Email-scanner GET cannot confirm');
- const nlCsrf=nlForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1];
- assert.equal((await reader.page('newsletter-confirm',{csrf:'wrong'})).status,403);
- assert.equal((await reader.page('newsletter-confirm',{csrf:nlCsrf})).status,200);assert.equal(publicStatus().newsletter[0].status,'confirmed');
- assert.equal((await reader.page('newsletter-confirm',{csrf:nlCsrf})).status,403);
+ const reader=client();
  assert.equal((await publicClient.call('newsletter-request',newsletter)).status,200);assert.equal((await mails()).filter(m=>m.type==='newsletter_confirmation').length,1,'Duplicate request sends no additional mail');
  await reader.page('newsletter-unsubscribe&token='+unsubscribeToken);const unsubForm=await reader.page('newsletter-unsubscribe');assert.equal(publicStatus().newsletter[0].status,'confirmed');
  assert.equal((await reader.page('newsletter-unsubscribe',{csrf:unsubForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1]})).status,200);assert.equal(publicStatus().newsletter[0].status,'unsubscribed');

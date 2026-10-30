@@ -98,10 +98,10 @@ function newsletter_consent(string $language): string {
 function newsletter_request(\PDO $db,array $config,array $data): never {
     form_guard($config,$data,'newsletter',3);
     try{$email=normalized_email(access_field($data,'email',254));$language=form_language($data);}catch(\InvalidArgumentException){reply(400,['error'=>'Bitte eine gültige E-Mail-Adresse verwenden.']);}
-    $result=['ok'=>true,'pending'=>true];
+    $result=['ok'=>true,'pending'=>false];
     $key=hash_hmac('sha256',$email,$config['rate_key']);if(!rate_limit($config['state_directory'],'newsletter-address-'.$key,time(),1))reply(200,$result);
     // Verify a deliverable domain before storing fake/typo addresses. DNS failures
-    // do not bypass the confirmation link; no subscriber becomes active here.
+    // reject undeliverable domains; honeypot and rate limits remain enabled.
     if(!(PHP_SAPI==='cli-server'&&getenv('SD_BACKEND_TEST_RUN')==='1')) {
         $domain=substr($email,strrpos($email,'@')+1);
         if(!checkdnsrr($domain,'MX')&&!checkdnsrr($domain,'A')&&!checkdnsrr($domain,'AAAA'))reply(400,['error'=>'Die Domain der E-Mail-Adresse ist nicht erreichbar. Bitte prüfen.']);
@@ -110,18 +110,17 @@ function newsletter_request(\PDO $db,array $config,array $data): never {
     try {
         $q=$db->prepare('SELECT * FROM sd_newsletter_subscribers WHERE email_normalized=? FOR UPDATE');$q->execute([$email]);$subscriber=$q->fetch();
         if($subscriber&&in_array($subscriber['status'],['confirmed','blocked'],true)){$db->commit();reply(200,$result);}
-        if($subscriber&&$subscriber['status']==='pending') {
-            $q=$db->prepare("SELECT id FROM sd_newsletter_tokens WHERE subscriber_id=? AND purpose='confirm' AND consumed_at IS NULL AND expires_at>UTC_TIMESTAMP(6) LIMIT 1");$q->execute([$subscriber['id']]);if($q->fetch()){$db->commit();reply(200,$result);}
-        }
-        $consent=newsletter_consent($language);$version='newsletter-2026-10';
-        if(!$subscriber){$q=$db->prepare('INSERT INTO sd_newsletter_subscribers(email,email_normalized,language,consent_version,consent_text) VALUES(?,?,?,?,?)');$q->execute([$email,$email,$language,$version,$consent]);$id=(int)$db->lastInsertId();}
-        else {$id=(int)$subscriber['id'];$q=$db->prepare("UPDATE sd_newsletter_subscribers SET status='pending',language=?,consent_version=?,consent_text=?,consented_at=UTC_TIMESTAMP(6),confirmed_at=NULL,unsubscribed_at=NULL WHERE id=?");$q->execute([$language,$version,$consent,$id]);}
+        $consent=newsletter_consent($language);$version='newsletter-direct-2026-10-30';
+        if(!$subscriber){$q=$db->prepare("INSERT INTO sd_newsletter_subscribers(email,email_normalized,language,consent_version,consent_text,status) VALUES(?,?,?,?,?,'confirmed')");$q->execute([$email,$email,$language,$version,$consent]);$id=(int)$db->lastInsertId();}
+        else {$id=(int)$subscriber['id'];$q=$db->prepare("UPDATE sd_newsletter_subscribers SET status='confirmed',language=?,consent_version=?,consent_text=?,consented_at=UTC_TIMESTAMP(6),confirmed_at=NULL,unsubscribed_at=NULL WHERE id=?");$q->execute([$language,$version,$consent,$id]);}
         $q=$db->prepare("UPDATE sd_newsletter_tokens SET consumed_at=UTC_TIMESTAMP(6) WHERE subscriber_id=? AND consumed_at IS NULL");$q->execute([$id]);
         $q=$db->prepare("INSERT INTO sd_newsletter_events(subscriber_id,event_type,consent_version,consent_text) VALUES(?,'signup_requested',?,?)");$q->execute([$id,$version,$consent]);
-        $raw=bin2hex(random_bytes(32));$cancel=bin2hex(random_bytes(32));
-        $q=$db->prepare("INSERT INTO sd_newsletter_tokens(subscriber_id,purpose,token_hash,expires_at) VALUES(?,'confirm',?,DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 24 HOUR))");$q->execute([$id,hash('sha256',$raw,true)]);$tokenId=(int)$db->lastInsertId();
-        $q=$db->prepare("INSERT INTO sd_newsletter_tokens(subscriber_id,purpose,token_hash,expires_at) VALUES(?,'unsubscribe',?,DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 YEAR))");$q->execute([$id,hash('sha256',$cancel,true)]);
-        queue_mail($db,$config,'newsletter_confirmation',$email,'SMARTDOCK: Newsletter-Anmeldung bestätigen',"Bitte bestätige deine Newsletter-Anmeldung über diesen Link:\n\n".access_link($config,'newsletter-confirm',$raw)."\n\nDer Bestätigungslink gilt 24 Stunden. Erst nach deiner Bestätigung erhältst du den Newsletter. Wenn du dies nicht angefordert hast, ignoriere diese E-Mail.\n\nAnmeldung abbrechen oder abmelden:\n".access_link($config,'newsletter-unsubscribe',$cancel),'newsletter-confirm-'.$tokenId,null,null,['subscriber_id'=>$id,'newsletter_token_id'=>$tokenId]);
+        // 'confirmed' is the existing active-subscription status. Leave
+        // confirmed_at empty: a direct signup is not mailbox verification.
+        $q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled' WHERE subscriber_id=? AND message_type='newsletter_confirmation' AND status IN ('queued','failed')");$q->execute([$id]);
+        $cancel=bin2hex(random_bytes(32));
+        $q=$db->prepare("INSERT INTO sd_newsletter_tokens(subscriber_id,purpose,token_hash,expires_at) VALUES(?,'unsubscribe',?,DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 1 YEAR))");$q->execute([$id,hash('sha256',$cancel,true)]);$tokenId=(int)$db->lastInsertId();
+        queue_mail($db,$config,'newsletter_confirmation',$email,'SMARTDOCK: Du bist zum Newsletter angemeldet',"Du bist jetzt für den SMARTDOCK Newsletter eingetragen. Eine weitere Bestätigung ist nicht nötig.\n\nDu kannst dich jederzeit abmelden:\n".access_link($config,'newsletter-unsubscribe',$cancel),'newsletter-direct-'.$tokenId,null,null,['subscriber_id'=>$id,'newsletter_token_id'=>$tokenId]);
         $db->commit();
     }catch(\PDOException $error){if($db->inTransaction())$db->rollBack();if($error->getCode()!=='23000')throw $error;reply(200,$result);}
     catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}

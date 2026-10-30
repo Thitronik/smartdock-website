@@ -17,3 +17,10 @@
 .sd-admin-portal .pending-row .dealer-entry-top h3{color:#bceb02}.sd-admin-portal h3{text-align:center}
 
 .sd-admin-portal .dealer-table{min-width:600px}.sd-admin-portal .dealer-table th{padding:12px;text-align:left}.sd-admin-portal .dealer-table td{padding:12px;text-align:left;vertical-align:middle}.sd-admin-portal .dealer-table-row td:first-child{width:45%}.sd-admin-portal .dealer-table .dealer-toggle{display:block;width:100%;border:0;border-radius:6px;text-align:left;padding:8px;font-size:14px;font-weight:600}.sd-admin-portal .dealer-toggle span{display:inline-block;width:18px;color:#bceb02}.sd-admin-portal .dealer-toggle[aria-expanded=true]{color:#bceb02}.sd-admin-portal .dealer-table-row.pending-row .dealer-toggle,.sd-admin-portal .dealer-table-row.pending-row small{color:#bceb02}.sd-admin-portal .dealer-table .dealer-entry{margin:0}.sd-admin-portal .dealer-table td[colspan]{padding:8px 0 20px}
+
+/* Configuration requests: green feedback before and after expanding. */
+.sd-admin-portal :is(#configuration-requests,#contact-newsletter)>details{transition:border-color .2s ease}
+.sd-admin-portal :is(#configuration-requests,#contact-newsletter)>details:hover,
+.sd-admin-portal :is(#configuration-requests,#contact-newsletter)>details[open],
+.sd-admin-portal :is(#configuration-requests,#contact-newsletter)>details:focus-within{border-color:#bceb02}
+@media(prefers-reduced-motion:reduce){.sd-admin-portal :is(#configuration-requests,#contact-newsletter)>details{transition:none}}
