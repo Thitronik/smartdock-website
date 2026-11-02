@@ -7,8 +7,8 @@ import { calculate as live, countries } from './fixtures/live-pricing-2026-10-22
 
 test('Erfolgstext unterscheidet echte Hetzner-Anfrage von lokal gespeicherter Pages-Vorschau',async()=>{
  const source=await readFile(new URL('../vendor/website/assets/index-RRVGC1mK.js',import.meta.url),'utf8');
- const expression=source.match(/\(typeof location!=="undefined"&&location\.hostname==="test\.smartdock\.de"\?"Konfigurationsanfrage eingegangen":"Testkonfiguration gespeichert"\)/)?.[0];assert.ok(expression);
- assert.equal(vm.runInNewContext(expression,{location:{hostname:'test.smartdock.de'}}),'Konfigurationsanfrage eingegangen');assert.equal(vm.runInNewContext(expression,{location:{hostname:'thitronik.github.io'}}),'Testkonfiguration gespeichert');
+ const expression=source.match(/\(typeof location!=="undefined"&&\["test\.smartdock\.de","smartdock\.de","www\.smartdock\.de"\]\.includes\(location\.hostname\)\?"Konfigurationsanfrage eingegangen":"Testkonfiguration gespeichert"\)/)?.[0];assert.ok(expression);
+ assert.equal(vm.runInNewContext(expression,{location:{hostname:'test.smartdock.de'}}),'Konfigurationsanfrage eingegangen');for(const hostname of ['smartdock.de','www.smartdock.de'])assert.equal(vm.runInNewContext(expression,{location:{hostname}}),'Konfigurationsanfrage eingegangen');assert.equal(vm.runInNewContext(expression,{location:{hostname:'thitronik.github.io'}}),'Testkonfiguration gespeichert');
  assert.match(source,/Ot=\{promoCode:A\.promoCode\|\|"",referenceNumber:yt/);
 });
 

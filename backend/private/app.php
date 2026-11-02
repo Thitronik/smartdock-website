@@ -34,7 +34,7 @@ function run(array $config): never {
     $origin = 'https://' . ($_SERVER['HTTP_HOST'] ?? '');
     if (($_SERVER['HTTPS'] ?? '') !== 'on' || $origin !== $config['origin']) reply(403, ['error' => 'Zugriff nicht erlaubt.']);
     if (strlen($config['rate_key'] ?? '') < 64 || empty($config['dummy_password_hash'])) {
-        reply(503, ['error' => 'Die Testanmeldung ist noch nicht eingerichtet.']);
+        reply(503, ['error' => 'Die Anmeldung ist noch nicht eingerichtet.']);
     }
     if (!is_dir($config['session_directory']) || !is_writable($config['session_directory'])) throw new \RuntimeException('Session directory unavailable.');
     ini_set('session.use_strict_mode', '1');
@@ -43,7 +43,8 @@ function run(array $config): never {
     session_save_path($config['session_directory']);
     $action = (string)($_GET['action'] ?? 'session');
     $dealerPortal=($_GET['portal']??'')==='dealer'||in_array($action,['dealer-invitation','dealer-password'],true);
-    session_name($dealerPortal?'__Host-smartdock_dealer_test':'__Host-smartdock_test');
+    $testEnvironment=parse_url($config['origin'],PHP_URL_HOST)==='test.smartdock.de';
+    session_name($dealerPortal?($testEnvironment?'__Host-smartdock_dealer_test':'__Host-smartdock_dealer'):($testEnvironment?'__Host-smartdock_test':'__Host-smartdock'));
     session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict']);
     if (!session_start()) throw new \RuntimeException('Session unavailable.');
     $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
@@ -255,7 +256,7 @@ function current_user(\PDO $db,array $config): ?array {
     if (empty($_SESSION['auth_id']) || empty($_SESSION['proof'])) return null;
     $q=$db->prepare('SELECT s.id AS session_id,s.staff_mfa_verified_at,u.* FROM sd_user_sessions s JOIN sd_users u ON u.id=s.user_id WHERE s.id=? AND s.session_hash=? AND s.csrf_hash=? AND s.revoked_at IS NULL AND s.expires_at>UTC_TIMESTAMP(6) AND s.last_seen_at>DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE)');
     $q->execute([$_SESSION['auth_id'],hash('sha256',$_SESSION['proof'],true),hash('sha256',$_SESSION['csrf'],true)]);$user=$q->fetch();
-    $realm=session_name()==='__Host-smartdock_dealer_test'?'dealer':'staff';
+    $realm=in_array(session_name(),['__Host-smartdock_dealer_test','__Host-smartdock_dealer'],true)?'dealer':'staff';
     if (!$user || $user['login_realm']!==$realm || !active_user($user)) { unset($_SESSION['auth_id'],$_SESSION['proof']);return null; }
     $user['roles']=[];
     if ($realm==='staff' && staff_address_authorized($db,$config,$user) && staff_mail_verified($db,$user) && !empty($user['staff_mfa_verified_at']) && staff_secret($config,$user['email_normalized']) !== '') {

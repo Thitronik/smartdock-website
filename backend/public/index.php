@@ -17,14 +17,14 @@ try {
     $private = $privateReal;
     if (!is_file($private . '/config.php') || !is_file($private . '/app.php')) {
         http_response_code(503);
-        echo '{"error":"Die Testanmeldung ist noch nicht eingerichtet."}';
+        echo '{"error":"Die Anmeldung ist noch nicht eingerichtet."}';
         exit;
     }
     require $private . '/app.php';
     \Smartdock\run(require $private . '/config.php');
 } catch (Throwable $error) {
     // Do not log payloads or PDO exception text containing connection details.
-    error_log('SMARTDOCK test backend failed: ' . get_class($error));
+    error_log('SMARTDOCK backend failed: ' . get_class($error));
     http_response_code(503);
     echo '{"error":"Der Dienst ist momentan nicht verfügbar."}';
 }
