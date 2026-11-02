@@ -10,21 +10,10 @@ export async function connectDealerPortal(root,language){
  const t=messages[language]||messages.de;let csrf='',busy=false;
  const status=root.querySelector('#login-status'),result=root.querySelector('#result');
  async function api(action,data){
-  const response=await fetch('/api/index.php?action='+action,{method:data===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:data===undefined?{}:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:data===undefined?undefined:JSON.stringify(data)});
+  const response=await fetch('/api/index.php?portal=dealer&action='+action,{method:data===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:data===undefined?{}:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:data===undefined?undefined:JSON.stringify(data)});
   let body;try{body=await response.json();}catch{throw Error('SMARTDOCK: Server nicht erreichbar.');}
   if(!response.ok)throw Error(body.error||'SMARTDOCK: Anfrage fehlgeschlagen.');if(body.csrf)csrf=body.csrf;return body;
  }
- const mfaCopy={
-  de:['Authenticator-Code (nur für Admin-Konten)','Wenn du dieselbe E-Mail-Adresse auch für den Adminbereich nutzt, gib zusätzlich den aktuellen Code aus deiner Authenticator-App ein. Verwende dein bestehendes SMARTDOCK Passwort. Reine Händlerkonten lassen dieses Feld frei.'],
-  en:['Authenticator code (admin accounts only)','If you also use this email address for administration, enter the current code from your authenticator app. Use your existing SMARTDOCK password. Dealer-only accounts leave this field blank.'],
-  fr:['Code d’authentification (comptes administrateurs uniquement)','Si cette adresse e-mail sert aussi à l’administration, saisis le code actuel de ton application d’authentification. Utilise ton mot de passe SMARTDOCK habituel. Pour un compte revendeur uniquement, laisse ce champ vide.'],
-  nl:['Authenticatorcode (alleen voor beheerders)','Gebruik je dit e-mailadres ook voor de administratie? Vul dan de actuele code uit je authenticator-app in. Gebruik je bestaande SMARTDOCK-wachtwoord. Gewone dealeraccounts laten dit veld leeg.'],
-  es:['Código de autenticación (solo administradores)','Si también usas este correo para la administración, introduce el código actual de tu aplicación de autenticación. Usa tu contraseña habitual de SMARTDOCK. Las cuentas solo de distribuidor dejan este campo vacío.']
- }[language]||['Authenticator code (admin accounts only)','Dealer-only accounts leave this field blank.'];
- const mfaLabel=document.createElement('label');mfaLabel.htmlFor='dealer-otp';mfaLabel.textContent=mfaCopy[0];
- const mfaInput=document.createElement('input');mfaInput.id='dealer-otp';mfaInput.name='otp';mfaInput.type='text';mfaInput.inputMode='numeric';mfaInput.autocomplete='one-time-code';mfaInput.pattern='[0-9]{6}';mfaInput.maxLength=6;mfaInput.setAttribute('aria-describedby','dealer-mfa-help');
- const mfaHelp=document.createElement('p');mfaHelp.id='dealer-mfa-help';mfaHelp.className='muted';mfaHelp.textContent=mfaCopy[1];
- root.querySelector('#login button').before(mfaLabel,mfaInput,mfaHelp);
  const session=await api('session');if(!root.isConnected)return;
  const previewNote=document.getElementById('preview-note');if(previewNote)previewNote.textContent=t[8];
  root.querySelectorAll('form button,#reset').forEach(button=>button.disabled=false);
@@ -44,8 +33,8 @@ export async function connectDealerPortal(root,language){
   busy=true;const button=form.querySelector('button');button.disabled=true;
   try {
    if(form.id==='login'){
-    const password=form.querySelector('[type=password]');const data={email:form.querySelector('[type=email]').value,password:password.value,otp:mfaInput.value.trim()};password.value='';mfaInput.value='';
-    try{await api('login',data);}finally{data.password='';data.otp='';}await showDealer();
+    const password=form.querySelector('[type=password]');const data={email:form.querySelector('[type=email]').value,password:password.value};password.value='';
+    try{await api('login',data);}finally{data.password='';}await showDealer();
    }
   }catch(error){(form.id==='login'?status:result).textContent=error.message;}finally{busy=false;if(button.isConnected)button.disabled=false;}
  },true);

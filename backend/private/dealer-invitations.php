@@ -13,7 +13,7 @@ function independent_access_container(\PDO $db): int {
 function queue_dealer_invitation(\PDO $db,array $config,int $dealerId,string $email,int $actor): int {
     $email=normalized_email($email);
     $q=$db->prepare('SELECT source_system FROM sd_dealer WHERE id=?');$q->execute([$dealerId]);$independent=$q->fetchColumn()==='smartdock-internal';
-    $q=$db->prepare('SELECT * FROM sd_users WHERE email_normalized=?');$q->execute([$email]);$account=$q->fetch();
+    $q=$db->prepare("SELECT * FROM sd_users WHERE login_realm='dealer' AND email_normalized=?");$q->execute([$email]);$account=$q->fetch();
     if($account){
         if(!active_user($account))throw new \InvalidArgumentException('Das vorhandene Konto muss zuerst eingerichtet oder reaktiviert werden. Keine Einladung versendet.');
         $q=$db->prepare('SELECT id FROM sd_dealer_memberships WHERE dealer_id=? AND user_id=?');$q->execute([$dealerId,$account['id']]);
@@ -38,7 +38,7 @@ function dealer_invitation_page(array $config): never {
     $query="SELECT i.*,d.company_name,d.source_system FROM sd_dealer_invitations i JOIN sd_dealer d ON d.id=i.dealer_id WHERE i.token_hash=? AND i.consumed_at IS NULL AND i.revoked_at IS NULL AND i.expires_at>UTC_TIMESTAMP(6) AND d.status='active'";
     $q=$db->prepare($query);$q->execute([$_SESSION['dealer-invitation']??'']);$invitation=$q->fetch();
     if(!$invitation)access_html(403,'Link nicht gültig','<p>Die Einladung ist abgelaufen oder bereits verwendet. Bitte SMARTDOCK um eine neue Einladung bitten.</p>');
-    $q=$db->prepare('SELECT * FROM sd_users WHERE email_normalized=?');$q->execute([$invitation['email']]);$account=$q->fetch();$existing=(bool)$account;
+    $q=$db->prepare("SELECT * FROM sd_users WHERE login_realm='dealer' AND email_normalized=?");$q->execute([$invitation['email']]);$account=$q->fetch();$existing=(bool)$account;
     $error='';
     if($method==='POST'){
         if(($_SERVER['HTTP_ORIGIN']??'')!==$config['origin']||!is_string($_POST['csrf']??null)||!hash_equals($_SESSION['csrf'],$_POST['csrf']))access_html(403,'Anfrage nicht erlaubt','<p>Bitte lade die Seite neu.</p>');
@@ -50,7 +50,7 @@ function dealer_invitation_page(array $config): never {
             $db->beginTransaction();$q=$db->prepare($query.' FOR UPDATE');$q->execute([$_SESSION['dealer-invitation']]);$fresh=$q->fetch();
             if(!$fresh)throw new \InvalidArgumentException('Diese Einladung ist nicht mehr gültig.');
             if($existing){
-                $q=$db->prepare('SELECT * FROM sd_users WHERE email_normalized=? FOR UPDATE');$q->execute([$fresh['email']]);$current=$q->fetch();
+                $q=$db->prepare("SELECT * FROM sd_users WHERE login_realm='dealer' AND email_normalized=? FOR UPDATE");$q->execute([$fresh['email']]);$current=$q->fetch();
                 if(!$current||!active_user($current)||!password_verify($password,$current['password_hash']))throw new \InvalidArgumentException('Das aktuelle Passwort stimmt nicht oder das Konto ist gesperrt.');
                 $userId=(int)$current['id'];
             }else{

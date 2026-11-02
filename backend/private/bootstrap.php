@@ -36,7 +36,7 @@ function bootstrap_request(array $config): never {
     // only to this same origin, never to an external destination.
     header('Referrer-Policy: same-origin');
     $db=database($config);
-    $q=$db->prepare('SELECT * FROM sd_users WHERE email_normalized=?');$q->execute([$setup['email']]);$existing=$q->fetch();
+    $q=$db->prepare("SELECT * FROM sd_users WHERE login_realm='staff' AND email_normalized=?");$q->execute([$setup['email']]);$existing=$q->fetch();
     if($existing){
         if(staff_mail_verified($db,$existing))$closed('Die E-Mail-Adresse und der Adminzugang wurden bereits bestätigt.',409);
         require_once __DIR__.'/staff-activation.php';staff_activation_reconfirm($db,$config,$existing);
@@ -70,10 +70,10 @@ function bootstrap_request(array $config): never {
             try{
                 $db->beginTransaction();
                 if((int)$db->query('SELECT COUNT(*) FROM sd_staff_roles')->fetchColumn()>0){$db->rollBack();$closed('Die Administration wurde bereits eingerichtet.',409);}
-                $q=$db->prepare('SELECT id FROM sd_users WHERE email_normalized=? FOR UPDATE');$q->execute([$setup['email']]);
+                $q=$db->prepare("SELECT id FROM sd_users WHERE login_realm='staff' AND email_normalized=? FOR UPDATE");$q->execute([$setup['email']]);
                 if($q->fetch()){$db->rollBack();$closed('Für dieses Konto ist eine separate Einrichtung erforderlich.',409);}
                 store_staff_secret($config,$setup['email'],$_SESSION['bootstrap_secret']);$secretStored=true;
-                $q=$db->prepare("INSERT INTO sd_users(first_name,last_name,email,email_normalized,password_hash,password_set_at,status) VALUES(?,?,?,?,?,UTC_TIMESTAMP(6),'invited')");
+                $q=$db->prepare("INSERT INTO sd_users(first_name,last_name,email,email_normalized,password_hash,password_set_at,status,login_realm) VALUES(?,?,?,?,?,UTC_TIMESTAMP(6),'invited','staff')");
                 $q->execute([trim($first),trim($last),$setup['email'],$setup['email'],password_hash($password,PASSWORD_DEFAULT)]);$id=(int)$db->lastInsertId();
                 require_once __DIR__.'/staff-activation.php';
                 staff_activation_pending($db,$config,['id'=>$id,'email_normalized'=>$setup['email']]);

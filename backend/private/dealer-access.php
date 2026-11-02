@@ -54,7 +54,7 @@ function dealer_request(\PDO $db,array $config,array $data): never {
     $db->beginTransaction();
     try {
         // Never overwrite an existing person or grant an affiliation from a public form.
-        $q=$db->prepare('SELECT * FROM sd_users WHERE email_normalized=? FOR UPDATE');$q->execute([$email]);
+        $q=$db->prepare("SELECT * FROM sd_users WHERE login_realm='dealer' AND email_normalized=? FOR UPDATE");$q->execute([$email]);
         if($existing=$q->fetch()){
             if($existing['status']==='invited'&&$existing['email_verified_at']===null){
                 $q=$db->prepare("SELECT r.id FROM sd_dealer_access_requests r WHERE r.user_id=? AND r.status='email_pending' AND NOT EXISTS(SELECT 1 FROM sd_staff_roles s WHERE s.user_id=r.user_id) ORDER BY r.id DESC LIMIT 1 FOR UPDATE");$q->execute([$existing['id']]);
@@ -76,7 +76,7 @@ function dealer_password_request(\PDO $db,array $config,array $data): never {
     access_limit($config,'password-request',$email);
     $db->beginTransaction();
     try {
-        $q=$db->prepare("SELECT u.* FROM sd_users u WHERE email_normalized=? AND status IN ('active','invited') AND email_verified_at IS NOT NULL AND EXISTS(SELECT 1 FROM sd_dealer_memberships m JOIN sd_dealer d ON d.id=m.dealer_id WHERE m.user_id=u.id AND m.status='approved' AND d.status='active') AND NOT EXISTS(SELECT 1 FROM sd_staff_roles s WHERE s.user_id=u.id) FOR UPDATE");$q->execute([$email]);$user=$q->fetch();
+        $q=$db->prepare("SELECT u.* FROM sd_users u WHERE login_realm='dealer' AND email_normalized=? AND status IN ('active','invited') AND email_verified_at IS NOT NULL AND EXISTS(SELECT 1 FROM sd_dealer_memberships m JOIN sd_dealer d ON d.id=m.dealer_id WHERE m.user_id=u.id AND m.status='approved' AND d.status='active') AND NOT EXISTS(SELECT 1 FROM sd_staff_roles s WHERE s.user_id=u.id) FOR UPDATE");$q->execute([$email]);$user=$q->fetch();
         if($user){queue_dealer_password($db,$config,$user);}
         $db->commit();
     }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
@@ -171,7 +171,7 @@ function access_token_page(array $config,string $action): never {
             try {
                 $q=$db->prepare('SELECT * FROM sd_users WHERE id=? FOR UPDATE');$q->execute([$token['user_id']]);$owner=$q->fetch();
                 $q=$db->prepare('SELECT * FROM sd_user_tokens WHERE id=? AND consumed_at IS NULL AND revoked_at IS NULL AND expires_at>UTC_TIMESTAMP(6) FOR UPDATE');$q->execute([$token['id']]);$fresh=$q->fetch();
-                if(!$fresh||!$owner||$owner['status']==='suspended'){$db->rollBack();access_html(403,'Link nicht gültig','<p>Bitte einen neuen Link anfordern.</p>');}
+                if(!$fresh||!$owner||$owner['status']==='suspended'||($action==='dealer-password'&&$owner['login_realm']!=='dealer')){$db->rollBack();access_html(403,'Link nicht gültig','<p>Bitte einen neuen Link anfordern.</p>');}
                 if($action==='dealer-confirm')confirm_dealer_request($db,$config,$fresh,$owner);
                 elseif($action==='dealer-approve') {
                     $q=$db->prepare("SELECT id FROM sd_dealer_memberships WHERE id=? AND status='pending' FOR UPDATE");$q->execute([$fresh['membership_id']]);
