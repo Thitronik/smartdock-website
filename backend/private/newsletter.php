@@ -1,0 +1,216 @@
+<?php
+declare(strict_types=1);
+namespace Smartdock;
+require_once __DIR__.'/newsletter-pdf.php';
+require_once __DIR__.'/mail-template.php';
+require_once __DIR__.'/newsletter-enrollment.php';
+
+function newsletter_settings(array $config): array {
+    $path=__DIR__.'/newsletter-settings.php';
+    return is_file($path)?array_replace($config,require $path):$config;
+}
+
+function newsletter_image_info(string $bytes): array {
+    if(strlen($bytes)>5*1024*1024)throw new \InvalidArgumentException('Das Bild darf höchstens 5 MB groß sein.');
+    $info=@getimagesizefromstring($bytes);
+    if(!$info||!in_array($info[2],[IMAGETYPE_JPEG,IMAGETYPE_PNG,IMAGETYPE_WEBP],true))throw new \InvalidArgumentException('Bitte ein gültiges JPG-, PNG- oder WebP-Bild auswählen.');
+    if($info[0]<1||$info[1]<1||$info[0]>6000||$info[1]>6000||$info[0]*$info[1]>12000000)throw new \InvalidArgumentException('Das Bild darf höchstens 12 Megapixel und 6.000 Pixel pro Seite haben.');
+    return $info;
+}
+
+function newsletter_upload(array $file,array $config): string {
+    if(($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_OK||!is_string($file['tmp_name']??null)||!is_uploaded_file($file['tmp_name']))throw new \InvalidArgumentException('Bitte ein Bild bis 5 MB auswählen und erneut hochladen.');
+    $bytes=file_get_contents($file['tmp_name'],false,null,0,5*1024*1024+1);
+    if($bytes===false)throw new \RuntimeException('Image read failed');
+    $info=newsletter_image_info($bytes);
+    if(!function_exists('imagecreatefromstring'))throw new \InvalidArgumentException('Die Bildverarbeitung ist auf dem Server noch nicht verfügbar.');
+    $source=@imagecreatefromstring($bytes);
+    if(!$source)throw new \InvalidArgumentException('Die Bilddatei konnte nicht gelesen werden.');
+    // Re-encode decoded pixels: no original filename, metadata or executable payload survives.
+    $scale=min(1,1200/$info[0],800/$info[1]);$width=max(1,(int)round($info[0]*$scale));$height=max(1,(int)round($info[1]*$scale));
+    $image=imagecreatetruecolor($width,$height);
+    imagealphablending($image,false);imagesavealpha($image,true);
+    imagecopyresampled($image,$source,0,0,0,0,$width,$height,$info[0],$info[1]);
+    imagedestroy($source);
+    $directory=dirname($_SERVER['SCRIPT_FILENAME'],2).'/media/newsletter';
+    if(!is_dir($directory)&&!mkdir($directory,0755,true)&&!is_dir($directory))throw new \RuntimeException('Image directory unavailable');
+    $name=bin2hex(random_bytes(24)).'.png';$path=$directory.'/'.$name;
+    try{if(!imagepng($image,$path,6))throw new \RuntimeException('Image write failed');chmod($path,0644);}
+    finally{imagedestroy($image);}
+    return rtrim($config['origin'],'/').'/media/newsletter/'.$name;
+}
+
+function newsletter_group(string $email,array $dealers): string {
+    $domain=strtolower(substr(strrchr(trim($email),'@')?:'',1));
+    $generic=['gmail.com','googlemail.com','outlook.com','hotmail.com','live.com','icloud.com','me.com','gmx.de','gmx.net','web.de','yahoo.com','yahoo.de','aol.com','t-online.de','mail.de','freenet.de','proton.me','protonmail.com'];
+    foreach($dealers as $dealer){
+        if(($dealer['status']??'active')!=='active')continue;
+        $address=strtolower(trim($dealer['public_email']??''));
+        // Exact published addresses are dealers even on a shared mail provider.
+        if($address!==''&&$address===strtolower(trim($email)))return 'dealer';
+        if(empty($dealer['exact_only'])&&$domain!==''&&!preg_match('/^(gmail|googlemail|outlook|hotmail|live|icloud|me|gmx|web|yahoo|aol|t-online|mail|freenet|proton|protonmail|o2online|orange|bluewin)\./',$domain)&&!in_array($domain,$generic,true)&&$domain===substr(strrchr($address,'@')?:'',1))return 'dealer';
+    }
+    return 'customer';
+}
+function newsletter_dealer_addresses(\PDO $db): array {
+    return $db->query("SELECT public_email,status,0 AS exact_only FROM sd_dealer WHERE status='active' UNION SELECT u.email AS public_email,d.status,1 AS exact_only FROM sd_users u JOIN sd_dealer_memberships m ON m.user_id=u.id JOIN sd_dealer d ON d.id=m.dealer_id WHERE m.status='approved' AND u.status='active' AND d.status='active' UNION SELECT i.email AS public_email,d.status,1 AS exact_only FROM sd_dealer_invitations i JOIN sd_dealer d ON d.id=i.dealer_id WHERE i.revoked_at IS NULL AND i.consumed_at IS NULL AND i.expires_at>UTC_TIMESTAMP(6) AND d.status='active'")->fetchAll();
+}
+function newsletter_recipients(\PDO $db,string $group): array {
+    $dealers=newsletter_dealer_addresses($db);
+    return array_values(array_filter($db->query("SELECT id,email,email_normalized,language,consented_at FROM sd_newsletter_subscribers WHERE status='confirmed' ORDER BY id")->fetchAll(),fn($s)=>newsletter_group($s['email'],$dealers)===$group));
+}
+function newsletter_content(array $data): array {
+    $out=[];
+    foreach(['subject'=>160,'title'=>160,'text'=>8000,'button_label'=>80,'button_url'=>1000,'image_url'=>1000] as $field=>$max){
+        $v=$data[$field]??'';
+        if(!is_string($v)||strlen($v)>$max||preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/',$v)||($field!=='text'&&strpbrk($v,"\r\n")!==false))throw new \InvalidArgumentException('Invalid newsletter content');
+        $out[$field]=trim($v);
+    }
+    if(!$out['subject']||!$out['title']||!$out['text'])throw new \InvalidArgumentException('Required content');
+    foreach(['button_url','image_url'] as $f)if($out[$f]!==''&&(!filter_var($out[$f],FILTER_VALIDATE_URL)||parse_url($out[$f],PHP_URL_SCHEME)!=='https'||parse_url($out[$f],PHP_URL_USER)!==null))throw new \InvalidArgumentException('HTTPS URL required');
+    if((bool)$out['button_label']!==(bool)$out['button_url'])throw new \InvalidArgumentException('Button needs label and URL');
+    return $out;
+}
+function newsletter_html(array $content,string $unsubscribe,array $config): string {
+    $e=static fn($s)=>htmlspecialchars($s,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
+    $brand=mail_brand_header($config);
+    $dark=$e($config['origin'].'/media/newsletter-template/dark.png');
+    $title=$e($content['title']);
+    // Repeat foreground/background pairs at the content cells and text elements.
+    // Email clients can discard body styles or recolor only part of a table.
+    $text='<p class="sd-copy" style="margin:0 0 24px;color:#1d1d1b;font:16px/26px Arial,Helvetica,sans-serif">'.nl2br($e($content['text'])).'</p>';
+    $image=$content['image_url']?'<img alt="" width="536" border="0" style="display:block;width:100%;max-width:536px;height:auto;border:0;margin:0 0 24px" src="'.$e($content['image_url']).'">':'';
+    $button=$content['button_url']?'<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;border:0"><tr><td class="sd-cta" style="background:transparent;border:2px solid #bceb02;border-radius:24px;text-align:center"><a class="sd-cta-text" href="'.$e($content['button_url']).'" style="display:inline-block;padding:12px 22px;border:0;border-radius:22px;color:#1d1d1b;font:700 16px/24px Arial,Helvetica,sans-serif;text-decoration:none">'.$e($content['button_label']).'</a></td></tr></table>':'';
+    $footer=nl2br($e($config['newsletter_footer']??'SMARTDOCK · Thitronik GmbH'));
+    $imprint=$e($config['origin'].'/impressum/');$privacy=$e($config['origin'].'/datenschutz/');$unsubscribe=$e($unsubscribe);
+    $unsubscribeHtml=$unsubscribe!==''?'<a class="sd-link" href="'.$unsubscribe.'" style="color:#1d1d1b;text-decoration:underline">Newsletter abmelden</a>':'Testnewsletter – kein Abonnement.';
+    return <<<HTML
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">
+<style>
+:root{color-scheme:light dark;supported-color-schemes:light dark}
+table{border-spacing:0;mso-table-lspace:0pt;mso-table-rspace:0pt}img{border:0;outline:none;text-decoration:none}
+@media(prefers-color-scheme:dark){
+.sd-page{background-color:#191c20!important;background-image:url($dark)!important;color:#f4f5f6!important}
+.sd-content{background-color:#191c20!important;background-image:url($dark)!important;color:#f4f5f6!important}
+.sd-copy{color:#f4f5f6!important}
+.sd-footer{background-color:#191c20!important;background-image:url($dark)!important;color:#f4f5f6!important}
+.sd-link{color:#bceb02!important}
+.sd-brand{background-color:#191c20!important;background-image:url($dark)!important}
+.sd-cta-text{color:#f4f5f6!important}
+}
+[data-ogsc] .sd-copy{color:#f4f5f6!important}[data-ogsc] .sd-link{color:#bceb02!important}
+[data-ogsb] .sd-content{background-color:#191c20!important;background-image:url($dark)!important}[data-ogsb] .sd-footer{background-color:#191c20!important;background-image:url($dark)!important}
+[data-ogsb] .sd-brand{background-color:#191c20!important;background-image:url($dark)!important}
+[data-ogsc] .sd-cta-text{color:#f4f5f6!important}
+@media(max-width:600px){.sd-pad{padding:24px!important}.sd-title{font-size:25px!important;line-height:32px!important}}
+</style></head>
+<body class="sd-page" bgcolor="#ffffff" style="margin:0;padding:0;background-color:#ffffff;color:#1d1d1b;font-family:Arial,Helvetica,sans-serif">
+<table class="sd-page" role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="width:100%;border:0;border-collapse:collapse;background-color:#ffffff"><tr><td align="center" style="padding:20px 12px;border:0">
+<!--[if mso]><table role="presentation" width="600" border="0" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+<table role="presentation" width="600" border="0" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;border:0;border-collapse:collapse">
+$brand
+<tr><td class="sd-content sd-pad" bgcolor="#ffffff" style="border:0;padding:32px;background-color:#ffffff;color:#1d1d1b;font:16px/26px Arial,Helvetica,sans-serif;text-align:left"><h1 class="sd-copy sd-title" style="margin:0 0 24px;color:#1d1d1b;font:700 28px/36px Arial,Helvetica,sans-serif">$title</h1>$image$text$button</td></tr>
+<tr><td class="sd-footer sd-pad" bgcolor="#ffffff" style="border:0;padding:24px;background-color:#ffffff;color:#1d1d1b;font:13px/21px Arial,Helvetica,sans-serif;text-align:left"><p class="sd-copy" style="margin:0 0 16px;color:#1d1d1b;font:13px/21px Arial,Helvetica,sans-serif">$footer</p><p style="margin:0 0 16px"><a class="sd-link" href="$imprint" style="color:#1d1d1b;text-decoration:underline">Impressum</a> · <a class="sd-link" href="$privacy" style="color:#1d1d1b;text-decoration:underline">Datenschutz</a></p><p style="margin:0">$unsubscribeHtml</p></td></tr>
+</table><!--[if mso]></td></tr></table><![endif]-->
+</td></tr></table></body></html>
+HTML;
+}
+function newsletter_ready(\PDO $db): bool {
+    return (bool)$db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='sd_newsletter_campaigns'")->fetchColumn();
+}
+function newsletter_route(\PDO $db,array $config,array $user,string $action,array $data): never {
+    require_staff($user,['admin']);
+    $config=newsletter_settings($config);
+    if($action==='newsletter-upload') {
+        access_limit($config,'newsletter-upload',(string)$user['id']);
+        try { $url=newsletter_upload($_FILES['image']??[], $config); }
+        catch(\InvalidArgumentException $e){reply(400,['error'=>$e->getMessage()]);}
+        reply(200,['url'=>$url]);
+    }
+    if($action==='newsletter-import'){
+        $entries=$data['entries']??null;$source=$data['source']??'';
+        if(!is_array($entries)||count($entries)<1||count($entries)>500||!in_array($source,['brevo','hostinger','dealer'],true))reply(400,['error'=>'Bitte 1 bis 500 Adressen und eine gültige Quelle angeben.']);
+        $validated=[];
+        try{foreach($entries as $entry){
+            if(!is_object($entry))throw new \InvalidArgumentException();
+            $email=normalized_email($entry->email??'');$language=$entry->language??'de';$created=$entry->created_at??null;
+            if(!in_array($language,['de','en','fr','nl','es'],true)||($created!==null&&(!is_string($created)||!preg_match('/^\d{4}-\d{2}-\d{2} 00:00:00$/D',$created))))throw new \InvalidArgumentException();
+            $validated[$email]=[$email,$language,$created];
+        }}catch(\Throwable){reply(400,['error'=>'Ungültiger Import. Keine Adressen übernommen.']);}
+        $counts=['inserted'=>0,'activated'=>0,'existing'=>0,'suppressed'=>0];$db->beginTransaction();
+        try{foreach($validated as [$email,$language,$created]){$result=enroll_newsletter($db,$email,$language,'legacy-import-'.$source.'-2026-11-02','Historischer Import aus '.$source.'. Vom Administrator als bestehende Newsletterliste übernommen; keine neue Postfachbestätigung nachgewiesen.',$created);$counts[$result]++;}
+            audit($db,(int)$user['id'],'newsletter.imported','content',0,['source'=>$source,'counts'=>$counts]);$db->commit();
+        }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+        reply(200,['ok'=>true,'counts'=>$counts,'unique'=>count($validated)]);
+    }
+    if($action==='newsletter-subscriber-status'){
+        $id=(int)($data['id']??0);$status=$data['status']??'';
+        if($id<1||!in_array($status,['confirmed','unsubscribed'],true))reply(400,['error'=>'Ungültige Newsletteraktion.']);
+        $db->beginTransaction();
+        try{
+            $q=$db->prepare('SELECT * FROM sd_newsletter_subscribers WHERE id=? FOR UPDATE');$q->execute([$id]);$subscriber=$q->fetch();
+            if(!$subscriber||!in_array($subscriber['status'],['pending','confirmed'],true)||($status==='confirmed'&&$subscriber['status']!=='pending')){$db->rollBack();reply(409,['error'=>'Der Eintrag wurde bereits geändert. Bitte neu laden.']);}
+            $q=$db->prepare($status==='confirmed'?"UPDATE sd_newsletter_subscribers SET status='confirmed',confirmed_at=UTC_TIMESTAMP(6),unsubscribed_at=NULL WHERE id=?":"UPDATE sd_newsletter_subscribers SET status='unsubscribed',unsubscribed_at=UTC_TIMESTAMP(6) WHERE id=?");$q->execute([$id]);
+            $q=$db->prepare("UPDATE sd_newsletter_tokens SET consumed_at=UTC_TIMESTAMP(6) WHERE subscriber_id=? AND purpose='confirm' AND consumed_at IS NULL");$q->execute([$id]);
+            $q=$db->prepare('INSERT INTO sd_newsletter_events(subscriber_id,event_type,consent_version,consent_text) VALUES(?,?,?,?)');$q->execute([$id,$status,$subscriber['consent_version'],$subscriber['consent_text']]);
+            if($status==='unsubscribed'){$q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled',payload_encrypted=NULL,payload_json=NULL WHERE subscriber_id=? AND message_type='newsletter_campaign' AND status IN ('queued','failed')");$q->execute([$id]);}
+            $db->commit();reply(200,['ok'=>true]);
+        }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
+    }
+    $ready=newsletter_ready($db);
+    if($action==='newsletter-admin'){
+        $dealers=newsletter_dealer_addresses($db);
+        $subscribers=$db->query('SELECT email,status,created_at,language FROM sd_newsletter_subscribers ORDER BY email_normalized')->fetchAll();
+        foreach($subscribers as &$s)$s['group']=newsletter_group($s['email'],$dealers);unset($s);
+        $campaigns=$ready?$db->query("SELECT c.*, (SELECT COUNT(*) FROM sd_mail_outbox m WHERE m.campaign_id=c.id AND m.message_type='newsletter_campaign' AND m.status='sent') AS sent, (SELECT COUNT(*) FROM sd_mail_outbox m WHERE m.campaign_id=c.id AND m.message_type='newsletter_campaign' AND m.status='failed') AS failed, (SELECT COUNT(*) FROM sd_mail_outbox m WHERE m.campaign_id=c.id AND m.message_type='newsletter_campaign' AND m.status='cancelled') AS cancelled FROM sd_newsletter_campaigns c ORDER BY c.id DESC LIMIT 50")->fetchAll():[];
+        reply(200,['subscribers'=>$subscribers,'campaigns'=>$campaigns,'ready'=>$ready,'sendEnabled'=>!empty($config['newsletter_send_enabled']),'testEnabled'=>!empty($config['newsletter_test_enabled']),'testRecipient'=>$config['newsletter_test_recipient']??$user['email'],'sender'=>'newsletter@smartdock.de']);
+    }
+    if(!$ready)reply(503,['error'=>'Die Newsletter-Datenbankerweiterung ist noch nicht installiert.']);
+    if($action==='newsletter-save'){
+        try{$content=newsletter_content($data);$group=$data['audience']??'';if(!in_array($group,['dealer','customer'],true))throw new \InvalidArgumentException();}catch(\InvalidArgumentException){reply(400,['error'=>'Bitte Betreff, Überschrift, Text und gültige HTTPS-Links prüfen.']);}
+        $id=(int)($data['id']??0);$json=json_encode($content,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE);
+        if($id){$q=$db->prepare("UPDATE sd_newsletter_campaigns SET content_json=?,audience=?,revision=revision+1 WHERE id=? AND revision=? AND status='draft'");$q->execute([$json,$group,$id,(int)($data['revision']??0)]);if(!$q->rowCount())reply(409,['error'=>'Entwurf wurde zwischenzeitlich geändert oder bereits versendet. Bitte neu öffnen.']);}
+        else{$q=$db->prepare('INSERT INTO sd_newsletter_campaigns(audience,content_json,created_by) VALUES(?,?,?)');$q->execute([$group,$json,$user['id']]);$id=(int)$db->lastInsertId();}
+        reply(200,['id'=>$id]);
+    }
+    $id=(int)($data['id']??0);$q=$db->prepare('SELECT * FROM sd_newsletter_campaigns WHERE id=?');$q->execute([$id]);$campaign=$q->fetch();
+    if(!$campaign)reply(404,['error'=>'Newsletter nicht gefunden.']);
+    $content=json_decode($campaign['content_json'],true,16,JSON_THROW_ON_ERROR);
+    $recipients=newsletter_recipients($db,$campaign['audience']);
+    $fingerprint=hash_hmac('sha256',json_encode([$id,$campaign['revision'],array_column($recipients,'id')]),$config['rate_key']);
+    if($action==='newsletter-preview')reply(200,['html'=>newsletter_html($content,'#test-abmeldung',$config),'count'=>count($recipients),'fingerprint'=>$fingerprint,'revision'=>(int)$campaign['revision']]);
+    if(!in_array($action,['newsletter-test','newsletter-send'],true))reply(404,['error'=>'Aktion nicht gefunden.']);
+    if(empty($config[$action==='newsletter-test'?'newsletter_test_enabled':'newsletter_send_enabled'])||empty($config['newsletter_footer']))reply(503,['error'=>'Newsletterversand ist noch nicht freigegeben. Absender und Fußzeile müssen zuerst eingerichtet werden.']);
+    access_limit($config,'newsletter-admin-send',(string)$user['id']);
+    if($action==='newsletter-test'){
+        // Active, verified administrators only; never a client-supplied recipient.
+        $recipients=$db->query("SELECT DISTINCT u.email FROM sd_users u JOIN sd_staff_roles r ON r.user_id=u.id WHERE u.status='active' AND u.email_verified_at IS NOT NULL AND r.role='admin' AND r.revoked_at IS NULL")->fetchAll(\PDO::FETCH_COLUMN);
+        $recipients=array_values(array_filter($recipients,static fn($email)=>str_ends_with(strtolower($email),'@'.($config['staff_email_domain']??'thitronik.de'))));
+        $testLink='';
+        $attachment=newsletter_attachment($content,$testLink,$config);
+        $db->beginTransaction();
+        try { foreach($recipients as $recipient)queue_mail($db,$config,'newsletter_test',$recipient,'[TEST] '.$content['subject'],$content['text'],'newsletter-test-'.bin2hex(random_bytes(16)),null,null,[],$attachment,newsletter_html($content,$testLink,$config));
+        $db->commit(); } catch (\Throwable $e) { $db->rollBack(); throw $e; }
+        dispatch_mail($db,$config);reply(200,['ok'=>true,'recipient'=>implode(', ',$recipients)]);
+    }
+    $db->beginTransaction();
+    try{
+        $q=$db->prepare('SELECT * FROM sd_newsletter_campaigns WHERE id=? FOR UPDATE');$q->execute([$id]);$locked=$q->fetch();
+        if($locked['status']!=='draft'){$db->commit();reply(200,['ok'=>true,'alreadyQueued'=>true]);}
+        $recipients=newsletter_recipients($db,$locked['audience']);
+        $current=hash_hmac('sha256',json_encode([$id,$locked['revision'],array_column($recipients,'id')]),$config['rate_key']);
+        if(!hash_equals($current,(string)($data['fingerprint']??''))){$db->rollBack();reply(409,['error'=>'Inhalt oder Empfängerliste haben sich geändert. Bitte Vorschau erneut öffnen.']);}
+        if(!count($recipients)||count($recipients)>1000){$db->rollBack();reply(409,['error'=>'Versand ist für 1 bis 1.000 aktive Empfänger möglich.']);}
+        $content=json_decode($locked['content_json'],true,16,JSON_THROW_ON_ERROR);
+        foreach($recipients as $s){
+            $token=bin2hex(random_bytes(32));$q=$db->prepare("INSERT INTO sd_newsletter_tokens(subscriber_id,purpose,token_hash,expires_at) VALUES(?,'unsubscribe',?,DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 5 YEAR))");$q->execute([$s['id'],hash('sha256',$token,true)]);$tokenId=(int)$db->lastInsertId();
+            $link=access_link($config,'newsletter-unsubscribe',$token);
+            queue_mail($db,$config,'newsletter_campaign',$s['email'],$content['subject'],$content['text']."\n\n".$content['button_url']."\n\n".$config['newsletter_footer']."\n\nNewsletter abmelden: ".$link,'newsletter-campaign-'.$id.'-'.$s['id'],null,null,['subscriber_id'=>$s['id'],'newsletter_token_id'=>$tokenId],newsletter_attachment($content,$link,$config),newsletter_html($content,$link,$config));
+            $q=$db->prepare('UPDATE sd_mail_outbox SET campaign_id=? WHERE deduplication_key=?');$q->execute([$id,'newsletter-campaign-'.$id.'-'.$s['id']]);
+        }
+        $q=$db->prepare("UPDATE sd_newsletter_campaigns SET status='queued',recipient_count=?,queued_at=UTC_TIMESTAMP(6) WHERE id=?");$q->execute([count($recipients),$id]);
+        audit($db,(int)$user['id'],'newsletter.queued','newsletter_campaign',$id,['recipients'=>count($recipients)]);$db->commit();
+    }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+    dispatch_mail($db,$config);reply(200,['ok'=>true]);
+}

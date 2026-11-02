@@ -1,5 +1,36 @@
 # SMARTDOCK Datenbank
 
+## Händler-Einladungen – 30.10.2026
+
+Migration `006_dealer_invitations.sql` wurde nach privater SQL-Sicherung auf **smartda_test** angewendet. Einladungstabelle, Mitgliedschaftsfelder Position/Telefon und Mailtyp wurden anschließend geprüft. **Nicht erneut ausführen.** Produktivdatenbank unverändert.
+
+## Newsletterstudio – 30.10.2026
+
+Migration `005_newsletter_campaigns.sql` wurde nach einer privaten SQL-Sicherung
+auf **smartda_test** ausgeführt; phpMyAdmin bestätigte beide Anweisungen erfolgreich.
+Nicht erneut ausführen. Sie ergänzt `sd_newsletter_campaigns` und Kampagnenbezüge
+sowie zwei Mailtypen in der Outbox. Die Produktivdatenbank wurde nicht verändert.
+Der Testversand ist aktiviert, der Gruppenversand bleibt bis zum Abschluss der
+Versandprüfung deaktiviert. Details: [Newsletterstudio](../docs/betrieb/newsletterstudio.md).
+
+## Aktueller Teststand – 28.10.2026
+
+Die getrennte Hetzner-Datenbank `smartda_test` enthält Migrationen 001, 002, 003 und
+004 (öffentliche Formulare, installiert am 28.10.2026). Diese Migrationen dort **nicht erneut ausführen**. Vor 003 wurde eine private
+vollständige SQL-Sicherung erstellt und der Bestand mit 13 Tabellen geprüft.
+Nach 003: 14 Tabellen; `sd_dealer_access_requests` speichert persönliche Anfragen.
+Die Outbox enthält zusätzliche Transaktionsmailtypen, Benutzer-/Tokenbezüge und
+verschlüsselte Payloads. Die Produktivdatenbank bleibt unverändert.
+
+Neun Firmen aus dem bereitgestellten Hostinger-Export wurden anhand eindeutiger
+Quellkennungen in die Testdatenbank importiert. Originalanschriften, Koordinaten
+und Sprachvarianten bleiben erhalten. Keine Benutzerkonten, Mitgliedschaften,
+Newslettereinwilligungen oder Einladungen wurden daraus erzeugt. Kartenstatus
+zunächst `unlisted`; Veröffentlichung erfolgt bewusst über die Administration.
+
+Die folgenden historischen Abschnitte beschreiben frühere Installationsstände.
+Sie sind keine Anleitung zum erneuten Ausführen der Erstmigrationen.
+
 Erstmigration für MariaDB 10.6 oder neuer. Am 21.10.2026 auf der vorgesehenen
 Hetzner-Datenbank ausgeführt (MariaDB 11.8.6). Ausgangsbestand: keine Tabellen.
 Schema aus Commit `9e09cf0f898db6acf20b675196ec108a0ec24f78`.
@@ -61,3 +92,21 @@ Die Website bleibt im Vorschaumodus.
 - Aufbewahrungsfristen festlegen. Tokenlinks in Outbox-Payloads sind kurzlebige
   Geheimnisse: nach Versand/Ablauf entfernen. Outbox-Empfänger und Payloads bei
   Löschanfragen ausdrücklich mitbereinigen; SET NULL anonymisiert sie nicht.
+
+## Entwurf für Firmen und persönliche Konten – 27.10.2026
+
+[Migration 002](migrations/002_dealers_and_users.sql) ist vorbereitet, **nicht
+installiert**. Sie ergänzt Firmen, persönliche Benutzer, unabhängige Mitgliedschaften,
+interne Rollen, Tokens/Sessions, Newsletterzuordnung und Verwaltungsereignisse.
+Die fünf obigen Bestandstabellen bleiben unverändert. Tabellen/SQL sind vom
+Website-Build ausgeschlossen. Zunächst in einer getrennten MariaDB-Testdatenbank
+prüfen; die Erstmigration 001 nicht erneut ausführen.
+
+Der verbindliche aktuelle [Ablauf für Verwaltung und Zugänge](../docs/betrieb/verwaltung-und-zugaenge.md)
+ersetzt die frühere Annahme „ein Händler = ein Login“. Firmenfreigabe für die Karte
+und Mitarbeiterfreigaben sind voneinander unabhängig. Die öffentliche Admin-Ansicht ist geschlossen. Eine lokale Gestaltungsvorschau
+enthält nur erfundene Beispieldaten; echte Konten werden erst auf Hetzner eingerichtet.
+
+## Getrennte Loginbereiche – Migration 007
+
+[007_separate_login_realms.sql](migrations/007_separate_login_realms.sql) ergänzt getrennte Admin- und Händlerkonten mit eigener E-Mail-Eindeutigkeit pro Bereich. Erst nach vollständigem Test und Datenbanksicherung einmalig zusammen mit dem zugehörigen Backend aktivieren. DDL wird nicht vollständig zurückgerollt; bei Fehlern stoppen und den gesicherten Zustand wiederherstellen. Bestehende Adminpasswörter und reine Händlerpasswörter bleiben erhalten. Gemischte Konten benötigen anschließend einen eigenen Händler-Passwortlink.

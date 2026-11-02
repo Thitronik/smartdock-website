@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { build, ROOT } from './build.mjs';
 
 execFileSync(process.execPath, ['tools/check-repository.mjs'], { cwd: ROOT, stdio: 'inherit' });
-execFileSync(process.execPath, ['--test', 'tools/build.test.mjs', 'tools/repository.test.mjs', 'tools/pdf.test.mjs', 'tools/configurator.test.mjs', 'tools/pdf-pagination.test.mjs'], { cwd: ROOT, stdio: 'inherit' });
+execFileSync(process.execPath, ['--test', 'tools/admin-model.test.mjs', 'tools/build.test.mjs', 'tools/repository.test.mjs', 'tools/pdf.test.mjs', 'tools/configurator.test.mjs', 'tools/pdf-pagination.test.mjs'], { cwd: ROOT, stdio: 'inherit' });
 for (const pages of [false, true]) {
   const files = await build({ pages });
   let scripts = 0;
@@ -18,9 +18,9 @@ for (const pages of [false, true]) {
       const html = bytes.toString('utf8');
       assert.ok(html.includes('noindex,nofollow') && html.includes('TESTVORSCHAU'), 'Vorschau-Schutz fehlt: ' + name);
       assert.ok(!html.includes('{{'), 'Unersetzter Platzhalter: ' + name);
-      for (const [, url] of html.matchAll(/(?:src|href)="(\/[^"#?]+)"/g)) {
+      for (const [, url] of html.matchAll(/(?:src|href)="(\/[^"#?]+)(?:\?[^"#]*)?"/g)) {
         const target = url.replace(pages ? /^\/smartdock-website\// : /^\//, '');
-        assert.ok(files.has(target), name + ' verweist auf fehlende Datei ' + url);
+        assert.ok(files.has(target) || ((target === '' || target.endsWith('/')) && files.has(target + 'index.html')), name + ' verweist auf fehlende Datei ' + url);
       }
     }
   }

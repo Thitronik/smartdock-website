@@ -5,6 +5,13 @@ import vm from 'node:vm';
 import { allocationFromSelection, moduleFields } from '../src/module-allocation.js';
 import { calculate as live, countries } from './fixtures/live-pricing-2026-10-22.js';
 
+test('Erfolgstext unterscheidet echte Hetzner-Anfrage von lokal gespeicherter Pages-Vorschau',async()=>{
+ const source=await readFile(new URL('../vendor/website/assets/index-RRVGC1mK.js',import.meta.url),'utf8');
+ const expression=source.match(/\(typeof location!=="undefined"&&\["test\.smartdock\.de","smartdock\.de","www\.smartdock\.de"\]\.includes\(location\.hostname\)\?"Konfigurationsanfrage eingegangen":"Testkonfiguration gespeichert"\)/)?.[0];assert.ok(expression);
+ assert.equal(vm.runInNewContext(expression,{location:{hostname:'test.smartdock.de'}}),'Konfigurationsanfrage eingegangen');for(const hostname of ['smartdock.de','www.smartdock.de'])assert.equal(vm.runInNewContext(expression,{location:{hostname}}),'Konfigurationsanfrage eingegangen');assert.equal(vm.runInNewContext(expression,{location:{hostname:'thitronik.github.io'}}),'Testkonfiguration gespeichert');
+ assert.match(source,/Ot=\{promoCode:A\.promoCode\|\|"",referenceNumber:yt/);
+});
+
 async function currentCalculator() {
   const source = await readFile(new URL('../vendor/website/assets/index-RRVGC1mK.js', import.meta.url), 'utf8');
   const first = source.indexOf(',Eg={'), last = source.indexOf(',a4=j.createContext()', first);
@@ -237,4 +244,17 @@ test('Nach Hersteller-, Motor- und Länderwechseln entspricht das Ergebnis einer
     }
     assert.deepEqual(output(changed()), output(fresh()), `${manufacturer}, ${count}, ${country}`);
   }
+});
+
+
+test('Abschlussseite zeigt Anfrage und Referenz ohne wiederholten Einstiegshinweis',async()=>{
+ const source=await readFile(new URL('../vendor/website/assets/index-RRVGC1mK.js',import.meta.url),'utf8');
+ const start=source.indexOf('const V$='),end=source.indexOf(',K$=',start);assert.ok(start>0&&end>start);
+ const component=source.slice(start,end),jsx=(type,props)=>({type,...props});
+ for(const selectedDealer of [null,{name:'CI Dealer',address:'CI Street',country:'DE',email:'ci@example.invalid'}]){
+  const context={r:{jsx,jsxs:jsx},Fc:()=>()=>{},Bs:()=>({configurationRecord:{referenceNumber:'SD-1234-5678',firstName:'CI',lastName:'Customer',configurationPrices:[{name:'WCU',type:'WCU'}]},selectedDealer,resetConfigurator:()=>{}}),vn:()=>({t:key=>key,currentLanguage:'DE'}),ph:()=>key=>key,fn:()=>'',vc:value=>value};
+  for(const name of ['vt','oh','Jt','Ys','KP','IP','$o','rp','Cs'])context[name]=name;
+  const tree=JSON.stringify(vm.runInNewContext(component+';V$()',context));assert.match(tree,/SD-1234-5678/);assert.match(tree,/conf_back_home/);assert.match(tree,/WCU/);assert.doesNotMatch(tree,/disclaimer_title|disclaimer_body|bg-amber-50/);if(selectedDealer)assert.match(tree,/CI Dealer/);
+ }
+ assert.match(source,/children:d\("disclaimer_title"\)/,'Einstiegshinweis bleibt erhalten');
 });

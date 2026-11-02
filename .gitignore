@@ -6,3 +6,4 @@ _site/
 !.env.example
 *.log
 .migration-*
+output/

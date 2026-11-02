@@ -19,6 +19,7 @@
 | Beobachtete Preisfälle und offene Prüfungen | [Konfigurator-Prüftabelle](pruefung/konfigurator-prueftabelle.md) |
 | PDF-Beschriftung, Downloads und Regression | [PDF-Prüfung vom 22.10.2026](pruefung/pdf-zwischensumme-2026-10-22.md) |
 | PDF-Seitenumbrüche und Motor-/Hersteller-/Länderwechsel | [Ergänzende Prüfung vom 22.10.2026](pruefung/pdf-seitenumbruch-und-wechsel-2026-10-22.md) |
+| Sprachrückfälle NL/ES, alte Features-Seiten, Befunde zu Impressum, Datenschutz und externen Diensten | [Prüfung vom 27.10.2026](pruefung/sprachen-und-rechtstexte-2026-10-27.md) |
 
 Historische CSV-Dateien bleiben datiert und unverändert. Aktuelle Arbeit wird in
 Issues gepflegt, statt dieselbe Aufgabenliste in mehreren Dokumenten zu führen.

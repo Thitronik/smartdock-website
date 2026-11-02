@@ -35,7 +35,7 @@ export function adaptForBase(source, name, base) {
   let text = source.replaceAll('\r\n', '\n');
   text = text.replace(/(?<![\w:/])\/(assets|media|hcgi|data)\//g, base + '/$1/');
   text = text.replaceAll('"/favicon.png"', '"' + base + '/favicon.png"');
-  text = text.replaceAll('"/preview.js"', '"' + base + '/preview.js"');
+  text = text.replaceAll('"/preview.js', '"' + base + '/preview.js');
   if (name.endsWith('.js')) {
     text = text.replace(/basename:([A-Za-z_$][\w$]*)="\/"/g, 'basename:$1="' + base + '"');
     text = text.replace(/window\.location\.href=([A-Za-z_$][\w$]*)(?=[,;}])/g, 'window.location.href=window.__sdPagesUrl($1)');
@@ -81,7 +81,7 @@ function safeOutputName(name) {
   }
 }
 
-export async function createOutput(base = '') {
+export async function createOutput(base = '', {production=false} = {}) {
   validateBase(base);
   const files = new Map();
   function add(name, bytes) {
@@ -92,12 +92,18 @@ export async function createOutput(base = '') {
   for (const directory of ['public', 'vendor/website']) {
     for (const [name, bytes] of await readTree(path.join(ROOT, directory))) add(name, bytes);
   }
+  // Kleine lesbare Ergänzung zum übernommenen Position-Hold-Stylesheet.
+  files.set('assets/positionhold.css', Buffer.concat([files.get('assets/positionhold.css'), Buffer.from('\n'), await readFile(path.join(ROOT, 'src/positionhold-motion.css'))]));
   for (const [name, bytes] of await readTree(path.join(ROOT, 'content'))) {
     if (!name.endsWith('.json')) throw new Error('In content sind nur JSON-Daten erlaubt.');
     const parsed = JSON.parse(bytes.toString('utf8'));
     if (!Array.isArray(parsed.items)) throw new Error('Datensatz ohne items: ' + name);
     add('data/' + name, bytes);
   }
+  for (const name of ['dealer-link.js', 'dealer-portal.js', 'dealer-server.js', 'dealer-portal.css', 'admin-model.js', 'admin-portal.js', 'admin-server.js', 'newsletter-admin.js', 'admin-portal.css']) add('assets/' + name, await readFile(path.join(ROOT, 'src', name)));
+  add('admin/index.html', await readFile(path.join(ROOT, 'src/admin-portal.html')));
+  const dealerShell = await readFile(path.join(ROOT, 'src/dealer-portal.html'), 'utf8');
+  for (const lang of ['de', 'en', 'fr', 'nl', 'es']) add((lang === 'de' ? '' : lang + '/') + 'haendlerbereich/index.html', dealerShell.replaceAll('%%LANG%%', lang));
   add('preview.js', await readFile(path.join(ROOT, 'src/preview.js')));
   add('assets/module-allocation.js', await readFile(path.join(ROOT, 'src/module-allocation.js')));
   add('assets/pdf-pagination.js', await readFile(path.join(ROOT, 'src/pdf-pagination.js')));
@@ -116,6 +122,18 @@ export async function createOutput(base = '') {
     });
     add(route.path.slice(1) + 'index.html', html.replaceAll('\n', route.lineEnding === 'crlf' ? '\r\n' : '\n'));
   }
+  if(production){
+    if(base)throw new Error('Produktivbau benötigt die Root-Domain.');
+    for(const [name,bytes] of files){
+      if(!name.endsWith('.html'))continue;
+      let html=bytes.toString('utf8').replace(/<aside id="preview-note"[\s\S]*?<\/aside>/g,'').replace('body{padding-bottom:48px}','body{padding-bottom:0}');
+      if(!name.startsWith('admin/')&&!name.includes('haendlerbereich/'))html=html.replace('<meta name="robots" content="noindex,nofollow">','<meta name="robots" content="index,follow">');
+      html=html.replace('SMARTDOCK · Verwaltungsvorschau','SMARTDOCK · Administration');
+      files.set(name,Buffer.from(html));
+    }
+    add('robots.txt','User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\nDisallow: /haendlerbereich/\nSitemap: https://www.smartdock.de/sitemap.xml\n');
+    add('sitemap.xml','<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+routes.filter(r=>!r.path.includes('haendlerbereich')).map(r=>'<url><loc>https://www.smartdock.de'+r.path+'</loc></url>').join('')+'</urlset>');
+  }
   if (base) {
     for (const [name, bytes] of files) if (TEXT.test(name)) files.set(name, Buffer.from(adaptForBase(bytes.toString('utf8'), name, base)));
     add('.nojekyll', '');
@@ -123,9 +141,9 @@ export async function createOutput(base = '') {
   return files;
 }
 
-export async function build({ pages = false } = {}) {
+export async function build({ pages = false, production = false } = {}) {
   // Erst alle Quellen prüfen. Bei einem Fehler bleibt der vorherige Bau bestehen.
-  const files = await createOutput(pages ? PAGES_BASE : '');
+  const files = await createOutput(pages ? PAGES_BASE : '', {production});
   const target = path.resolve(ROOT, pages ? '_site' : 'dist');
   if (path.dirname(target) !== path.resolve(ROOT)) throw new Error('Ausgabe liegt außerhalb des Repositorys.');
   const existing = await lstat(target).catch(error => { if (error.code !== 'ENOENT') throw error; });
@@ -142,6 +160,6 @@ export async function build({ pages = false } = {}) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  if (process.argv.slice(2).some(arg => arg !== '--pages')) throw new Error('Aufruf: node tools/build.mjs [--pages]');
-  await build({ pages: process.argv.includes('--pages') });
+  if (process.argv.slice(2).some(arg => arg !== '--pages' && arg !== '--production')) throw new Error('Aufruf: node tools/build.mjs [--pages | --production]');
+  await build({ pages: process.argv.includes('--pages'), production: process.argv.includes('--production') });
 }

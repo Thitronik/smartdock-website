@@ -1,0 +1,30 @@
+/* Die zusätzliche Verschiebung lässt Zentrierung und Rotation der SVGs unverändert. */
+[aria-label="Position Hold: four arrows pointing to the centre"] > svg {
+  animation: sd-hold-inward 5s ease-in-out infinite;
+}
+[aria-label="Position Hold: four arrows pointing to the centre"] > svg:nth-of-type(1) {
+  --sd-hold-x: 0px;
+  --sd-hold-y: 5px;
+}
+[aria-label="Position Hold: four arrows pointing to the centre"] > svg:nth-of-type(2) {
+  --sd-hold-x: 0px;
+  --sd-hold-y: -5px;
+}
+[aria-label="Position Hold: four arrows pointing to the centre"] > svg:nth-of-type(3) {
+  --sd-hold-x: 5px;
+  --sd-hold-y: 0px;
+}
+[aria-label="Position Hold: four arrows pointing to the centre"] > svg:nth-of-type(4) {
+  --sd-hold-x: -5px;
+  --sd-hold-y: 0px;
+}
+@keyframes sd-hold-inward {
+  0%, 100% { translate: 0px 0px; }
+  50% { translate: var(--sd-hold-x) var(--sd-hold-y); }
+}
+@media (prefers-reduced-motion: reduce) {
+  [aria-label="Position Hold: four arrows pointing to the centre"] > svg {
+    animation: none;
+    translate: none;
+  }
+}
