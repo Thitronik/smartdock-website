@@ -43,3 +43,6 @@ foreach(['a.b.c.d.ef.123@gmail.com','ab.c.d.ef.g.h12@googlemail.com'] as $email)
 foreach(['first.last@gmail.com','user123456@gmail.com','a.b.c.d.e.f@boat.example','a.b.c.d.lastname@gmail.com','sales+boat@gmail.com'] as $email)expect(!\Smartdock\newsletter_spam_pattern($email));
 expect(newsletter_group('other@yahoo.fr',[['public_email'=>'dealer@yahoo.fr','status'=>'active']])==='customer');
 echo "Newsletter signup pattern and shared-provider checks passed.\n";
+
+expect(newsletter_group('other@internal.example',[['public_email'=>'person@internal.example','status'=>'active','exact_only'=>1]])==='customer');
+expect(newsletter_group('person@internal.example',[['public_email'=>'person@internal.example','status'=>'active','exact_only'=>1]])==='dealer');

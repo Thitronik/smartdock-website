@@ -113,8 +113,9 @@ function run(array $config): never {
         reply(200, [
             'user'=>public_user($user),
             'staffManagement'=>staff_management_snapshot($db,$config,$user),
-            'dealers'=>$db->query('SELECT id,company_name,original_address,street,house_number,postal_code,city,country_code,public_email,public_phone,website,latitude,longitude,status,finder_status FROM sd_dealer ORDER BY company_name')->fetchAll(),
+            'dealers'=>$db->query('SELECT id,source_system,source_id,company_name,original_address,street,house_number,postal_code,city,country_code,public_email,public_phone,website,latitude,longitude,status,finder_status FROM sd_dealer ORDER BY company_name')->fetchAll(),
             'memberships'=>$db->query('SELECT m.id,m.dealer_id,m.user_id,m.status,m.position,m.phone,u.first_name,u.last_name,u.email,u.status AS user_status FROM sd_dealer_memberships m JOIN sd_users u ON u.id=m.user_id ORDER BY m.requested_at DESC')->fetchAll(),
+            'extraInvitations'=>$db->query("SELECT i.id,i.email,i.expires_at FROM sd_dealer_invitations i JOIN sd_dealer d ON d.id=i.dealer_id WHERE d.source_system='smartdock-internal' AND d.source_id='extra-access' AND i.consumed_at IS NULL AND i.revoked_at IS NULL ORDER BY i.created_at DESC")->fetchAll(),
             'requests'=>$db->query("SELECT r.*,u.email FROM sd_dealer_access_requests r JOIN sd_users u ON u.id=r.user_id ORDER BY r.created_at DESC")->fetchAll(),
             'mailStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_mail_outbox GROUP BY status')->fetchAll(),
             'configurations'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,selection_json,price_snapshot_json,status,created_at FROM sd_configuration_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
@@ -131,6 +132,13 @@ function run(array $config): never {
         $id=filter_var($data['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);$status=$data['status']??'';
         if(!$id||!in_array($status,['new','completed'],true))reply(400,['error'=>'Ungültiger Status.']);
         $q=$db->prepare('UPDATE sd_configuration_requests SET status=? WHERE id=?');$q->execute([$status,$id]);reply(200,['ok'=>true]);
+    }
+    if($action==='extra-access-invite') {
+        require_staff($user,['admin']);
+        try{$email=normalized_email(access_field($data,'email',254));$db->beginTransaction();$id=independent_access_container($db);queue_dealer_invitation($db,$config,$id,$email,(int)$user['id']);audit($db,(int)$user['id'],'access.invited','dealer',$id,[]);$db->commit();}
+        catch(\InvalidArgumentException $e){if($db->inTransaction())$db->rollBack();reply(400,['error'=>$e->getMessage()]);}
+        catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+        dispatch_mail($db,$config);reply(200,['ok'=>true]);
     }
     if($action==='dealer-invite') {
         require_staff($user,['admin','approver']);
@@ -223,8 +231,9 @@ function run(array $config): never {
         if (!$id || !in_array($status,['approved','unlisted','suspended'],true)) reply(400,['error'=>'Ungültige Kartenfreigabe.']);
         $db->beginTransaction();
         try {
-            $q=$db->prepare('SELECT id,finder_status FROM sd_dealer WHERE id=? FOR UPDATE');$q->execute([$id]);$old=$q->fetch();
+            $q=$db->prepare('SELECT id,finder_status,source_system FROM sd_dealer WHERE id=? FOR UPDATE');$q->execute([$id]);$old=$q->fetch();
             if (!$old) {$db->rollBack();reply(404,['error'=>'Firma nicht gefunden.']);}
+            if($old['source_system']==='smartdock-internal'){$db->rollBack();reply(409,['error'=>'Weitere Zugänge können nicht im Händlerfinder veröffentlicht werden.']);}
             $q=$db->prepare("UPDATE sd_dealer SET finder_status=?,finder_approved_at=CASE WHEN ?='approved' THEN UTC_TIMESTAMP(6) ELSE NULL END,finder_approved_by=CASE WHEN ?='approved' THEN ? ELSE NULL END WHERE id=?");
             $q->execute([$status,$status,$status,$user['id'],$id]);audit($db,$user['id'],'dealer.finder','dealer',$id,['from'=>$old['finder_status'],'to'=>$status]);$db->commit();
         }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
