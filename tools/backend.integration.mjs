@@ -43,7 +43,7 @@ try{
  const formCsrf=form.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1];
  assert.equal((await bootstrap.page('bootstrap&check=1',{csrf:'wrong'})).status,403);
  const probe=await bootstrap.page('bootstrap&check=1',{csrf:formCsrf});assert.equal(probe.status,200);assert.match(probe.text,/Verbindungsprüfung erfolgreich/);
- function otp(key){const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';let bits='';for(const char of key)bits+=alphabet.indexOf(char).toString(2).padStart(5,'0');const bytes=[];for(let i=0;i+8<=bits.length;i+=8)bytes.push(parseInt(bits.slice(i,i+8),2));const counter=Buffer.alloc(8);counter.writeBigUInt64BE(BigInt(Math.floor(Date.now()/30000)));const hash=createHmac('sha1',Buffer.from(bytes)).update(counter).digest();const offset=hash[19]&15;return String((hash.readUInt32BE(offset)&0x7fffffff)%1000000).padStart(6,'0');}
+ function otp(key,offsetSeconds=0){const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';let bits='';for(const char of key)bits+=alphabet.indexOf(char).toString(2).padStart(5,'0');const bytes=[];for(let i=0;i+8<=bits.length;i+=8)bytes.push(parseInt(bits.slice(i,i+8),2));const counter=Buffer.alloc(8);counter.writeBigUInt64BE(BigInt(Math.floor((Date.now()+offsetSeconds*1000)/30000)));const hash=createHmac('sha1',Buffer.from(bytes)).update(counter).digest();const offset=hash[19]&15;return String((hash.readUInt32BE(offset)&0x7fffffff)%1000000).padStart(6,'0');}
  const setup={csrf:formCsrf,first_name:'Test',last_name:'Person',password:'FictionalPassword-OnlyForCI!',repeat:'FictionalPassword-OnlyForCI!',otp:otp(secret)};
  assert.equal((await bootstrap.page('bootstrap',{...setup,csrf:'wrong'})).status,403);
  assert.equal((await bootstrap.page('bootstrap',{...setup,otp:'invalid'})).status,200);
@@ -228,6 +228,12 @@ try{
  const existingAccept={csrf:existingForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],email:staffInput.email,password:'wrong',phone:'',position:''};
  assert.match((await existingInvite.page('dealer-invitation',existingAccept)).text,/Passwort stimmt nicht/);assert.ok(!(await admin.call('admin')).body.memberships.some(m=>m.user_id===existingId));
  assert.equal((await existingInvite.page('dealer-invitation',{...existingAccept,password:setup.password})).status,200);const afterExisting=(await admin.call('admin')).body;assert.ok(afterExisting.memberships.some(m=>m.user_id===existingId&&m.dealer_id===container.id&&m.status==='approved'));assert.equal(afterExisting.staffManagement.accounts.filter(a=>a.email===staffInput.email).length,1);assert.equal((await staffClient.call('admin')).status,200,'Existing admin/MFA session remains valid');
+ // A combined admin/dealer account still needs MFA, then reaches the dealer area.
+ const combined=client();await combined.call('session');
+ assert.equal((await combined.call('login',{email:staffInput.email,password:setup.password})).status,401,'Admin MFA cannot be skipped through dealer login');
+ assert.equal((await combined.call('login',{email:staffInput.email,password:setup.password,otp:otp(staffKey,30)})).status,200);
+ assert.equal((await combined.call('dealer')).status,200,'Combined account reaches its approved dealer membership');
+ assert.equal((await combined.call('admin')).status,200,'MFA verified admin rights are preserved');
  assert.equal((await dealer.call('newsletter-subscriber-status',{id:1,status:'unsubscribed'})).status,403);
  assert.equal((await admin.call('newsletter-subscriber-status',{id:999999,status:'unsubscribed'})).status,409);
  const activeSubscriptions=(await admin.call('admin')).body.newsletterSubscribers;assert.ok(activeSubscriptions.every(s=>['pending','confirmed'].includes(s.status)));
