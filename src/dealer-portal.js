@@ -1,5 +1,5 @@
 export function mountDealerPortal(language) {
- if(!document.querySelector('link[data-sd-dealer-styles]')){const link=document.createElement('link');link.rel='stylesheet';link.href=new URL('./dealer-portal.css?v=20261030r',import.meta.url).href;link.dataset.sdDealerStyles='';document.head.append(link);}
+ if(!document.querySelector('link[data-sd-dealer-styles]')){const link=document.createElement('link');link.rel='stylesheet';link.href=new URL('./dealer-portal.css?v=20261102e',import.meta.url).href;link.dataset.sdDealerStyles='';document.head.append(link);}
 
 const copy = {
  de: ["Händlerbereich","Dein Zugang zu SMARTDOCK","Melde dich mit deinem freigeschalteten Händlerkonto an oder frage einen Zugang an.","Anmelden","E-Mail-Adresse","Passwort","Zugang anfragen","Wir prüfen deine Zugangsanfrage. Nach der Freigabe erhältst du eine E-Mail, um dein Passwort sicher festzulegen.","Vorname","Nachname","Unternehmensname","Straße","Hausnummer","PLZ","Stadt","Land","Telefonnummer (optional)","Ich habe die Datenschutzhinweise zur Bearbeitung meiner Zugangsanfrage gelesen.","Anfrage prüfen (Vorschau)","Vorschau: Hier werden keine Daten gespeichert, E-Mails versendet oder Konten freigeschaltet. Bitte nur erfundene Testdaten verwenden.","Die Anmeldung wird mit der Hetzner-Anbindung verfügbar. Es wurde kein Login durchgeführt.","Vorschau deiner Zugangsanfrage","Anfrage vorbereitet – noch nicht versendet","Geplanter Empfänger","Händler für den Händlerbereich freischalten!","Diesen Button erhält das SMARTDOCK Team später in der Benachrichtigung. Die Freischaltung erfordert eine autorisierte Anmeldung.","Zurück zum Formular","Die geschützten Unterseiten werden erst nach Einrichtung der serverseitigen Anmeldung verfügbar.","Passwort vergessen?","Passwort-Zurücksetzen wird mit der Hetzner-Anbindung verfügbar.","Bitte bestätige den Datenschutzhinweis."],
@@ -37,7 +37,7 @@ const labels = previewLabels[language] || previewLabels.de;
 const tiles = ['news','documents','ai-support','training','orders','rma'];
 const layout = document.createElement('details');
 layout.className='dealer-preview';
-layout.innerHTML=`<summary>${labels[0]}</summary><p class="notice">${labels[1]}</p><div class="tile-grid">${tiles.map((key,i)=>`<article class="tile"><img src="${window.__sdPagesUrl?.('/media/dealer/'+key+'.png') || '/media/dealer/'+key+'.png'}" alt="" loading="lazy" width="1536" height="1024"><h3>${(tileTitles[language]||tileTitles.de)[i]}</h3><p>${labels[2]}</p></article>`).join('')}</div>`;
+layout.innerHTML=`<summary>${labels[0]}</summary><p class="notice">${labels[1]}</p><div class="tile-grid">${tiles.map((key,i)=>`<article class="tile"><img src="${window.__sdPagesUrl?.('/media/dealer/'+key+'.png') || '/media/dealer/'+key+'.png'}" alt="" loading="lazy" width="1536" height="1024"><h3><span>${(tileTitles[language]||tileTitles.de)[i]}</span></h3><p>${labels[2]}</p></article>`).join('')}</div>`;
 document.getElementById('portal').append(layout);
 if(location.hostname==='test.smartdock.de') {
  document.querySelectorAll('#portal form button,#portal #reset').forEach(button=>button.disabled=true);

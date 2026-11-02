@@ -208,6 +208,18 @@ try{
  assert.equal((await extraClient.page('dealer-invitation',extraProfile)).status,200);await extraClient.call('session');assert.equal((await extraClient.call('login',{email:extraEmail,password:setup.password})).status,200);assert.equal((await extraClient.call('dealer')).status,200);assert.equal((await extraClient.call('admin')).status,403,'Independent user has no admin rights');
  const extraAfter=(await admin.call('admin')).body;assert.ok(extraAfter.memberships.some(m=>m.email===extraEmail&&m.dealer_id===container.id&&m.status==='approved'));assert.ok(!extraAfter.extraInvitations.some(i=>i.email===extraEmail));
  const duplicateExtra=await admin.call('extra-access-invite',{email:extraEmail});assert.equal(duplicateExtra.status,400,'Existing users are not duplicated');assert.match(duplicateExtra.body.error,/keine neue Einladung versendet/);
+ // Suspended dealer access can be removed and invited again without deleting the account.
+ const extraMembership=extraAfter.memberships.find(m=>m.email===extraEmail);
+ assert.equal((await admin.call('membership-delete',{id:extraMembership.id})).status,409);
+ assert.equal((await admin.call('membership-decision',{id:extraMembership.id,status:'suspended'})).status,200);
+ assert.equal((await admin.call('membership-delete',{id:extraMembership.id})).status,200);
+ assert.ok(!(await admin.call('admin')).body.memberships.some(m=>m.id===extraMembership.id));
+ assert.equal((await admin.call('extra-access-invite',{email:extraEmail})).status,200,'Deleted dealer membership can be invited again');
+ const reinviteMail=(await mails()).filter(m=>m.type==='dealer_invitation'&&m.to===extraEmail).at(-1);
+ const reinvited=client();await reinvited.page('dealer-invitation&token='+reinviteMail.body.match(/token=([a-f0-9]{64})/)[1]);const reinviteForm=await reinvited.page('dealer-invitation');
+ const welcome=await reinvited.page('dealer-invitation',{csrf:reinviteForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],email:extraEmail,password:setup.password,position:'',phone:''});
+ assert.equal(welcome.status,200);assert.match(welcome.text,/Willkommen im Händlerbereich/);assert.doesNotMatch(welcome.text,/href="\/(admin|haendlerbereich)\//);assert.doesNotMatch(welcome.text,/zuerst im Adminbereich/);
+ assert.equal((await admin.call('admin')).body.memberships.find(m=>m.email===extraEmail).user_id,extraMembership.user_id,'Reinvitation preserves the account');
  // Existing active accounts accept extra access using their current password.
  const existingId=(await admin.call('admin')).body.staffManagement.accounts.find(a=>a.email===staffInput.email).id;
  assert.equal((await admin.call('extra-access-invite',{email:staffInput.email})).status,200);
@@ -263,6 +275,11 @@ try{
  const firmsBefore=(await admin.call('admin')).body.dealers.length;
  assert.equal((await admin.call('membership-delete',{id:1})).status,200,'Suspended membership can be deleted');
  const afterDelete=(await admin.call('admin')).body;assert.ok(!afterDelete.memberships.some(m=>m.id===1));assert.equal(afterDelete.dealers.length,firmsBefore,'Deleting access preserves firms');
+ assert.equal((await admin.call('dealer-invite',{id:1,email:'dealer@example.invalid'})).status,200,'Company membership can also be invited again');
+ const companyReinvite=(await mails()).filter(m=>m.type==='dealer_invitation'&&m.to==='dealer@example.invalid').at(-1);const companyReturn=client();await companyReturn.page('dealer-invitation&token='+companyReinvite.body.match(/token=([a-f0-9]{64})/)[1]);const companyForm=await companyReturn.page('dealer-invitation');
+ assert.match(companyForm.text,/Aktuelles SMARTDOCK Passwort/);
+ assert.equal((await companyReturn.page('dealer-invitation',{csrf:companyForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],email:'dealer@example.invalid',password:'FictionalPassword-OnlyForCI!',position:'Service',phone:'123'})).status,200);
+ assert.equal((await admin.call('admin')).body.memberships.find(m=>m.email==='dealer@example.invalid').status,'approved');
  const replay=client();await replay.call('session');assert.equal((await replay.call('login',{email:'marketing@thitronik.de',password:'FictionalPassword-OnlyForCI!',otp:fixture.otp})).status,401);
  execFileSync(php,['backend/tests/fixture.php','--remove-proof'],{env});assert.equal((await admin.call('admin')).status,403,'Mail proof is checked on existing sessions');
  const noProof=client();await noProof.call('session');assert.equal((await noProof.call('login',{email:'marketing@thitronik.de',password:setup.password,otp:otp(secret)})).status,401);
