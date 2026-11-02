@@ -12,4 +12,4 @@ Regression: normaler Admin sieht Liste und kann einladen; seine Einladung kann m
 
 Rückmeldungen werden direkt im Einladungsformular angezeigt. Die allgemeine Admin-Statusmeldung wird gezielt angesprochen; zuvor landeten Fehler im ausgeblendeten Newsletterstudio. Während des Aufrufs ist der Button deaktiviert. Nach erfolgreicher Anlage wird der konkrete Outbox-Status zurückgegeben: an den Mailserver übergeben, ausstehend oder fehlgeschlagen. Dies ist kein Nachweis über den Eingang im Zielpostfach.
 
-Bei vorhandenen Konten wird keine zweite Einladung erzeugt und ausdrücklich angezeigt, dass keine neue Einladung versendet wurde. Der vorhandene Zugang wird nicht überschrieben.
+Aktive bestehende Konten können per Einladung zusätzlich einen unabhängigen Händlerzugang erhalten. Auf der Einrichtungsseite wird das aktuelle Passwort geprüft; Passwort, MFA und Adminrollen werden nicht geändert. Ist der zusätzliche Händlerzugang bereits vorhanden oder das Konto gesperrt/unfertig, wird keine neue Einladung verschickt und der Grund angezeigt. Es werden keine doppelten Nutzerkonten erzeugt.

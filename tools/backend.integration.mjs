@@ -208,6 +208,14 @@ try{
  assert.equal((await extraClient.page('dealer-invitation',extraProfile)).status,200);await extraClient.call('session');assert.equal((await extraClient.call('login',{email:extraEmail,password:setup.password})).status,200);assert.equal((await extraClient.call('dealer')).status,200);assert.equal((await extraClient.call('admin')).status,403,'Independent user has no admin rights');
  const extraAfter=(await admin.call('admin')).body;assert.ok(extraAfter.memberships.some(m=>m.email===extraEmail&&m.dealer_id===container.id&&m.status==='approved'));assert.ok(!extraAfter.extraInvitations.some(i=>i.email===extraEmail));
  const duplicateExtra=await admin.call('extra-access-invite',{email:extraEmail});assert.equal(duplicateExtra.status,400,'Existing users are not duplicated');assert.match(duplicateExtra.body.error,/keine neue Einladung versendet/);
+ // Existing active accounts accept extra access using their current password.
+ const existingId=(await admin.call('admin')).body.staffManagement.accounts.find(a=>a.email===staffInput.email).id;
+ assert.equal((await admin.call('extra-access-invite',{email:staffInput.email})).status,200);
+ const existingMail=(await mails()).filter(m=>m.type==='dealer_invitation'&&m.to===staffInput.email).at(-1);assert.match(existingMail.body,/aktuellen SMARTDOCK Passwort/);
+ const existingInvite=client();await existingInvite.page('dealer-invitation&token='+existingMail.body.match(/token=([a-f0-9]{64})/)[1]);const existingForm=await existingInvite.page('dealer-invitation');assert.match(existingForm.text,/Aktuelles SMARTDOCK Passwort/);assert.doesNotMatch(existingForm.text,/name="repeat"/);
+ const existingAccept={csrf:existingForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],email:staffInput.email,password:'wrong',phone:'',position:''};
+ assert.match((await existingInvite.page('dealer-invitation',existingAccept)).text,/Passwort stimmt nicht/);assert.ok(!(await admin.call('admin')).body.memberships.some(m=>m.user_id===existingId));
+ assert.equal((await existingInvite.page('dealer-invitation',{...existingAccept,password:setup.password})).status,200);const afterExisting=(await admin.call('admin')).body;assert.ok(afterExisting.memberships.some(m=>m.user_id===existingId&&m.dealer_id===container.id&&m.status==='approved'));assert.equal(afterExisting.staffManagement.accounts.filter(a=>a.email===staffInput.email).length,1);assert.equal((await staffClient.call('admin')).status,200,'Existing admin/MFA session remains valid');
  assert.equal((await dealer.call('newsletter-subscriber-status',{id:1,status:'unsubscribed'})).status,403);
  assert.equal((await admin.call('newsletter-subscriber-status',{id:999999,status:'unsubscribed'})).status,409);
  const activeSubscriptions=(await admin.call('admin')).body.newsletterSubscribers;assert.ok(activeSubscriptions.every(s=>['pending','confirmed'].includes(s.status)));
