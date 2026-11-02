@@ -78,6 +78,8 @@ function staff_delete(\PDO $db,array $config,array $owner,array $data): never {
         $q=$db->prepare('SELECT id FROM sd_dealer_memberships WHERE user_id=? LIMIT 1');$q->execute([$id]);
         if($q->fetchColumn()){$db->rollBack();reply(409,['error'=>'Bitte zuerst die Händlerzugänge dieses Kontos sperren und löschen.']);}
         $q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled' WHERE user_id=? AND status IN ('queued','failed')");$q->execute([$id]);
+        $q=$db->prepare("UPDATE sd_dealer_invitations SET revoked_at=UTC_TIMESTAMP(6) WHERE invited_by=? AND consumed_at IS NULL AND revoked_at IS NULL");$q->execute([$id]);
+        $q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled' WHERE status IN ('queued','failed') AND deduplication_key IN (SELECT CONCAT('dealer-invitation-',id) FROM sd_dealer_invitations WHERE invited_by=? AND consumed_at IS NULL)");$q->execute([$id]);
         $q=$db->prepare("DELETE FROM sd_users WHERE id=? AND status='suspended'");$q->execute([$id]);
         $file=mfa_path($config,$target['email_normalized']);if(is_file($file)&&!unlink($file))throw new \RuntimeException('Authenticator cleanup failed.');
         audit($db,(int)$owner['id'],'staff.deleted','user',$id,[]);$db->commit();

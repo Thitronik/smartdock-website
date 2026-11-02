@@ -3,6 +3,11 @@
 ALTER TABLE sd_users ADD COLUMN login_realm ENUM('dealer','staff') NOT NULL DEFAULT 'dealer',
  DROP INDEX uq_sd_user_email,
  ADD UNIQUE KEY uq_sd_user_realm_email(login_realm,email_normalized);
+-- Eine historische Einladung darf das Löschen ihres gesperrten Admin-Absenders
+-- nicht verhindern. Der Einladungsdatensatz bleibt als Verlauf erhalten.
+ALTER TABLE sd_dealer_invitations DROP FOREIGN KEY sd_dealer_invitations_ibfk_2,
+ MODIFY invited_by BIGINT UNSIGNED NULL,
+ ADD CONSTRAINT fk_sd_dealer_invitation_actor FOREIGN KEY(invited_by) REFERENCES sd_users(id) ON DELETE SET NULL;
 START TRANSACTION;
 UPDATE sd_users u SET login_realm='staff'
  WHERE EXISTS(SELECT 1 FROM sd_staff_roles s WHERE s.user_id=u.id)
