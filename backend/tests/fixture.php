@@ -9,6 +9,18 @@ require __DIR__.'/../private/security.php';
 if(count($argv)===1){
  if($db->query('SHOW TABLES')->fetch())throw new RuntimeException('Empty isolated database required.');
  foreach(['001_initial.sql','002_dealers_and_users.sql','003_access_requests_and_mail.sql','004_public_forms.sql','005_newsletter_campaigns.sql','006_dealer_invitations.sql'] as $file)$db->exec(file_get_contents(__DIR__.'/../../database/migrations/'.$file));
+ // Verify migration of a pre-existing dual account before creating the normal fixture.
+ $db->exec("INSERT INTO sd_users(first_name,last_name,email,email_normalized,password_hash,password_set_at,email_verified_at,status) VALUES('Dual','CI','dual@thitronik.de','dual@thitronik.de','unchanged-admin-hash',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'active'),('Dealer','CI','legacy@example.invalid','legacy@example.invalid','unchanged-dealer-hash',UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'active')");
+ $db->exec("INSERT INTO sd_staff_roles(user_id,role) VALUES(1,'admin')");
+ $db->exec("INSERT INTO sd_dealer(company_name,country_code) VALUES('Migration CI','DE')");
+ $db->exec("INSERT INTO sd_dealer_memberships(dealer_id,user_id,status) VALUES(1,1,'approved'),(1,2,'approved')");
+ $db->exec(file_get_contents(__DIR__.'/../../database/migrations/007_separate_login_realms.sql'));
+ $rows=$db->query("SELECT id,login_realm,password_hash,status FROM sd_users WHERE email_normalized='dual@thitronik.de' ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+ if(count($rows)!==2||$rows[0]['login_realm']!=='staff'||$rows[0]['password_hash']!=='unchanged-admin-hash'||$rows[1]['login_realm']!=='dealer'||$rows[1]['password_hash']!==null||$rows[1]['status']!=='invited')throw new RuntimeException('Separate migration identities/passwords failed.');
+ if((int)$db->query('SELECT user_id FROM sd_dealer_memberships WHERE id=1')->fetchColumn()!==(int)$rows[1]['id'])throw new RuntimeException('Membership transfer failed.');
+ if($db->query("SELECT password_hash FROM sd_users WHERE email_normalized='legacy@example.invalid'")->fetchColumn()!=='unchanged-dealer-hash')throw new RuntimeException('Legacy dealer password changed.');
+ // Reset synthetic migration evidence only, in this isolated disposable CI database.
+ $db->exec('SET FOREIGN_KEY_CHECKS=0');foreach($db->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) as $table)$db->exec('TRUNCATE TABLE `'.str_replace('`','``',$table).'`');$db->exec('SET FOREIGN_KEY_CHECKS=1');
  foreach(['state','sessions','mfa'] as $folder)mkdir($root.'/'.$folder,0700);
  $token=bin2hex(random_bytes(32));
  $config=['origin'=>'https://test.smartdock.de','dsn'=>$dsn,'database_user'=>getenv('SD_TEST_DB_USER'),'database_password'=>getenv('SD_TEST_DB_PASSWORD'),'state_directory'=>$root.'/state','session_directory'=>$root.'/sessions','mfa_directory'=>$root.'/mfa','rate_key'=>bin2hex(random_bytes(32)),'dummy_password_hash'=>password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT),'staff_email_domain'=>'thitronik.de','mail_from'=>'activation-ci-fixture@smartdock.de','staff_allowlist'=>['marketing@thitronik.de'],'staff_totp_secrets'=>[],'bootstrap'=>['token_hash'=>hash('sha256',$token),'email'=>'marketing@thitronik.de','expires_at'=>time()+3600]];
@@ -31,7 +43,7 @@ if(in_array('--remove-proof',$argv,true)){$db->exec("DELETE FROM sd_admin_audit_
 
 if(in_array('--smartdock-owner',$argv,true)){
  $email='smartdock@thitronik.de';$secret=Smartdock\base32_encode(random_bytes(20));
- $q=$db->prepare("INSERT INTO sd_users(first_name,last_name,email,email_normalized,password_hash,password_set_at,email_verified_at,status) VALUES('SMARTDOCK','Team',?,?,?,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'active')");$q->execute([$email,$email,password_hash('FictionalPassword-OnlyForCI!',PASSWORD_DEFAULT)]);$id=(int)$db->lastInsertId();
+ $q=$db->prepare("INSERT INTO sd_users(first_name,last_name,email,email_normalized,password_hash,password_set_at,email_verified_at,status,login_realm) VALUES('SMARTDOCK','Team',?,?,?,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'active','staff')");$q->execute([$email,$email,password_hash('FictionalPassword-OnlyForCI!',PASSWORD_DEFAULT)]);$id=(int)$db->lastInsertId();
  $q=$db->prepare("INSERT INTO sd_staff_roles(user_id,role,granted_by) VALUES(?,'admin',1)");$q->execute([$id]);
  $q=$db->prepare("INSERT INTO sd_admin_audit_events(actor_user_id,action,target_type,target_id,details_json) VALUES(1,'staff.email_verified','user',?,?)");$q->execute([$id,json_encode(['email_hash'=>hash('sha256',$email)])]);
  Smartdock\store_staff_secret($config,$email,$secret);echo json_encode(['id'=>$id,'secret'=>$secret]);exit;
@@ -39,6 +51,7 @@ if(in_array('--smartdock-owner',$argv,true)){
 if((int)$db->query('SELECT COUNT(*) FROM sd_users')->fetchColumn()!==1 || $db->query('SELECT email_normalized FROM sd_users WHERE id=1')->fetchColumn()!=='marketing@thitronik.de')throw new RuntimeException('Bootstrap fixture required.');
 $q=$db->prepare("INSERT INTO sd_users(first_name,last_name,email,email_normalized,password_hash,password_set_at,email_verified_at,status) VALUES('Test','Person',?,?,?,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'active')");
 foreach(['outsider@example.invalid','dealer@example.invalid'] as $email)$q->execute([$email,$email,password_hash('FictionalPassword-OnlyForCI!',PASSWORD_DEFAULT)]);
+$db->exec("UPDATE sd_users SET login_realm='staff' WHERE id=2");
 $db->exec("INSERT INTO sd_staff_roles(user_id,role) VALUES(2,'admin')");
 $db->exec("INSERT INTO sd_dealer(company_name,country_code) VALUES('Example Company','DE')");
 $db->exec("INSERT INTO sd_dealer_memberships(dealer_id,user_id,status) VALUES(1,3,'approved')");

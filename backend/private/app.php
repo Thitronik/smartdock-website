@@ -41,11 +41,12 @@ function run(array $config): never {
     ini_set('session.use_only_cookies', '1');
     ini_set('session.gc_maxlifetime', '28800');
     session_save_path($config['session_directory']);
-    session_name('__Host-smartdock_test');
+    $action = (string)($_GET['action'] ?? 'session');
+    $dealerPortal=($_GET['portal']??'')==='dealer'||in_array($action,['dealer-invitation','dealer-password'],true);
+    session_name($dealerPortal?'__Host-smartdock_dealer_test':'__Host-smartdock_test');
     session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict']);
     if (!session_start()) throw new \RuntimeException('Session unavailable.');
     $_SESSION['csrf'] ??= bin2hex(random_bytes(32));
-    $action = (string)($_GET['action'] ?? 'session');
     require_once __DIR__.'/dealer-access.php';
     require_once __DIR__.'/dealer-invitations.php';
     if($action==='dealer-invitation')dealer_invitation_page($config);
@@ -82,7 +83,7 @@ function run(array $config): never {
     $db = database($config);
     $user = current_user($db, $config);
     if ($action === 'session') {$_SESSION['public_form_started']??=time();reply(200, ['csrf' => $_SESSION['csrf'], 'user' => $user ? public_user($user) : null]);}
-    if ($action === 'login') login($db, $config, $data);
+    if ($action === 'login') login($db, $config, $data, $dealerPortal);
     if ($action === 'dealer-request') reply(410,['error'=>'Händlerzugänge werden ausschließlich per Einladung vergeben.']);
     if ($action === 'password-request') dealer_password_request($db,$config,$data);
     if ($action === 'newsletter-request') newsletter_request($db,$config,$data);
@@ -102,6 +103,7 @@ function run(array $config): never {
     }
     if (!$user) reply(401, ['error' => 'Bitte anmelden.']);
     if ($action === 'dealer') {
+        if(!$dealerPortal)reply(403,['error'=>'Bitte separat im Händlerbereich anmelden.']);
         $q=$db->prepare("SELECT d.id,d.company_name FROM sd_dealer_memberships m JOIN sd_dealer d ON d.id=m.dealer_id WHERE m.user_id=? AND m.status='approved' AND d.status='active'");
         $q->execute([$user['id']]); $companies=$q->fetchAll();
         if (!$companies) reply(403, ['error'=>'Kein freigeschalteter Händlerzugang.']);
@@ -252,22 +254,23 @@ function current_user(\PDO $db,array $config): ?array {
     if (empty($_SESSION['auth_id']) || empty($_SESSION['proof'])) return null;
     $q=$db->prepare('SELECT s.id AS session_id,s.staff_mfa_verified_at,u.* FROM sd_user_sessions s JOIN sd_users u ON u.id=s.user_id WHERE s.id=? AND s.session_hash=? AND s.csrf_hash=? AND s.revoked_at IS NULL AND s.expires_at>UTC_TIMESTAMP(6) AND s.last_seen_at>DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 30 MINUTE)');
     $q->execute([$_SESSION['auth_id'],hash('sha256',$_SESSION['proof'],true),hash('sha256',$_SESSION['csrf'],true)]);$user=$q->fetch();
-    if (!$user || !active_user($user)) { unset($_SESSION['auth_id'],$_SESSION['proof']);return null; }
+    $realm=session_name()==='__Host-smartdock_dealer_test'?'dealer':'staff';
+    if (!$user || $user['login_realm']!==$realm || !active_user($user)) { unset($_SESSION['auth_id'],$_SESSION['proof']);return null; }
     $user['roles']=[];
-    if (staff_address_authorized($db,$config,$user) && staff_mail_verified($db,$user) && !empty($user['staff_mfa_verified_at']) && staff_secret($config,$user['email_normalized']) !== '') {
+    if ($realm==='staff' && staff_address_authorized($db,$config,$user) && staff_mail_verified($db,$user) && !empty($user['staff_mfa_verified_at']) && staff_secret($config,$user['email_normalized']) !== '') {
         $q=$db->prepare('SELECT role FROM sd_staff_roles WHERE user_id=? AND revoked_at IS NULL');$q->execute([$user['id']]);$user['roles']=$q->fetchAll(\PDO::FETCH_COLUMN);
     }
     $q=$db->prepare('UPDATE sd_user_sessions SET last_seen_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$user['session_id']]);
     return $user;
 }
 
-function login(\PDO $db,array $config,array $data): never {
+function login(\PDO $db,array $config,array $data,bool $dealerPortal=false): never {
     if (!is_string($data['email'] ?? null) || !is_string($data['password'] ?? null) || strlen($data['password'])>1024 || !is_string($data['otp'] ?? '')) reply(400,['error'=>'Ungültige Anmeldung.']);
     try {$email=normalized_email($data['email']);}catch(\InvalidArgumentException){$email='invalid';}
     $key=hash_hmac('sha256',$email,$config['rate_key']);$ip=hash_hmac('sha256',$_SERVER['REMOTE_ADDR'] ?? '',$config['rate_key']);
     if (!rate_limit($config['state_directory'],'login-ip-'.$ip,time(),40)) reply(429,['error'=>'Zu viele Versuche. Bitte später erneut versuchen.']);
-    if (!rate_limit($config['state_directory'],'login-account-'.$key,time())) reply(429,['error'=>'Zu viele Versuche. Bitte später erneut versuchen.']);
-    $q=$db->prepare('SELECT * FROM sd_users WHERE email_normalized=? LIMIT 1');$q->execute([$email]);$user=$q->fetch();
+    if (!rate_limit($config['state_directory'],'login-account-'.($dealerPortal?'dealer-':'staff-').$key,time())) reply(429,['error'=>'Zu viele Versuche. Bitte später erneut versuchen.']);
+    $q=$db->prepare('SELECT * FROM sd_users WHERE email_normalized=? AND login_realm=? LIMIT 1');$q->execute([$email,$dealerPortal?'dealer':'staff']);$user=$q->fetch();
     $valid=password_verify($data['password'],$user['password_hash'] ?? $config['dummy_password_hash']);
     if (!$valid || !$user || !active_user($user)) reply(401,['error'=>'Anmeldung nicht möglich.']);
     $q=$db->prepare('SELECT role FROM sd_staff_roles WHERE user_id=? AND revoked_at IS NULL');$q->execute([$user['id']]);$roles=$q->fetchAll(\PDO::FETCH_COLUMN);
@@ -278,10 +281,11 @@ function login(\PDO $db,array $config,array $data): never {
         $step=totp_step($secret,$data['otp'] ?? '',time());
         if ($step===null || !consume_totp($config['state_directory'],'totp-'.$key,$step)) reply(401,['error'=>'Anmeldung nicht möglich.']);
         $staff=true;
-    } else {
+    } elseif($dealerPortal) {
         $q=$db->prepare("SELECT m.id FROM sd_dealer_memberships m JOIN sd_dealer d ON d.id=m.dealer_id WHERE m.user_id=? AND m.status='approved' AND d.status='active' LIMIT 1");$q->execute([$user['id']]);
         if (!$q->fetch()) reply(401,['error'=>'Anmeldung nicht möglich.']);
     }
+    if(!$dealerPortal&&!$staff)reply(401,['error'=>'Anmeldung nicht möglich.']);
     // Re-authentication revokes the old login instead of leaving a parallel session.
     if (!empty($_SESSION['auth_id'])) {$q=$db->prepare('UPDATE sd_user_sessions SET revoked_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$_SESSION['auth_id']]);}
     if (!session_regenerate_id(true)) throw new \RuntimeException('Session unavailable.');

@@ -16,13 +16,13 @@ try{
  for(let i=0;i<50;i++){try{await fetch(base+'session');break;}catch{if(i===49)throw Error(errors);await new Promise(r=>setTimeout(r,100));}}
  // Independent simulated visitors have separate IP limits in the local-only router.
  let clientNumber=0;
- function client(){const testClient=String(++clientNumber);let cookie='',csrf='';return {async page(action,form){
-  const response=await fetch(base+action,{method:form?'POST':'GET',headers:{Cookie:cookie,'X-SD-Test-Client':testClient,...(form?{Origin:'https://test.smartdock.de'}:{})},body:form?new URLSearchParams(form):undefined,redirect:'manual'});
+ function client(portal='staff'){const scopedBase='http://127.0.0.1:9473/?portal='+portal+'&action=';const testClient=String(++clientNumber);let cookie='',csrf='';return {async page(action,form){
+  const response=await fetch(scopedBase+action,{method:form?'POST':'GET',headers:{Cookie:cookie,'X-SD-Test-Client':testClient,...(form?{Origin:'https://test.smartdock.de'}:{})},body:form?new URLSearchParams(form):undefined,redirect:'manual'});
   const set=response.headers.get('set-cookie');if(set)cookie=set.split(';')[0];return {status:response.status,text:await response.text(),headers:response.headers};
  },async call(action,data,options={}){
   const headers={Cookie:cookie,'X-SD-Test-Client':testClient,...options.headers};
   if(data!==undefined){headers['Content-Type']='application/json';headers.Origin='https://test.smartdock.de';headers['X-CSRF-Token']=csrf;Object.assign(headers,options.headers);}
-  const response=await fetch(base+action,{method:data===undefined?'GET':'POST',headers,body:data===undefined?undefined:JSON.stringify(data)});
+  const response=await fetch(scopedBase+action,{method:data===undefined?'GET':'POST',headers,body:data===undefined?undefined:JSON.stringify(data)});
   const set=response.headers.get('set-cookie');if(set)cookie=set.split(';')[0];
   const body=await response.json();if(body.csrf)csrf=body.csrf;return {status:response.status,body,headers:response.headers};
  }};}
@@ -86,13 +86,13 @@ try{
  assert.equal((await guest.call('membership-decision',{id:1,status:'approved'},{headers:{'X-CSRF-Token':'wrong'}})).status,403);
  assert.equal((await guest.call('login',{email:'marketing@thitronik.de',password:'wrong'})).status,401);
  assert.equal((await guest.call('login',{email:'outsider@example.invalid',password:'FictionalPassword-OnlyForCI!',otp:fixture.otp})).status,401);
- const dealer=client();await dealer.call('session');assert.equal((await dealer.call('login',{email:'dealer@example.invalid',password:'FictionalPassword-OnlyForCI!'})).status,200);
+ const dealer=client('dealer');await dealer.call('session');assert.equal((await dealer.call('login',{email:'dealer@example.invalid',password:'FictionalPassword-OnlyForCI!'})).status,200);
  assert.equal((await dealer.call('admin')).status,403);assert.equal((await dealer.call('dealer')).body.companies.length,1);
  const admin=client();await admin.call('session');assert.equal((await admin.call('login',{email:'marketing@thitronik.de',password:'FictionalPassword-OnlyForCI!',otp:'invalid'})).status,401);
  assert.equal((await admin.call('login',{email:'marketing@thitronik.de',password:'FictionalPassword-OnlyForCI!',otp:fixture.otp})).status,200);
  assert.equal((await admin.call('admin')).body.dealers[0].finder_status,'unlisted');
  // Invitation-only registration: staff chooses the firm; scanners cannot activate.
- const newcomer=client();await newcomer.call('session');
+ const newcomer=client('dealer');await newcomer.call('session');
  const request={email:'new-employee@example.invalid'};
  assert.equal((await newcomer.call('dealer-request',request)).status,410);
  assert.equal((await newcomer.call('dealer-create',{})).status,401);
@@ -102,7 +102,7 @@ try{
  const automatic=(await admin.call('newsletter-admin')).body.subscribers.find(s=>s.email===request.email);assert.equal(automatic.status,'confirmed');assert.equal(automatic.group,'dealer','New dealer invitation enrolls address in dealer newsletter');
  const invitation=(await mails()).find(m=>m.type==='dealer_invitation');assert.equal(invitation.to,request.email);
  const passwordToken=invitation.body.match(/action=dealer-invitation&token=([a-f0-9]{64})/)[1];
- const passwordClient=client();await passwordClient.page('dealer-invitation&token='+passwordToken);const passwordPage=await passwordClient.page('dealer-invitation');
+ const passwordClient=client('dealer');await passwordClient.page('dealer-invitation&token='+passwordToken);const passwordPage=await passwordClient.page('dealer-invitation');
  const passwordCsrf=passwordPage.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1];
  assert.equal((await newcomer.call('login',{email:request.email,password:'Fictional-New-Password!'})).status,401);
  const profile={csrf:passwordCsrf,first_name:'Fictional',last_name:'Employee',position:'Technician',phone:'+49 123',email:request.email,password:'Fictional-New-Password!',repeat:'Fictional-New-Password!',dealer_id:1};
@@ -117,7 +117,7 @@ try{
  assert.equal((await admin.call('admin')).body.dealers.find(d=>d.company_name==='Invited Company').finder_status,'unlisted');
  assert.equal((await newcomer.call('password-request',{email:request.email})).status,200);
  const resetMail=(await mails()).filter(m=>m.type==='dealer_password').at(-1);const resetToken=resetMail.body.match(/action=dealer-password&token=([a-f0-9]{64})/)[1];
- const resetClient=client();await resetClient.page('dealer-password&token='+resetToken);const resetPage=await resetClient.page('dealer-password');
+ const resetClient=client('dealer');await resetClient.page('dealer-password&token='+resetToken);const resetPage=await resetClient.page('dealer-password');
  assert.equal((await resetClient.page('dealer-password',{csrf:resetPage.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],password:'Fictional-Reset-Password!',repeat:'Fictional-Reset-Password!'})).status,200);
  assert.equal((await newcomer.call('dealer')).status,401,'Password reset revokes sessions');
  assert.equal((await admin.call('finder-decision',{id:1,status:'approved'})).status,200);assert.equal((await dealer.call('dealer')).status,200);
@@ -203,7 +203,7 @@ try{
  assert.ok(extraSnapshot.extraInvitations.some(i=>i.email===extraEmail));
  assert.equal((await admin.call('finder-decision',{id:container.id,status:'approved'})).status,409,'Independent access cannot be published as a dealer');
  const extraMail=(await mails()).filter(m=>m.type==='dealer_invitation'&&m.to===extraEmail).at(-1);assert.match(extraMail.body,/ohne Firmenzuordnung/);
- const extraClient=client();await extraClient.page('dealer-invitation&token='+extraMail.body.match(/token=([a-f0-9]{64})/)[1]);const extraForm=await extraClient.page('dealer-invitation');assert.equal(extraForm.status,200);assert.match(extraForm.text,/ohne Firmenzuordnung/);
+ const extraClient=client('dealer');await extraClient.page('dealer-invitation&token='+extraMail.body.match(/token=([a-f0-9]{64})/)[1]);const extraForm=await extraClient.page('dealer-invitation');assert.equal(extraForm.status,200);assert.match(extraForm.text,/ohne Firmenzuordnung/);
  const extraProfile={csrf:extraForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],first_name:'CI',last_name:'Independent',email:extraEmail,password:setup.password,repeat:setup.password,position:'',phone:''};
  assert.equal((await extraClient.page('dealer-invitation',extraProfile)).status,200);await extraClient.call('session');assert.equal((await extraClient.call('login',{email:extraEmail,password:setup.password})).status,200);assert.equal((await extraClient.call('dealer')).status,200);assert.equal((await extraClient.call('admin')).status,403,'Independent user has no admin rights');
  const extraAfter=(await admin.call('admin')).body;assert.ok(extraAfter.memberships.some(m=>m.email===extraEmail&&m.dealer_id===container.id&&m.status==='approved'));assert.ok(!extraAfter.extraInvitations.some(i=>i.email===extraEmail));
@@ -216,24 +216,33 @@ try{
  assert.ok(!(await admin.call('admin')).body.memberships.some(m=>m.id===extraMembership.id));
  assert.equal((await admin.call('extra-access-invite',{email:extraEmail})).status,200,'Deleted dealer membership can be invited again');
  const reinviteMail=(await mails()).filter(m=>m.type==='dealer_invitation'&&m.to===extraEmail).at(-1);
- const reinvited=client();await reinvited.page('dealer-invitation&token='+reinviteMail.body.match(/token=([a-f0-9]{64})/)[1]);const reinviteForm=await reinvited.page('dealer-invitation');
+ const reinvited=client('dealer');await reinvited.page('dealer-invitation&token='+reinviteMail.body.match(/token=([a-f0-9]{64})/)[1]);const reinviteForm=await reinvited.page('dealer-invitation');
  const welcome=await reinvited.page('dealer-invitation',{csrf:reinviteForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],email:extraEmail,password:setup.password,position:'',phone:''});
  assert.equal(welcome.status,200);assert.match(welcome.text,/Willkommen im Händlerbereich/);assert.doesNotMatch(welcome.text,/href="\/(admin|haendlerbereich)\//);assert.doesNotMatch(welcome.text,/zuerst im Adminbereich/);
  assert.equal((await admin.call('admin')).body.memberships.find(m=>m.email===extraEmail).user_id,extraMembership.user_id,'Reinvitation preserves the account');
- // Existing active accounts accept extra access using their current password.
- const existingId=(await admin.call('admin')).body.staffManagement.accounts.find(a=>a.email===staffInput.email).id;
+ // The same email has distinct admin and dealer identities, passwords and sessions.
+ const staffId=(await admin.call('admin')).body.staffManagement.accounts.find(a=>a.email===staffInput.email).id;
  assert.equal((await admin.call('extra-access-invite',{email:staffInput.email})).status,200);
- const existingMail=(await mails()).filter(m=>m.type==='dealer_invitation'&&m.to===staffInput.email).at(-1);assert.match(existingMail.body,/aktuellen SMARTDOCK Passwort/);
- const existingInvite=client();await existingInvite.page('dealer-invitation&token='+existingMail.body.match(/token=([a-f0-9]{64})/)[1]);const existingForm=await existingInvite.page('dealer-invitation');assert.match(existingForm.text,/Aktuelles SMARTDOCK Passwort/);assert.doesNotMatch(existingForm.text,/name="repeat"/);
- const existingAccept={csrf:existingForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],email:staffInput.email,password:'wrong',phone:'',position:''};
- assert.match((await existingInvite.page('dealer-invitation',existingAccept)).text,/Passwort stimmt nicht/);assert.ok(!(await admin.call('admin')).body.memberships.some(m=>m.user_id===existingId));
- assert.equal((await existingInvite.page('dealer-invitation',{...existingAccept,password:setup.password})).status,200);const afterExisting=(await admin.call('admin')).body;assert.ok(afterExisting.memberships.some(m=>m.user_id===existingId&&m.dealer_id===container.id&&m.status==='approved'));assert.equal(afterExisting.staffManagement.accounts.filter(a=>a.email===staffInput.email).length,1);assert.equal((await staffClient.call('admin')).status,200,'Existing admin/MFA session remains valid');
- // A combined admin/dealer account still needs MFA, then reaches the dealer area.
- const combined=client();await combined.call('session');
- assert.equal((await combined.call('login',{email:staffInput.email,password:setup.password})).status,401,'Admin MFA cannot be skipped through dealer login');
- assert.equal((await combined.call('login',{email:staffInput.email,password:setup.password,otp:otp(staffKey,30)})).status,200);
- assert.equal((await combined.call('dealer')).status,200,'Combined account reaches its approved dealer membership');
- assert.equal((await combined.call('admin')).status,200,'MFA verified admin rights are preserved');
+ const separateMail=(await mails()).filter(m=>m.type==='dealer_invitation'&&m.to===staffInput.email).at(-1);
+ const separate=client('dealer');await separate.page('dealer-invitation&token='+separateMail.body.match(/token=([a-f0-9]{64})/)[1]);const separateForm=await separate.page('dealer-invitation');
+ assert.match(separateForm.text,/name="repeat"/);assert.doesNotMatch(separateForm.text,/Aktuelles SMARTDOCK Passwort/);
+ const dealerPassword='Separate-Dealer-Password!';
+ assert.equal((await separate.page('dealer-invitation',{csrf:separateForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],first_name:'CI',last_name:'Dealer',email:staffInput.email,password:dealerPassword,repeat:dealerPassword,position:'',phone:''})).status,200);
+ const separateMembership=(await admin.call('admin')).body.memberships.find(m=>m.email===staffInput.email);assert.notEqual(separateMembership.user_id,staffId);
+ await separate.call('session');assert.equal((await separate.call('login',{email:staffInput.email,password:setup.password})).status,401,'Admin password does not authenticate dealer account');
+ assert.equal((await separate.call('login',{email:staffInput.email,password:dealerPassword})).status,200,'Dealer login needs no OTP');
+ assert.equal((await separate.call('dealer')).status,200);assert.equal((await separate.call('admin')).status,403,'Dealer session never grants admin access');
+ assert.equal((await staffClient.call('admin')).status,200,'Admin session remains independent');assert.equal((await staffClient.call('dealer')).status,403,'Admin session is not a dealer login');
+ // Reset only the dealer password, without changing or revoking the admin login.
+ assert.equal((await separate.call('password-request',{email:staffInput.email})).status,200);
+ const separateResetMail=(await mails()).filter(m=>m.type==='dealer_password'&&m.to===staffInput.email).at(-1);const resetSeparate=client('dealer');await resetSeparate.page('dealer-password&token='+separateResetMail.body.match(/token=([a-f0-9]{64})/)[1]);const resetSeparateForm=await resetSeparate.page('dealer-password');
+ const changedDealerPassword='Changed-Dealer-Password!';assert.equal((await resetSeparate.page('dealer-password',{csrf:resetSeparateForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],password:changedDealerPassword,repeat:changedDealerPassword})).status,200);
+ assert.equal((await separate.call('dealer')).status,401);assert.equal((await staffClient.call('admin')).status,200,'Dealer reset preserves admin session');
+ const separateAgain=client('dealer');await separateAgain.call('session');assert.equal((await separateAgain.call('login',{email:staffInput.email,password:changedDealerPassword})).status,200);
+ const staffAgain=client();await staffAgain.call('session');assert.equal((await staffAgain.call('login',{email:staffInput.email,password:changedDealerPassword,otp:otp(staffKey,30)})).status,401,'Dealer password cannot log in to administration');
+ assert.equal((await staffAgain.call('login',{email:staffInput.email,password:setup.password})).status,401,'Admin login still requires MFA');
+ assert.equal((await staffAgain.call('login',{email:staffInput.email,password:setup.password,otp:otp(staffKey,30)})).status,200,'Admin password and MFA unchanged');
+ assert.equal((await separateAgain.call('logout',{})).status,200);assert.equal((await staffAgain.call('admin')).status,200,'Dealer logout preserves admin session');
  assert.equal((await dealer.call('newsletter-subscriber-status',{id:1,status:'unsubscribed'})).status,403);
  assert.equal((await admin.call('newsletter-subscriber-status',{id:999999,status:'unsubscribed'})).status,409);
  const activeSubscriptions=(await admin.call('admin')).body.newsletterSubscribers;assert.ok(activeSubscriptions.every(s=>['pending','confirmed'].includes(s.status)));
@@ -269,7 +278,10 @@ try{
  assert.equal((await admin.call('staff-delete',{id:added.id})).status,409,'Active admin cannot be deleted');
  assert.equal((await admin.call('staff-delete',{id:1})).status,409,'Owner cannot be deleted');
  assert.equal((await admin.call('staff-revoke',{id:added.id})).status,200);
- assert.equal((await staffClient.call('admin')).status,401,'Revocation invalidates active sessions');
+ assert.equal((await staffClient.call('admin')).status,401,'Revocation invalidates admin sessions');
+ const dealerAfterRevoke=client('dealer');await dealerAfterRevoke.call('session');assert.equal((await dealerAfterRevoke.call('login',{email:staffInput.email,password:changedDealerPassword})).status,200,'Admin suspension does not suspend dealer account');
+ assert.equal((await dealerAfterRevoke.call('dealer')).status,200);
+ assert.equal((await admin.call('staff-delete',{id:added.id})).status,200);assert.equal((await dealerAfterRevoke.call('dealer')).status,200,'Deleting admin leaves dealer account intact');
  assert.equal((await admin.call('staff-invite',{...staffInput,email:'ci.cancelled@thitronik.de'})).status,200);
  const cancelled=(await admin.call('admin')).body.staffManagement.accounts.find(a=>a.email==='ci.cancelled@thitronik.de');
  assert.equal((await admin.call('staff-revoke',{id:cancelled.id})).status,200);
@@ -282,7 +294,7 @@ try{
  assert.equal((await admin.call('membership-delete',{id:1})).status,200,'Suspended membership can be deleted');
  const afterDelete=(await admin.call('admin')).body;assert.ok(!afterDelete.memberships.some(m=>m.id===1));assert.equal(afterDelete.dealers.length,firmsBefore,'Deleting access preserves firms');
  assert.equal((await admin.call('dealer-invite',{id:1,email:'dealer@example.invalid'})).status,200,'Company membership can also be invited again');
- const companyReinvite=(await mails()).filter(m=>m.type==='dealer_invitation'&&m.to==='dealer@example.invalid').at(-1);const companyReturn=client();await companyReturn.page('dealer-invitation&token='+companyReinvite.body.match(/token=([a-f0-9]{64})/)[1]);const companyForm=await companyReturn.page('dealer-invitation');
+ const companyReinvite=(await mails()).filter(m=>m.type==='dealer_invitation'&&m.to==='dealer@example.invalid').at(-1);const companyReturn=client('dealer');await companyReturn.page('dealer-invitation&token='+companyReinvite.body.match(/token=([a-f0-9]{64})/)[1]);const companyForm=await companyReturn.page('dealer-invitation');
  assert.match(companyForm.text,/Aktuelles SMARTDOCK Passwort/);
  assert.equal((await companyReturn.page('dealer-invitation',{csrf:companyForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],email:'dealer@example.invalid',password:'FictionalPassword-OnlyForCI!',position:'Service',phone:'123'})).status,200);
  assert.equal((await admin.call('admin')).body.memberships.find(m=>m.email==='dealer@example.invalid').status,'approved');

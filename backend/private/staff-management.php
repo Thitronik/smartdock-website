@@ -38,9 +38,9 @@ function staff_invite(\PDO $db,array $config,array $owner,array $data): never {
     $db->beginTransaction();
     try{
         $q=$db->prepare('SELECT * FROM sd_users WHERE id=? FOR UPDATE');$q->execute([$owner['id']]);$q->fetch();
-        $q=$db->prepare('SELECT id FROM sd_users WHERE email_normalized=? FOR UPDATE');$q->execute([$email]);
+        $q=$db->prepare("SELECT id FROM sd_users WHERE login_realm='staff' AND email_normalized=? FOR UPDATE");$q->execute([$email]);
         if($q->fetchColumn()){$db->rollBack();reply(409,['error'=>'Diese Adresse ist bereits vorhanden. Bestehende Konten werden nicht durch eine Einladung überschrieben.']);}
-        $q=$db->prepare("INSERT INTO sd_users(first_name,last_name,email,email_normalized,status) VALUES(?,?,?,?,'invited')");$q->execute([$first,$last,$email,$email]);$id=(int)$db->lastInsertId();
+        $q=$db->prepare("INSERT INTO sd_users(first_name,last_name,email,email_normalized,status,login_realm) VALUES(?,?,?,?,'invited','staff')");$q->execute([$first,$last,$email,$email]);$id=(int)$db->lastInsertId();
         $token=access_token($db,$id,'verify_email',null,null,7*24);
         audit($db,(int)$owner['id'],'staff.invited','user',$id,['token_id'=>$token['id']]);
         queue_mail($db,$config,'staff_activation',$email,'SMARTDOCK: Einladung zur Administration',"Du wurdest von einem SMARTDOCK Admin zur Administration eingeladen.\n\nBestätige deine E-Mail-Adresse und richte dein persönliches Passwort und den Authenticator ein:\n\n".access_link($config,'staff-invitation',$token['raw'])."\n\nE-Mail-Adresse für die spätere Anmeldung: ".$email."\nDer Link ist einmalig und 7 Tage gültig. Ohne diese Einrichtung ist kein Adminzugang möglich.",'staff-invitation-'.$token['id'],$id,$token['id']);
@@ -78,6 +78,8 @@ function staff_delete(\PDO $db,array $config,array $owner,array $data): never {
         $q=$db->prepare('SELECT id FROM sd_dealer_memberships WHERE user_id=? LIMIT 1');$q->execute([$id]);
         if($q->fetchColumn()){$db->rollBack();reply(409,['error'=>'Bitte zuerst die Händlerzugänge dieses Kontos sperren und löschen.']);}
         $q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled' WHERE user_id=? AND status IN ('queued','failed')");$q->execute([$id]);
+        $q=$db->prepare("UPDATE sd_dealer_invitations SET revoked_at=UTC_TIMESTAMP(6) WHERE invited_by=? AND consumed_at IS NULL AND revoked_at IS NULL");$q->execute([$id]);
+        $q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled' WHERE status IN ('queued','failed') AND deduplication_key IN (SELECT CONCAT('dealer-invitation-',id) FROM sd_dealer_invitations WHERE invited_by=? AND consumed_at IS NULL)");$q->execute([$id]);
         $q=$db->prepare("DELETE FROM sd_users WHERE id=? AND status='suspended'");$q->execute([$id]);
         $file=mfa_path($config,$target['email_normalized']);if(is_file($file)&&!unlink($file))throw new \RuntimeException('Authenticator cleanup failed.');
         audit($db,(int)$owner['id'],'staff.deleted','user',$id,[]);$db->commit();

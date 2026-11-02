@@ -106,3 +106,7 @@ Der verbindliche aktuelle [Ablauf für Verwaltung und Zugänge](../docs/betrieb/
 ersetzt die frühere Annahme „ein Händler = ein Login“. Firmenfreigabe für die Karte
 und Mitarbeiterfreigaben sind voneinander unabhängig. Die öffentliche Admin-Ansicht ist geschlossen. Eine lokale Gestaltungsvorschau
 enthält nur erfundene Beispieldaten; echte Konten werden erst auf Hetzner eingerichtet.
+
+## Getrennte Loginbereiche – Migration 007
+
+[007_separate_login_realms.sql](migrations/007_separate_login_realms.sql) ergänzt getrennte Admin- und Händlerkonten mit eigener E-Mail-Eindeutigkeit pro Bereich. Erst nach vollständigem Test und Datenbanksicherung einmalig zusammen mit dem zugehörigen Backend aktivieren. DDL wird nicht vollständig zurückgerollt; bei Fehlern stoppen und den gesicherten Zustand wiederherstellen. Bestehende Adminpasswörter und reine Händlerpasswörter bleiben erhalten. Gemischte Konten benötigen anschließend einen eigenen Händler-Passwortlink.
