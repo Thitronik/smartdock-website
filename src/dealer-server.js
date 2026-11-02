@@ -14,6 +14,17 @@ export async function connectDealerPortal(root,language){
   let body;try{body=await response.json();}catch{throw Error('SMARTDOCK: Server nicht erreichbar.');}
   if(!response.ok)throw Error(body.error||'SMARTDOCK: Anfrage fehlgeschlagen.');if(body.csrf)csrf=body.csrf;return body;
  }
+ const mfaCopy={
+  de:['Authenticator-Code (nur für Admin-Konten)','Wenn du dieselbe E-Mail-Adresse auch für den Adminbereich nutzt, gib zusätzlich den aktuellen Code aus deiner Authenticator-App ein. Verwende dein bestehendes SMARTDOCK Passwort. Reine Händlerkonten lassen dieses Feld frei.'],
+  en:['Authenticator code (admin accounts only)','If you also use this email address for administration, enter the current code from your authenticator app. Use your existing SMARTDOCK password. Dealer-only accounts leave this field blank.'],
+  fr:['Code d’authentification (comptes administrateurs uniquement)','Si cette adresse e-mail sert aussi à l’administration, saisis le code actuel de ton application d’authentification. Utilise ton mot de passe SMARTDOCK habituel. Pour un compte revendeur uniquement, laisse ce champ vide.'],
+  nl:['Authenticatorcode (alleen voor beheerders)','Gebruik je dit e-mailadres ook voor de administratie? Vul dan de actuele code uit je authenticator-app in. Gebruik je bestaande SMARTDOCK-wachtwoord. Gewone dealeraccounts laten dit veld leeg.'],
+  es:['Código de autenticación (solo administradores)','Si también usas este correo para la administración, introduce el código actual de tu aplicación de autenticación. Usa tu contraseña habitual de SMARTDOCK. Las cuentas solo de distribuidor dejan este campo vacío.']
+ }[language]||['Authenticator code (admin accounts only)','Dealer-only accounts leave this field blank.'];
+ const mfaLabel=document.createElement('label');mfaLabel.htmlFor='dealer-otp';mfaLabel.textContent=mfaCopy[0];
+ const mfaInput=document.createElement('input');mfaInput.id='dealer-otp';mfaInput.name='otp';mfaInput.type='text';mfaInput.inputMode='numeric';mfaInput.autocomplete='one-time-code';mfaInput.pattern='[0-9]{6}';mfaInput.maxLength=6;mfaInput.setAttribute('aria-describedby','dealer-mfa-help');
+ const mfaHelp=document.createElement('p');mfaHelp.id='dealer-mfa-help';mfaHelp.className='muted';mfaHelp.textContent=mfaCopy[1];
+ root.querySelector('#login button').before(mfaLabel,mfaInput,mfaHelp);
  const session=await api('session');if(!root.isConnected)return;
  const previewNote=document.getElementById('preview-note');if(previewNote)previewNote.textContent=t[8];
  root.querySelectorAll('form button,#reset').forEach(button=>button.disabled=false);
@@ -33,8 +44,8 @@ export async function connectDealerPortal(root,language){
   busy=true;const button=form.querySelector('button');button.disabled=true;
   try {
    if(form.id==='login'){
-    const password=form.querySelector('[type=password]');const data={email:form.querySelector('[type=email]').value,password:password.value};password.value='';
-    try{await api('login',data);}finally{data.password='';}await showDealer();
+    const password=form.querySelector('[type=password]');const data={email:form.querySelector('[type=email]').value,password:password.value,otp:mfaInput.value.trim()};password.value='';mfaInput.value='';
+    try{await api('login',data);}finally{data.password='';data.otp='';}await showDealer();
    }
   }catch(error){(form.id==='login'?status:result).textContent=error.message;}finally{busy=false;if(button.isConnected)button.disabled=false;}
  },true);
@@ -42,5 +53,5 @@ export async function connectDealerPortal(root,language){
   event.preventDefault();event.stopImmediatePropagation();if(busy)return;const email=root.querySelector('#login-email');if(!email.value||!email.reportValidity()){status.textContent=t[5];email.focus();return;}
   busy=true;try{await api('password-request',{email:email.value});status.textContent=t[4];}catch(error){status.textContent=error.message;}finally{busy=false;}
  },true);
- if(session.user){if(session.user.roles?.length){status.textContent=({de:'In diesem Browser ist ein Administratorkonto angemeldet. Melde dich hier mit deiner Händler-E-Mail-Adresse und deinem Händlerpasswort an.',en:'An administrator account is signed in in this browser. Sign in here with your dealer email address and dealer password.',fr:'Un compte administrateur est connecté dans ce navigateur. Connectez-vous ici avec votre adresse e-mail et votre mot de passe revendeur.',nl:'In deze browser is een beheerder aangemeld. Meld u hier aan met uw dealer-e-mailadres en dealerwachtwoord.',es:'Hay una cuenta de administrador conectada en este navegador. Inicie sesión aquí con su correo y contraseña de distribuidor.'})[language]||'Please sign in with your dealer account.';}else{try{await showDealer();}catch(error){status.textContent=error.message;}}}
+ if(session.user){try{await showDealer();}catch(error){status.textContent=error.message;}}
 }
