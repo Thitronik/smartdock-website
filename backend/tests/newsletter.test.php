@@ -46,3 +46,13 @@ echo "Newsletter signup pattern and shared-provider checks passed.\n";
 
 expect(newsletter_group('other@internal.example',[['public_email'=>'person@internal.example','status'=>'active','exact_only'=>1]])==='customer');
 expect(newsletter_group('person@internal.example',[['public_email'=>'person@internal.example','status'=>'active','exact_only'=>1]])==='dealer');
+
+$brand=\Smartdock\mail_brand_header(['origin'=>'https://example.test']);
+expect(substr_count($html,$brand)===1);
+foreach(['Kundenbestätigung','Händlereinladung','Interne Konfigurationsanfrage','Passwort festlegen','Admin-Einladung','Newsletter-Anmeldung'] as $subject){
+ $message=\Smartdock\transactional_mail_html(['origin'=>'https://example.test'],$subject,'Hallo <script>alert(1)</script>');
+ expect(substr_count($message,$brand)===1);expect(str_contains($message,'href="https://www.smartdock.de/"'));expect(str_contains($message,'width="240"'));expect(str_contains($message,'padding:28px;text-align:left'));expect(!str_contains($message,'<script>'));expect(str_contains($message,'&lt;script&gt;'));
+}
+$action=\Smartdock\transactional_mail_html(['origin'=>'https://example.test'],'Einladung','https://example.test/api/index.php?action=dealer-invitation&token='.str_repeat('a',64));
+expect(str_contains($action,'Händlerzugang einrichten'));expect(str_contains($action,'&amp;token='.str_repeat('a',64)));
+echo "Shared linked mail header and transactional template checks passed.\n";

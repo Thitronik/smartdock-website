@@ -245,3 +245,16 @@ test('Nach Hersteller-, Motor- und Länderwechseln entspricht das Ergebnis einer
     assert.deepEqual(output(changed()), output(fresh()), `${manufacturer}, ${count}, ${country}`);
   }
 });
+
+
+test('Abschlussseite zeigt Anfrage und Referenz ohne wiederholten Einstiegshinweis',async()=>{
+ const source=await readFile(new URL('../vendor/website/assets/index-RRVGC1mK.js',import.meta.url),'utf8');
+ const start=source.indexOf('const V$='),end=source.indexOf(',K$=',start);assert.ok(start>0&&end>start);
+ const component=source.slice(start,end),jsx=(type,props)=>({type,...props});
+ for(const selectedDealer of [null,{name:'CI Dealer',address:'CI Street',country:'DE',email:'ci@example.invalid'}]){
+  const context={r:{jsx,jsxs:jsx},Fc:()=>()=>{},Bs:()=>({configurationRecord:{referenceNumber:'SD-1234-5678',firstName:'CI',lastName:'Customer',configurationPrices:[{name:'WCU',type:'WCU'}]},selectedDealer,resetConfigurator:()=>{}}),vn:()=>({t:key=>key,currentLanguage:'DE'}),ph:()=>key=>key,fn:()=>'',vc:value=>value};
+  for(const name of ['vt','oh','Jt','Ys','KP','IP','$o','rp','Cs'])context[name]=name;
+  const tree=JSON.stringify(vm.runInNewContext(component+';V$()',context));assert.match(tree,/SD-1234-5678/);assert.match(tree,/conf_back_home/);assert.match(tree,/WCU/);assert.doesNotMatch(tree,/disclaimer_title|disclaimer_body|bg-amber-50/);if(selectedDealer)assert.match(tree,/CI Dealer/);
+ }
+ assert.match(source,/children:d\("disclaimer_title"\)/,'Einstiegshinweis bleibt erhalten');
+});

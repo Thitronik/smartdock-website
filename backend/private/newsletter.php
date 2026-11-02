@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace Smartdock;
 require_once __DIR__.'/newsletter-pdf.php';
+require_once __DIR__.'/mail-template.php';
 require_once __DIR__.'/newsletter-enrollment.php';
 
 function newsletter_settings(array $config): array {
@@ -72,7 +73,7 @@ function newsletter_content(array $data): array {
 }
 function newsletter_html(array $content,string $unsubscribe,array $config): string {
     $e=static fn($s)=>htmlspecialchars($s,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
-    $logo=$e($config['origin'].'/media/positionhold/sd-logo_variant_green-white_rgb_png-DJz8V.png');
+    $brand=mail_brand_header($config);
     $dark=$e($config['origin'].'/media/newsletter-template/dark.png');
     $title=$e($content['title']);
     // Repeat foreground/background pairs at the content cells and text elements.
@@ -108,7 +109,7 @@ table{border-spacing:0;mso-table-lspace:0pt;mso-table-rspace:0pt}img{border:0;ou
 <table class="sd-page" role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="width:100%;border:0;border-collapse:collapse;background-color:#ffffff"><tr><td align="center" style="padding:20px 12px;border:0">
 <!--[if mso]><table role="presentation" width="600" border="0" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
 <table role="presentation" width="600" border="0" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;border:0;border-collapse:collapse">
-<tr><td class="sd-brand sd-pad" background="$dark" bgcolor="#191c20" style="border:0;background-color:#191c20;background-image:url($dark);color:#ffffff;padding:28px;text-align:left"><img alt="SMARTDOCK" src="$logo" width="240" border="0" style="display:block;width:240px;max-width:100%;height:auto;border:0;color:#ffffff"></td></tr>
+$brand
 <tr><td class="sd-content sd-pad" bgcolor="#ffffff" style="border:0;padding:32px;background-color:#ffffff;color:#1d1d1b;font:16px/26px Arial,Helvetica,sans-serif;text-align:left"><h1 class="sd-copy sd-title" style="margin:0 0 24px;color:#1d1d1b;font:700 28px/36px Arial,Helvetica,sans-serif">$title</h1>$image$text$button</td></tr>
 <tr><td class="sd-footer sd-pad" bgcolor="#ffffff" style="border:0;padding:24px;background-color:#ffffff;color:#1d1d1b;font:13px/21px Arial,Helvetica,sans-serif;text-align:left"><p class="sd-copy" style="margin:0 0 16px;color:#1d1d1b;font:13px/21px Arial,Helvetica,sans-serif">$footer</p><p style="margin:0 0 16px"><a class="sd-link" href="$imprint" style="color:#1d1d1b;text-decoration:underline">Impressum</a> · <a class="sd-link" href="$privacy" style="color:#1d1d1b;text-decoration:underline">Datenschutz</a></p><p style="margin:0">$unsubscribeHtml</p></td></tr>
 </table><!--[if mso]></td></tr></table><![endif]-->

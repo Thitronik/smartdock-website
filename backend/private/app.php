@@ -104,11 +104,12 @@ function run(array $config): never {
     if (!$user) reply(401, ['error' => 'Bitte anmelden.']);
     if ($action === 'dealer') {
         if(!$dealerPortal)reply(403,['error'=>'Bitte separat im Händlerbereich anmelden.']);
-        $q=$db->prepare("SELECT d.id,d.company_name FROM sd_dealer_memberships m JOIN sd_dealer d ON d.id=m.dealer_id WHERE m.user_id=? AND m.status='approved' AND d.status='active'");
+        $q=$db->prepare("SELECT d.id,d.company_name,(d.source_system IS NULL OR d.source_system<>'smartdock-internal') AS can_invite FROM sd_dealer_memberships m JOIN sd_dealer d ON d.id=m.dealer_id WHERE m.user_id=? AND m.status='approved' AND d.status='active'");
         $q->execute([$user['id']]); $companies=$q->fetchAll();
         if (!$companies) reply(403, ['error'=>'Kein freigeschalteter Händlerzugang.']);
         reply(200, ['companies'=>$companies]);
     }
+    if($action==='dealer-employee-invite')dealer_employee_invite($db,$config,$user,$data);
     require_staff($user);
     if(in_array($action,['newsletter-import','newsletter-subscriber-status','newsletter-upload','newsletter-admin','newsletter-save','newsletter-preview','newsletter-test','newsletter-send'],true))newsletter_route($db,$config,$user,$action,$data);
     if ($action === 'admin') {

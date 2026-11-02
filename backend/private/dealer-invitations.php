@@ -10,7 +10,7 @@ function independent_access_container(\PDO $db): int {
     if(!$id)throw new \InvalidArgumentException('Weitere Zugänge sind derzeit gesperrt.');return (int)$id;
 }
 
-function queue_dealer_invitation(\PDO $db,array $config,int $dealerId,string $email,int $actor): int {
+function queue_dealer_invitation(\PDO $db,array $config,int $dealerId,string $email,int $actor,bool $requiresApproval=false): int {
     $email=normalized_email($email);
     $q=$db->prepare('SELECT source_system FROM sd_dealer WHERE id=?');$q->execute([$dealerId]);$independent=$q->fetchColumn()==='smartdock-internal';
     $q=$db->prepare("SELECT * FROM sd_users WHERE login_realm='dealer' AND email_normalized=?");$q->execute([$email]);$account=$q->fetch();
@@ -19,12 +19,12 @@ function queue_dealer_invitation(\PDO $db,array $config,int $dealerId,string $em
         $q=$db->prepare('SELECT id FROM sd_dealer_memberships WHERE dealer_id=? AND user_id=?');$q->execute([$dealerId,$account['id']]);
         if($q->fetch())throw new \InvalidArgumentException('Dieser Händlerzugang besteht bereits. Bitte den vorhandenen Eintrag verwalten. Es wurde keine neue Einladung versendet.');
     }
-    $q=$db->prepare('UPDATE sd_dealer_invitations SET revoked_at=UTC_TIMESTAMP(6) WHERE email=? AND consumed_at IS NULL AND revoked_at IS NULL');$q->execute([$email]);
+    $q=$db->prepare('UPDATE sd_dealer_invitations SET revoked_at=UTC_TIMESTAMP(6) WHERE email=? AND dealer_id=? AND consumed_at IS NULL AND revoked_at IS NULL');$q->execute([$email,$dealerId]);
     $raw=bin2hex(random_bytes(32));
-    $q=$db->prepare('INSERT INTO sd_dealer_invitations(dealer_id,email,token_hash,invited_by,expires_at) VALUES(?,?,?,?,DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 7 DAY))');
-    $q->execute([$dealerId,$email,hash('sha256',$raw,true),$actor]);$id=(int)$db->lastInsertId();
-    enroll_newsletter($db,$email,'de','dealer-enrollment-2026-11-02','Automatische Aufnahme beim Anlegen eines Händlerzugangs durch SMARTDOCK. Bestehende Abmeldungen bleiben erhalten.');
-    queue_mail($db,$config,'dealer_invitation',$email,'SMARTDOCK: Einladung zum Händlerbereich',"Du bist zum SMARTDOCK Händlerbereich eingeladen. ".($account?"Bestätige die Einladung mit deinem aktuellen SMARTDOCK Passwort. Dein Passwort bleibt unverändert.":"Vervollständige dein persönliches Profil und lege dein Passwort fest.")."\n\n".access_link($config,'dealer-invitation',$raw)."\n\n".($independent?"Dein persönlicher Zugang wird ohne Firmenzuordnung eingerichtet.":"Dein Zugang wird automatisch der eingeladenen Firma zugeordnet.")." Der Link ist 7 Tage gültig und kann einmal verwendet werden.",'dealer-invitation-'.$id);
+    $q=$db->prepare('INSERT INTO sd_dealer_invitations(dealer_id,email,token_hash,invited_by,requires_approval,expires_at) VALUES(?,?,?,?,?,DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 7 DAY))');
+    $q->execute([$dealerId,$email,hash('sha256',$raw,true),$actor,$requiresApproval?1:0]);$id=(int)$db->lastInsertId();
+    if(!$requiresApproval)enroll_newsletter($db,$email,'de','dealer-enrollment-2026-11-02','Automatische Aufnahme beim Anlegen eines Händlerzugangs durch SMARTDOCK. Bestehende Abmeldungen bleiben erhalten.');
+    queue_mail($db,$config,'dealer_invitation',$email,'SMARTDOCK: Einladung zum Händlerbereich',"Du bist zum SMARTDOCK Händlerbereich eingeladen. ".($account?"Bestätige die Einladung mit deinem aktuellen SMARTDOCK Passwort. Dein Passwort bleibt unverändert.":"Vervollständige dein persönliches Profil und lege dein Passwort fest.")."\n\n".access_link($config,'dealer-invitation',$raw)."\n\n".($independent?"Dein persönlicher Zugang wird ohne Firmenzuordnung eingerichtet.":"Dein Zugang wird automatisch der eingeladenen Firma zugeordnet.").($requiresApproval?" Nach deiner Einrichtung prüft SMARTDOCK deinen Zugang. Bis zur Freigabe erhältst du keinen Zugriff auf diese Firma.":"")." Der Link ist 7 Tage gültig und kann einmal verwendet werden.",'dealer-invitation-'.$id);
     return $id;
 }
 
@@ -35,7 +35,7 @@ function dealer_invitation_page(array $config): never {
         $raw=$_GET['token'];if(!is_string($raw)||!preg_match('/\A[a-f0-9]{64}\z/D',$raw))access_html(403,'Link nicht gültig','<p>Bitte wende dich an SMARTDOCK.</p>');
         $_SESSION['dealer-invitation']=hash('sha256',$raw,true);header('Referrer-Policy: no-referrer');header('Location: /api/index.php?action=dealer-invitation',true,303);exit;
     }
-    $query="SELECT i.*,d.company_name,d.source_system FROM sd_dealer_invitations i JOIN sd_dealer d ON d.id=i.dealer_id WHERE i.token_hash=? AND i.consumed_at IS NULL AND i.revoked_at IS NULL AND i.expires_at>UTC_TIMESTAMP(6) AND d.status='active'";
+    $query="SELECT i.*,d.company_name,d.source_system FROM sd_dealer_invitations i JOIN sd_dealer d ON d.id=i.dealer_id WHERE i.token_hash=? AND i.consumed_at IS NULL AND i.revoked_at IS NULL AND i.expires_at>UTC_TIMESTAMP(6) AND d.status='active' AND (i.requires_approval=0 OR EXISTS(SELECT 1 FROM sd_dealer_memberships issuer JOIN sd_users iu ON iu.id=issuer.user_id WHERE issuer.user_id=i.invited_by AND issuer.dealer_id=i.dealer_id AND issuer.status='approved' AND iu.login_realm='dealer' AND iu.status='active'))";
     $q=$db->prepare($query);$q->execute([$_SESSION['dealer-invitation']??'']);$invitation=$q->fetch();
     if(!$invitation)access_html(403,'Link nicht gültig','<p>Die Einladung ist abgelaufen oder bereits verwendet. Bitte SMARTDOCK um eine neue Einladung bitten.</p>');
     $q=$db->prepare("SELECT * FROM sd_users WHERE login_realm='dealer' AND email_normalized=?");$q->execute([$invitation['email']]);$account=$q->fetch();$existing=(bool)$account;
@@ -57,9 +57,18 @@ function dealer_invitation_page(array $config): never {
                 $q=$db->prepare("INSERT INTO sd_users(first_name,last_name,email,email_normalized,password_hash,password_set_at,email_verified_at,status) VALUES(?,?,?,?,?,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'active')");
                 $q->execute([$values['first_name'],$values['last_name'],$fresh['email'],$fresh['email'],password_hash($password,PASSWORD_DEFAULT)]);$userId=(int)$db->lastInsertId();
             }
-            $q=$db->prepare("INSERT INTO sd_dealer_memberships(dealer_id,user_id,status,decided_at,decided_by,position,phone) VALUES(?,?,'approved',UTC_TIMESTAMP(6),?,?,?)");$q->execute([$fresh['dealer_id'],$userId,$fresh['invited_by'],$values['position'],$values['phone']]);
+            $pending=(bool)$fresh['requires_approval'];
+            $q=$db->prepare("INSERT INTO sd_dealer_memberships(dealer_id,user_id,status,decided_at,decided_by,position,phone) VALUES(?,?,?,IF(?=1,NULL,UTC_TIMESTAMP(6)),?,?,?)");$q->execute([$fresh['dealer_id'],$userId,$pending?'pending':'approved',$pending?1:0,$pending?null:$fresh['invited_by'],$values['position'],$values['phone']]);$membershipId=(int)$db->lastInsertId();
+            if($pending){
+                $approval=access_token($db,$userId,'approve_membership',$membershipId,null,168);
+                $recipient=$config['dealer_approval_email']??'';if($recipient==='')throw new \RuntimeException('Approval recipient unavailable.');
+                $body="Ein Händler hat einen weiteren Mitarbeiter eingeladen. Die E-Mail-Adresse ist bestätigt; der Firmenzugang wartet auf deine Freigabe.\n\nUnternehmen: ".$fresh['company_name']."\nName: ".$values['first_name'].' '.$values['last_name']."\nE-Mail: ".$fresh['email']."\nPosition: ".$values['position']."\nTelefon: ".$values['phone']."\n\nZugang prüfen und freigeben:\n".access_link($config,'dealer-approve',$approval['raw'])."\n\nDie Freigabe erfordert einen angemeldeten SMARTDOCK Admin. Alternativ kannst du den Zugang bei den Händlerdaten freigeben.";
+                queue_mail($db,$config,'dealer_approval_notification',$recipient,'SMARTDOCK: Mitarbeiterzugang prüfen',$body,'dealer-employee-approval-'.$approval['id'],$userId,$approval['id']);
+            }
             $q=$db->prepare('UPDATE sd_dealer_invitations SET consumed_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$fresh['id']]);
             audit($db,$userId,'dealer.invitation_accepted','dealer',(int)$fresh['dealer_id'],[]);$db->commit();unset($_SESSION['dealer-invitation']);
+            dispatch_mail($db,$config);
+            if($pending)access_html(200,'Freigabe ausstehend','<p>Deine E-Mail-Adresse ist bestätigt. SMARTDOCK prüft jetzt deinen Mitarbeiterzugang. Du erhältst eine E-Mail, sobald der Zugang freigegeben ist.</p>');
             access_html(200,'Willkommen im Händlerbereich','<p>Dein Händlerzugang ist eingerichtet. Schön, dass du dabei bist!</p>');
         }catch(\InvalidArgumentException $e){if($db->inTransaction())$db->rollBack();$error='<p role="alert">'.access_escape($e->getMessage()).'</p>';}
         catch(\PDOException $e){if($db->inTransaction())$db->rollBack();if($e->getCode()!=='23000')throw $e;$error='<p role="alert">Für diese E-Mail besteht bereits ein Konto. Bitte melde dich an oder wende dich an SMARTDOCK.</p>';}
@@ -69,4 +78,21 @@ function dealer_invitation_page(array $config): never {
     $fields.='<label>E-Mail-Adresse<input type="email" name="email" value="'.access_escape($invitation['email']).'" readonly required></label>';
     $fields.=$existing?'<label>Aktuelles SMARTDOCK Passwort<input type="password" name="password" autocomplete="current-password" maxlength="1024" required></label>':'<label>Passwort<input type="password" name="password" autocomplete="new-password" minlength="12" maxlength="72" required></label><label>Passwort wiederholen<input type="password" name="repeat" autocomplete="new-password" minlength="12" maxlength="72" required></label>';
     access_html(200,'Deinen Händlerzugang einrichten','<p>'.access_escape($invitation['source_system']==='smartdock-internal'?'Persönlicher Händlerzugang ohne Firmenzuordnung':$invitation['company_name']).'</p>'.$error.access_form('Zugang einrichten',$fields));
+}
+
+// Dealer requests can never grant access. Every accepted employee invitation is pending.
+function dealer_employee_invite(\PDO $db,array $config,array $user,array $data): never {
+    if(($user['login_realm']??'')!=='dealer')reply(403,['error'=>'Bitte im Händlerbereich anmelden.']);
+    $dealerId=filter_var($data['dealer_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+    try{$email=normalized_email(access_field($data,'email',254));}catch(\InvalidArgumentException){reply(400,['error'=>'Bitte eine gültige E-Mail-Adresse eingeben.']);}
+    if(!$dealerId)reply(400,['error'=>'Bitte deine Firma auswählen.']);
+    access_limit($config,'employee-invite-'.$user['id'],$email);
+    $db->beginTransaction();
+    try{
+        $q=$db->prepare("SELECT m.id FROM sd_dealer_memberships m JOIN sd_dealer d ON d.id=m.dealer_id WHERE m.user_id=? AND m.dealer_id=? AND m.status='approved' AND d.status='active' AND (d.source_system IS NULL OR d.source_system<>'smartdock-internal') FOR UPDATE");$q->execute([$user['id'],$dealerId]);
+        if(!$q->fetch()){$db->rollBack();reply(403,['error'=>'Du kannst nur Mitarbeiter für deine eigene freigegebene Firma einladen.']);}
+        $id=queue_dealer_invitation($db,$config,$dealerId,$email,(int)$user['id'],true);
+        audit($db,(int)$user['id'],'dealer.employee_invited','dealer',$dealerId,['invitation_id'=>$id,'approval_required'=>true]);$db->commit();
+    }catch(\InvalidArgumentException $e){if($db->inTransaction())$db->rollBack();reply(400,['error'=>$e->getMessage()]);}catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+    dispatch_mail($db,$config);$q=$db->prepare('SELECT status FROM sd_mail_outbox WHERE deduplication_key=?');$q->execute(['dealer-invitation-'.$id]);reply(200,['ok'=>true,'mailStatus'=>$q->fetchColumn()?:'queued']);
 }
