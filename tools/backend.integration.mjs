@@ -166,7 +166,7 @@ try{
  await reader.page('newsletter-unsubscribe&token='+unsubscribeToken);const unsubForm=await reader.page('newsletter-unsubscribe');assert.equal(publicStatus().newsletter.find(s=>s.email===newsletter.email).status,'confirmed');
  assert.equal((await reader.page('newsletter-unsubscribe',{csrf:unsubForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1]})).status,200);assert.equal(publicStatus().newsletter.find(s=>s.email===newsletter.email).status,'unsubscribed');
 
- // Owner-only staff invitations require mailbox possession + password + MFA.
+ // Admin invitations require mailbox possession + password + MFA.
  const staffInput={first_name:'CI',last_name:'Invited',email:'ci.staff@thitronik.de'};
  assert.equal((await guest.call('staff-invite',staffInput)).status,401);
  assert.equal((await dealer.call('staff-invite',staffInput)).status,403);
@@ -189,14 +189,15 @@ try{
  assert.equal((await staffClient.page('staff-invitation')).status,403);
  await staffClient.call('session');
  assert.equal((await staffClient.call('login',{email:staffInput.email,password:setup.password,otp:otp(staffKey)})).status,200);
- assert.equal((await staffClient.call('admin')).body.staffManagement,null);
- assert.equal((await staffClient.call('staff-invite',{...staffInput,email:'ci.other@thitronik.de'})).status,403);
+ assert.equal((await staffClient.call('admin')).body.staffManagement.canManageAdmins,false);assert.ok((await staffClient.call('admin')).body.staffManagement.accounts.some(a=>a.email==='marketing@thitronik.de'));
+ assert.equal((await staffClient.call('staff-invite',{...staffInput,email:'ci.other@thitronik.de'})).status,200,'Normal admins can invite more admins');
+ assert.equal((await staffClient.call('staff-delete',{id:1})).status,403);
  assert.equal((await staffClient.call('staff-revoke',{id:1})).status,403);
  // Every admin can invite independent dealer users, without creating a public firm.
  const extraEmail='ci.extra@independent.example';
  assert.equal((await guest.call('extra-access-invite',{email:extraEmail})).status,401);
  assert.equal((await dealer.call('extra-access-invite',{email:extraEmail})).status,403);
- assert.equal((await staffClient.call('extra-access-invite',{email:extraEmail})).status,200,'Non-owner admin can invite independent users');
+ const extraInvite=await staffClient.call('extra-access-invite',{email:extraEmail});assert.equal(extraInvite.status,200,'Non-owner admin can invite independent users');assert.equal(extraInvite.body.mailStatus,'sent');
  const extraSnapshot=(await admin.call('admin')).body;
  const container=extraSnapshot.dealers.find(d=>d.source_system==='smartdock-internal');assert.ok(container);assert.equal(container.latitude,null);assert.equal(container.longitude,null);assert.equal(container.public_email,null);assert.equal(container.finder_status,'unlisted');
  assert.ok(extraSnapshot.extraInvitations.some(i=>i.email===extraEmail));
@@ -206,7 +207,15 @@ try{
  const extraProfile={csrf:extraForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],first_name:'CI',last_name:'Independent',email:extraEmail,password:setup.password,repeat:setup.password,position:'',phone:''};
  assert.equal((await extraClient.page('dealer-invitation',extraProfile)).status,200);await extraClient.call('session');assert.equal((await extraClient.call('login',{email:extraEmail,password:setup.password})).status,200);assert.equal((await extraClient.call('dealer')).status,200);assert.equal((await extraClient.call('admin')).status,403,'Independent user has no admin rights');
  const extraAfter=(await admin.call('admin')).body;assert.ok(extraAfter.memberships.some(m=>m.email===extraEmail&&m.dealer_id===container.id&&m.status==='approved'));assert.ok(!extraAfter.extraInvitations.some(i=>i.email===extraEmail));
- assert.equal((await admin.call('extra-access-invite',{email:extraEmail})).status,400,'Existing users are not duplicated');
+ const duplicateExtra=await admin.call('extra-access-invite',{email:extraEmail});assert.equal(duplicateExtra.status,400,'Existing users are not duplicated');assert.match(duplicateExtra.body.error,/keine neue Einladung versendet/);
+ // Existing active accounts accept extra access using their current password.
+ const existingId=(await admin.call('admin')).body.staffManagement.accounts.find(a=>a.email===staffInput.email).id;
+ assert.equal((await admin.call('extra-access-invite',{email:staffInput.email})).status,200);
+ const existingMail=(await mails()).filter(m=>m.type==='dealer_invitation'&&m.to===staffInput.email).at(-1);assert.match(existingMail.body,/aktuellen SMARTDOCK Passwort/);
+ const existingInvite=client();await existingInvite.page('dealer-invitation&token='+existingMail.body.match(/token=([a-f0-9]{64})/)[1]);const existingForm=await existingInvite.page('dealer-invitation');assert.match(existingForm.text,/Aktuelles SMARTDOCK Passwort/);assert.doesNotMatch(existingForm.text,/name="repeat"/);
+ const existingAccept={csrf:existingForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],email:staffInput.email,password:'wrong',phone:'',position:''};
+ assert.match((await existingInvite.page('dealer-invitation',existingAccept)).text,/Passwort stimmt nicht/);assert.ok(!(await admin.call('admin')).body.memberships.some(m=>m.user_id===existingId));
+ assert.equal((await existingInvite.page('dealer-invitation',{...existingAccept,password:setup.password})).status,200);const afterExisting=(await admin.call('admin')).body;assert.ok(afterExisting.memberships.some(m=>m.user_id===existingId&&m.dealer_id===container.id&&m.status==='approved'));assert.equal(afterExisting.staffManagement.accounts.filter(a=>a.email===staffInput.email).length,1);assert.equal((await staffClient.call('admin')).status,200,'Existing admin/MFA session remains valid');
  assert.equal((await dealer.call('newsletter-subscriber-status',{id:1,status:'unsubscribed'})).status,403);
  assert.equal((await admin.call('newsletter-subscriber-status',{id:999999,status:'unsubscribed'})).status,409);
  const activeSubscriptions=(await admin.call('admin')).body.newsletterSubscribers;assert.ok(activeSubscriptions.every(s=>['pending','confirmed'].includes(s.status)));
@@ -215,6 +224,15 @@ try{
  assert.equal((await admin.call('newsletter-test',{id:campaign.body.id})).status,200);
  const testNewsletters=(await mails()).filter(m=>m.type==='newsletter_test');assert.deepEqual(testNewsletters.map(m=>m.to).sort(),['marketing@thitronik.de',staffInput.email].sort());
  for(const mail of testNewsletters){assert.equal(mail.attachments.length,1);assert.equal(Buffer.from(mail.attachments[0].base64,'base64').subarray(0,5).toString(),'%PDF-');assert.match(mail.html,/Testnewsletter – kein Abonnement/);assert.doesNotMatch(mail.html,/haendlerbereich/);}
+ // Invitations from normal admins also support full email/MFA activation.
+ const nestedMail=(await mails()).filter(m=>m.type==='staff_activation'&&m.to==='ci.other@thitronik.de').at(-1);
+ const nested=client();await nested.page('staff-invitation&token='+nestedMail.body.match(/token=([a-f0-9]{64})/)[1]);const nestedForm=await nested.page('staff-invitation');assert.equal(nestedForm.status,200);
+ const nestedSecret=nestedForm.text.match(/data-testid="totp-secret"[^>]*>([A-Z2-7]+)</)[1];const nestedCsrf=nestedForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1];
+ assert.equal((await nested.page('staff-invitation',{csrf:nestedCsrf,password:setup.password,repeat:setup.password,otp:otp(nestedSecret)})).status,200);await nested.call('session');assert.equal((await nested.call('login',{email:'ci.other@thitronik.de',password:setup.password,otp:otp(nestedSecret)})).status,200);assert.equal((await nested.call('admin')).body.staffManagement.canManageAdmins,false);
+ const secondOwner=JSON.parse(execFileSync(php,['backend/tests/fixture.php','--smartdock-owner'],{env,encoding:'utf8'}));const smartdock=client();await smartdock.call('session');assert.equal((await smartdock.call('login',{email:'smartdock@thitronik.de',password:setup.password,otp:otp(secondOwner.secret)})).status,200);
+ const secondView=(await smartdock.call('admin')).body.staffManagement;assert.equal(secondView.canManageAdmins,true);assert.ok(secondView.accounts.find(a=>a.email==='smartdock@thitronik.de').protected);
+ for(const principal of [admin,smartdock])for(const id of [1,secondOwner.id]){assert.equal((await principal.call('staff-revoke',{id})).status,403);assert.equal((await principal.call('staff-delete',{id})).status,409);}
+ assert.equal((await smartdock.call('staff-invite',{first_name:'CI',last_name:'Cancelled',email:'ci.second-owner@thitronik.de'})).status,200);const fromSecond=(await smartdock.call('admin')).body.staffManagement.accounts.find(a=>a.email==='ci.second-owner@thitronik.de');assert.equal((await smartdock.call('staff-revoke',{id:fromSecond.id})).status,200);assert.equal((await smartdock.call('staff-delete',{id:fromSecond.id})).status,200);
  // Historical imports are idempotent, silent, admin-only and preserve opt-outs.
  const importedAddress='legacy-import@example.invalid';const beforeImport=(await mails()).length;
  assert.equal((await guest.call('newsletter-import',{source:'brevo',entries:[{email:importedAddress}]})).status,401);

@@ -115,7 +115,7 @@ function run(array $config): never {
             'staffManagement'=>staff_management_snapshot($db,$config,$user),
             'dealers'=>$db->query('SELECT id,source_system,source_id,company_name,original_address,street,house_number,postal_code,city,country_code,public_email,public_phone,website,latitude,longitude,status,finder_status FROM sd_dealer ORDER BY company_name')->fetchAll(),
             'memberships'=>$db->query('SELECT m.id,m.dealer_id,m.user_id,m.status,m.position,m.phone,u.first_name,u.last_name,u.email,u.status AS user_status FROM sd_dealer_memberships m JOIN sd_users u ON u.id=m.user_id ORDER BY m.requested_at DESC')->fetchAll(),
-            'extraInvitations'=>$db->query("SELECT i.id,i.email,i.expires_at FROM sd_dealer_invitations i JOIN sd_dealer d ON d.id=i.dealer_id WHERE d.source_system='smartdock-internal' AND d.source_id='extra-access' AND i.consumed_at IS NULL AND i.revoked_at IS NULL ORDER BY i.created_at DESC")->fetchAll(),
+            'extraInvitations'=>$db->query("SELECT i.id,i.email,i.expires_at,o.status AS mail_status FROM sd_dealer_invitations i JOIN sd_dealer d ON d.id=i.dealer_id LEFT JOIN sd_mail_outbox o ON o.deduplication_key=CONCAT('dealer-invitation-',i.id) WHERE d.source_system='smartdock-internal' AND d.source_id='extra-access' AND i.consumed_at IS NULL AND i.revoked_at IS NULL ORDER BY i.created_at DESC")->fetchAll(),
             'requests'=>$db->query("SELECT r.*,u.email FROM sd_dealer_access_requests r JOIN sd_users u ON u.id=r.user_id ORDER BY r.created_at DESC")->fetchAll(),
             'mailStatus'=>$db->query('SELECT status,COUNT(*) AS count FROM sd_mail_outbox GROUP BY status')->fetchAll(),
             'configurations'=>$db->query('SELECT id,public_reference,contact_name,email,company,phone,selection_json,price_snapshot_json,status,created_at FROM sd_configuration_requests ORDER BY created_at DESC LIMIT 100')->fetchAll(),
@@ -135,10 +135,10 @@ function run(array $config): never {
     }
     if($action==='extra-access-invite') {
         require_staff($user,['admin']);
-        try{$email=normalized_email(access_field($data,'email',254));$db->beginTransaction();$id=independent_access_container($db);queue_dealer_invitation($db,$config,$id,$email,(int)$user['id']);audit($db,(int)$user['id'],'access.invited','dealer',$id,[]);$db->commit();}
+        try{$email=normalized_email(access_field($data,'email',254));$db->beginTransaction();$id=independent_access_container($db);$invitationId=queue_dealer_invitation($db,$config,$id,$email,(int)$user['id']);audit($db,(int)$user['id'],'access.invited','dealer',$id,[]);$db->commit();}
         catch(\InvalidArgumentException $e){if($db->inTransaction())$db->rollBack();reply(400,['error'=>$e->getMessage()]);}
         catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
-        dispatch_mail($db,$config);reply(200,['ok'=>true]);
+        dispatch_mail($db,$config);$q=$db->prepare('SELECT status FROM sd_mail_outbox WHERE deduplication_key=?');$q->execute(['dealer-invitation-'.$invitationId]);reply(200,['ok'=>true,'mailStatus'=>$q->fetchColumn()]);
     }
     if($action==='dealer-invite') {
         require_staff($user,['admin','approver']);
@@ -181,7 +181,7 @@ function run(array $config): never {
         try {
             $q=$db->prepare('SELECT m.id,m.status,u.email_normalized FROM sd_dealer_memberships m JOIN sd_users u ON u.id=m.user_id WHERE m.id=? FOR UPDATE');$q->execute([$id]);$target=$q->fetch();
             if(!$target){$db->rollBack();reply(404,['error'=>'Zugang nicht gefunden.']);}
-            if(!access_can_delete($target['status'],$target['email_normalized']===staff_owner_email())){$db->rollBack();reply(409,['error'=>'Nur zuvor gesperrte Zugänge dürfen gelöscht werden. Das Marketing-Hauptkonto ist geschützt.']);}
+            if(!access_can_delete($target['status'],staff_protected_email($target['email_normalized']))){$db->rollBack();reply(409,['error'=>'Nur zuvor gesperrte Zugänge dürfen gelöscht werden. Die beiden Hauptkonten sind geschützt.']);}
             $q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled' WHERE status IN ('queued','failed') AND user_token_id IN (SELECT id FROM sd_user_tokens WHERE membership_id=?)");$q->execute([$id]);
             // Delete only this company access, not other memberships or the firm.
             $q=$db->prepare("DELETE FROM sd_dealer_memberships WHERE id=? AND status='suspended'");$q->execute([$id]);
