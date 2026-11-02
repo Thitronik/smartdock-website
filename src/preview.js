@@ -1,7 +1,7 @@
 /* Read-only public content snapshot. No requests to the original backend. */
 (() => {
   const originalFetch = window.fetch.bind(window);
-  const testBackend=location.hostname==='test.smartdock.de';
+  const testBackend=['test.smartdock.de','smartdock.de','www.smartdock.de'].includes(location.hostname);
   let submittedForm=null;
   if(testBackend) {
     document.addEventListener('submit',event=>{submittedForm=event.target;},true);
@@ -36,7 +36,7 @@
           const accepted=await response.json();
           const reference=match[1]==='configuration_requests'?{referenceNumber:accepted.id}:{};
           return new Response(JSON.stringify({...data,...accepted,...reference,preview:false}),{status:200,headers:{'Content-Type':'application/json'}});
-        }catch{return new Response(JSON.stringify({message:'SMARTDOCK test backend unavailable.'}),{status:503,headers:{'Content-Type':'application/json'}});}
+        }catch{return new Response(JSON.stringify({message:'SMARTDOCK backend unavailable.'}),{status:503,headers:{'Content-Type':'application/json'}});}
       }
       if (match[1] === 'configuration_requests') {
         // Lokal und auf Pages gleich: kein nicht vorhandenes Test-Backend aufrufen.
@@ -52,7 +52,7 @@
       return new Response(JSON.stringify({status:503,message:'Preview: form delivery is not connected.',data:{}}), {status:503,headers:{'Content-Type':'application/json'}});
     }
     if (!collections.has(match[1])) return new Response('{}',{status:404});
-    const liveFinder=location.hostname==='test.smartdock.de'&&match[1]==='dealers';
+    const liveFinder=['test.smartdock.de','smartdock.de','www.smartdock.de'].includes(location.hostname)&&match[1]==='dealers';
     const response = await originalFetch(liveFinder?'/api/index.php?action=finder':'/data/'+match[1]+'.json',liveFinder?{credentials:'same-origin',cache:'no-store'}:undefined);
     if (!response.ok) return response;
     const data = await response.json();

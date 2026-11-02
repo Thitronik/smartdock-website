@@ -234,10 +234,10 @@ test('Verwaltungsvorschau veröffentlicht keine Backend- oder Importdateien',asy
  test("Öffentlicher Admineinstieg bietet weder Beispieldaten noch Anmeldeformular",async()=>{
  const {readFile}=await import("node:fs/promises");
  const source=(await readFile(new URL("../src/admin-portal.js",import.meta.url),"utf8")).replace(/^import .*;\n/,"").replace("export function mountAdminPortal","function mountAdminPortal").replaceAll("import.meta.url",JSON.stringify("https://thitronik.github.io/smartdock-website/assets/admin-portal.js"));
- for(const hostname of ["thitronik.github.io","www.smartdock.de","smartdock.de"]){
+ for(const hostname of ["thitronik.github.io","example.invalid"]){
  const root={innerHTML:""},styles=[];const context={URL,location:{hostname},document:{getElementById:()=>root,querySelector:()=>null,createElement:()=>({dataset:{}}),head:{append:link=>styles.push(link)}}};
  vm.runInNewContext(source+";mountAdminPortal();",context);
- assert.equal(styles[0].href,"https://thitronik.github.io/smartdock-website/assets/admin-portal.css?v=20261102g");assert.match(root.innerHTML,/Zugang geschlossen/);assert.doesNotMatch(root.innerHTML,/<button|<form|<input|Beispieldaten öffnen/);
+ assert.equal(styles[0].href,"https://thitronik.github.io/smartdock-website/assets/admin-portal.css?v=20261102live1");assert.match(root.innerHTML,/Zugang geschlossen/);assert.doesNotMatch(root.innerHTML,/<button|<form|<input|Beispieldaten öffnen/);
  }
  const files=await createOutput();assert.ok(files.has("admin/index.html"));assert.ok(!files.has("verwaltung/index.html"));
  });
@@ -246,4 +246,15 @@ test('Händlerkarten verwenden die schlüsselfreie OSM-Quelle mit sichtbarer Que
  const files=await createOutput();const entry=files.get('assets/index-RRVGC1mK.js').toString();
  assert.doesNotMatch(entry,/basemaps\.cartocdn\.com|\{s\}\.tile\.openstreetmap\.org/);
  assert.equal((entry.match(/url:"https:\/\/tile\.openstreetmap\.org\/\{z\}\/\{x\}\/\{y\}\.png"[^}]*attribution:/g)||[]).length,2);
+});
+
+
+test('Produktivbau entfernt Vorschauhinweise und öffnet nur öffentliche Seiten für Suchmaschinen',async()=>{
+ const files=await createOutput('',{production:true});
+ for(const [name,bytes] of files)if(name.endsWith('.html'))assert.doesNotMatch(bytes.toString(),/id="preview-note"|TESTVORSCHAU/);
+ assert.match(files.get('index.html').toString(),/content="index,follow"/);
+ assert.match(files.get('admin/index.html').toString(),/content="noindex,nofollow"/);
+ assert.match(files.get('haendlerbereich/index.html').toString(),/content="noindex,nofollow"/);
+ assert.ok(files.has('robots.txt'));assert.match(files.get('sitemap.xml').toString(),/https:\/\/www\.smartdock\.de\//);
+ await assert.rejects(createOutput(PAGES_BASE,{production:true}));
 });

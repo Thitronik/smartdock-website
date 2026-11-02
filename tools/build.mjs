@@ -81,7 +81,7 @@ function safeOutputName(name) {
   }
 }
 
-export async function createOutput(base = '') {
+export async function createOutput(base = '', {production=false} = {}) {
   validateBase(base);
   const files = new Map();
   function add(name, bytes) {
@@ -122,6 +122,18 @@ export async function createOutput(base = '') {
     });
     add(route.path.slice(1) + 'index.html', html.replaceAll('\n', route.lineEnding === 'crlf' ? '\r\n' : '\n'));
   }
+  if(production){
+    if(base)throw new Error('Produktivbau benötigt die Root-Domain.');
+    for(const [name,bytes] of files){
+      if(!name.endsWith('.html'))continue;
+      let html=bytes.toString('utf8').replace(/<aside id="preview-note"[\s\S]*?<\/aside>/g,'').replace('body{padding-bottom:48px}','body{padding-bottom:0}');
+      if(!name.startsWith('admin/')&&!name.includes('haendlerbereich/'))html=html.replace('<meta name="robots" content="noindex,nofollow">','<meta name="robots" content="index,follow">');
+      html=html.replace('SMARTDOCK · Verwaltungsvorschau','SMARTDOCK · Administration');
+      files.set(name,Buffer.from(html));
+    }
+    add('robots.txt','User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\nDisallow: /haendlerbereich/\nSitemap: https://www.smartdock.de/sitemap.xml\n');
+    add('sitemap.xml','<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+routes.filter(r=>!r.path.includes('haendlerbereich')).map(r=>'<url><loc>https://www.smartdock.de'+r.path+'</loc></url>').join('')+'</urlset>');
+  }
   if (base) {
     for (const [name, bytes] of files) if (TEXT.test(name)) files.set(name, Buffer.from(adaptForBase(bytes.toString('utf8'), name, base)));
     add('.nojekyll', '');
@@ -129,9 +141,9 @@ export async function createOutput(base = '') {
   return files;
 }
 
-export async function build({ pages = false } = {}) {
+export async function build({ pages = false, production = false } = {}) {
   // Erst alle Quellen prüfen. Bei einem Fehler bleibt der vorherige Bau bestehen.
-  const files = await createOutput(pages ? PAGES_BASE : '');
+  const files = await createOutput(pages ? PAGES_BASE : '', {production});
   const target = path.resolve(ROOT, pages ? '_site' : 'dist');
   if (path.dirname(target) !== path.resolve(ROOT)) throw new Error('Ausgabe liegt außerhalb des Repositorys.');
   const existing = await lstat(target).catch(error => { if (error.code !== 'ENOENT') throw error; });
@@ -148,6 +160,6 @@ export async function build({ pages = false } = {}) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  if (process.argv.slice(2).some(arg => arg !== '--pages')) throw new Error('Aufruf: node tools/build.mjs [--pages]');
-  await build({ pages: process.argv.includes('--pages') });
+  if (process.argv.slice(2).some(arg => arg !== '--pages' && arg !== '--production')) throw new Error('Aufruf: node tools/build.mjs [--pages | --production]');
+  await build({ pages: process.argv.includes('--pages'), production: process.argv.includes('--production') });
 }
