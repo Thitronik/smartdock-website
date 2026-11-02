@@ -192,6 +192,21 @@ try{
  assert.equal((await staffClient.call('admin')).body.staffManagement,null);
  assert.equal((await staffClient.call('staff-invite',{...staffInput,email:'ci.other@thitronik.de'})).status,403);
  assert.equal((await staffClient.call('staff-revoke',{id:1})).status,403);
+ // Every admin can invite independent dealer users, without creating a public firm.
+ const extraEmail='ci.extra@independent.example';
+ assert.equal((await guest.call('extra-access-invite',{email:extraEmail})).status,401);
+ assert.equal((await dealer.call('extra-access-invite',{email:extraEmail})).status,403);
+ assert.equal((await staffClient.call('extra-access-invite',{email:extraEmail})).status,200,'Non-owner admin can invite independent users');
+ const extraSnapshot=(await admin.call('admin')).body;
+ const container=extraSnapshot.dealers.find(d=>d.source_system==='smartdock-internal');assert.ok(container);assert.equal(container.latitude,null);assert.equal(container.longitude,null);assert.equal(container.public_email,null);assert.equal(container.finder_status,'unlisted');
+ assert.ok(extraSnapshot.extraInvitations.some(i=>i.email===extraEmail));
+ assert.equal((await admin.call('finder-decision',{id:container.id,status:'approved'})).status,409,'Independent access cannot be published as a dealer');
+ const extraMail=(await mails()).filter(m=>m.type==='dealer_invitation'&&m.to===extraEmail).at(-1);assert.match(extraMail.body,/ohne Firmenzuordnung/);
+ const extraClient=client();await extraClient.page('dealer-invitation&token='+extraMail.body.match(/token=([a-f0-9]{64})/)[1]);const extraForm=await extraClient.page('dealer-invitation');assert.equal(extraForm.status,200);assert.match(extraForm.text,/ohne Firmenzuordnung/);
+ const extraProfile={csrf:extraForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1],first_name:'CI',last_name:'Independent',email:extraEmail,password:setup.password,repeat:setup.password,position:'',phone:''};
+ assert.equal((await extraClient.page('dealer-invitation',extraProfile)).status,200);await extraClient.call('session');assert.equal((await extraClient.call('login',{email:extraEmail,password:setup.password})).status,200);assert.equal((await extraClient.call('dealer')).status,200);assert.equal((await extraClient.call('admin')).status,403,'Independent user has no admin rights');
+ const extraAfter=(await admin.call('admin')).body;assert.ok(extraAfter.memberships.some(m=>m.email===extraEmail&&m.dealer_id===container.id&&m.status==='approved'));assert.ok(!extraAfter.extraInvitations.some(i=>i.email===extraEmail));
+ assert.equal((await admin.call('extra-access-invite',{email:extraEmail})).status,400,'Existing users are not duplicated');
  assert.equal((await dealer.call('newsletter-subscriber-status',{id:1,status:'unsubscribed'})).status,403);
  assert.equal((await admin.call('newsletter-subscriber-status',{id:999999,status:'unsubscribed'})).status,409);
  const activeSubscriptions=(await admin.call('admin')).body.newsletterSubscribers;assert.ok(activeSubscriptions.every(s=>['pending','confirmed'].includes(s.status)));

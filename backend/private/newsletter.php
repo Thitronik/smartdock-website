@@ -47,12 +47,12 @@ function newsletter_group(string $email,array $dealers): string {
         $address=strtolower(trim($dealer['public_email']??''));
         // Exact published addresses are dealers even on a shared mail provider.
         if($address!==''&&$address===strtolower(trim($email)))return 'dealer';
-        if($domain!==''&&!preg_match('/^(gmail|googlemail|outlook|hotmail|live|icloud|me|gmx|web|yahoo|aol|t-online|mail|freenet|proton|protonmail|o2online|orange|bluewin)\./',$domain)&&!in_array($domain,$generic,true)&&$domain===substr(strrchr($address,'@')?:'',1))return 'dealer';
+        if(empty($dealer['exact_only'])&&$domain!==''&&!preg_match('/^(gmail|googlemail|outlook|hotmail|live|icloud|me|gmx|web|yahoo|aol|t-online|mail|freenet|proton|protonmail|o2online|orange|bluewin)\./',$domain)&&!in_array($domain,$generic,true)&&$domain===substr(strrchr($address,'@')?:'',1))return 'dealer';
     }
     return 'customer';
 }
 function newsletter_dealer_addresses(\PDO $db): array {
-    return $db->query("SELECT public_email,status FROM sd_dealer WHERE status='active' UNION SELECT u.email AS public_email,d.status FROM sd_users u JOIN sd_dealer_memberships m ON m.user_id=u.id JOIN sd_dealer d ON d.id=m.dealer_id WHERE m.status='approved' AND u.status='active' AND d.status='active' UNION SELECT i.email AS public_email,d.status FROM sd_dealer_invitations i JOIN sd_dealer d ON d.id=i.dealer_id WHERE i.revoked_at IS NULL AND i.consumed_at IS NULL AND i.expires_at>UTC_TIMESTAMP(6) AND d.status='active'")->fetchAll();
+    return $db->query("SELECT public_email,status,0 AS exact_only FROM sd_dealer WHERE status='active' UNION SELECT u.email AS public_email,d.status,1 AS exact_only FROM sd_users u JOIN sd_dealer_memberships m ON m.user_id=u.id JOIN sd_dealer d ON d.id=m.dealer_id WHERE m.status='approved' AND u.status='active' AND d.status='active' UNION SELECT i.email AS public_email,d.status,1 AS exact_only FROM sd_dealer_invitations i JOIN sd_dealer d ON d.id=i.dealer_id WHERE i.revoked_at IS NULL AND i.consumed_at IS NULL AND i.expires_at>UTC_TIMESTAMP(6) AND d.status='active'")->fetchAll();
 }
 function newsletter_recipients(\PDO $db,string $group): array {
     $dealers=newsletter_dealer_addresses($db);
