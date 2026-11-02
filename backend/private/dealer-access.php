@@ -138,7 +138,8 @@ function approve_dealer_membership(\PDO $db,array $config,int $id,array $staff):
     audit($db,(int)$staff['id'],'membership.decision','membership',$id,['from'=>$membership['status'],'to'=>'approved']);
     require_once __DIR__.'/newsletter-enrollment.php';
     enroll_newsletter($db,$membership['email'],'de','dealer-enrollment-2026-11-02','Automatische Aufnahme bei Freigabe eines Händlerzugangs. Bestehende Abmeldungen bleiben erhalten.');
-    queue_dealer_password($db,$config,['id'=>$membership['user_id'],'email'=>$membership['email'],'password_hash'=>$membership['password_hash']]);
+    if(empty($membership['password_hash']))queue_dealer_password($db,$config,['id'=>$membership['user_id'],'email'=>$membership['email'],'password_hash'=>$membership['password_hash']]);
+    else queue_mail($db,$config,'dealer_decision',$membership['email'],'SMARTDOCK: Dein Händlerzugang ist freigegeben',"Dein Händlerzugang wurde freigegeben. Willkommen im Händlerbereich!\n\nMelde dich mit deiner E-Mail-Adresse und deinem selbst gewählten Händlerpasswort an:\n".$config['origin'].'/haendlerbereich/','dealer-approved-'.$id.'-'.bin2hex(random_bytes(8)),(int)$membership['user_id']);
 }
 function access_form(string $button,string $extra=''): string {return '<form method="post"><input type="hidden" name="csrf" value="'.access_escape($_SESSION['csrf']).'">'.$extra.'<button class="primary-button" style="background:#bceb02;border-color:#bceb02;color:#1d1d1b;white-space:normal">'.access_escape($button).'</button></form>';}
 function access_token_page(array $config,string $action): never {

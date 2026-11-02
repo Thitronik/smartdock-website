@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Smartdock;
+require_once __DIR__.'/mail.php';
 
 // Caller holds the first-admin lock and a database transaction. The existing
 // user was selected by the private operator-approved setup, never by form input.
@@ -45,9 +46,9 @@ function staff_activation_mail(array $config,string $email,string $token): bool 
     $body="Dein persoenlich freigegebener SMARTDOCK-Adminzugang wartet auf deine E-Mail-Bestaetigung.\n\nÖffne diesen Link und bestätige die Aktivierung:\n".$url."\n\nDer Link ist einmalig und 7 Tage gueltig. Erst danach kannst du dich mit Passwort und Authenticator anmelden.\nFalls du diese Einrichtung nicht veranlasst hast, aktiviere den Zugang nicht.\n";
     // CI capture is impossible on Apache/FPM and never sends real messages.
     if(PHP_SAPI==='cli-server'&&getenv('SD_BACKEND_TEST_RUN')==='1'){
-        return file_put_contents(getenv('SD_TEST_STATE').'/activation-mail.json',json_encode(['to'=>$email,'body'=>$body],JSON_THROW_ON_ERROR))!==false;
+        return file_put_contents(getenv('SD_TEST_STATE').'/activation-mail.json',json_encode(['to'=>$email,'body'=>$body,'html'=>transactional_mail_html($config,'SMARTDOCK: Adminzugang bestätigen',$body)],JSON_THROW_ON_ERROR))!==false;
     }
-    return mail($email,'SMARTDOCK: Adminzugang bestaetigen',$body,['From'=>'SMARTDOCK <'.$from.'>','Content-Type'=>'text/plain; charset=UTF-8','MIME-Version'=>'1.0'],'-f'.$from);
+    return deliver_mail($config,['message_type'=>'staff_activation','recipient_email'=>$email],['subject'=>'SMARTDOCK: Adminzugang bestätigen','body'=>$body]);
 }
 
 function staff_activation_request(array $config): never {

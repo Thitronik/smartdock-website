@@ -28,21 +28,16 @@ function deliver_mail(array $config,array $mail,array $payload): bool {
     $newsletter=in_array($mail['message_type'],['newsletter_campaign','newsletter_test'],true);
     if($newsletter){if(empty($config[$mail['message_type']==='newsletter_test'?'newsletter_test_enabled':'newsletter_send_enabled']))throw new \RuntimeException('Newsletter disabled.');$from='newsletter@smartdock.de';}
     if(!preg_match('/\A[a-zA-Z0-9._+-]+@smartdock\.de\z/D',$from))throw new \RuntimeException('Mail sender unavailable.');
+    $html=$newsletter&&is_string($payload['html']??null)?$payload['html']:transactional_mail_html($config,$payload['subject'],$payload['body']);
+    $payload['html']=$html;
     if(PHP_SAPI==='cli-server'&&getenv('SD_BACKEND_TEST_RUN')==='1') {
         $file=getenv('SD_TEST_STATE').'/outbox-mails.json';
         $records=is_file($file)?json_decode(file_get_contents($file),true,32,JSON_THROW_ON_ERROR):[];
         $records[]=['to'=>$mail['recipient_email'],'type'=>$mail['message_type'],...$payload];
         file_put_contents($file,json_encode($records,JSON_THROW_ON_ERROR));return true;
     }
-    $html=nl2br(htmlspecialchars($payload['body'],ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8'));
-    $pattern='~'.preg_quote($config['origin'].'/api/index.php?action=','~').'(dealer-invitation|dealer-confirm|dealer-password|dealer-approve|staff-invitation|newsletter-confirm|newsletter-unsubscribe)&amp;token=[a-f0-9]{64}~';
-    $html=preg_replace_callback($pattern,static function(array $match):string {
-        $label=match($match[1]){'dealer-approve'=>'Händler für den Händlerbereich freischalten!','dealer-invitation'=>'Händlerzugang einrichten','dealer-password'=>'Passwort festlegen','newsletter-confirm'=>'Newsletter-Anmeldung bestätigen','newsletter-unsubscribe'=>'Abmelden',default=>'E-Mail bestätigen'};
-        return '<a style="display:inline-block;padding:14px 20px;background:#bceb02;color:#1d1d1b;border-radius:8px;text-decoration:none;font-weight:bold" href="'.$match[0].'">'.$label.'</a>';
-    },$html);
-    if($newsletter&&is_string($payload['html']??null))$html=$payload['html'];
     $boundary='sd-'.bin2hex(random_bytes(18));
-    $body='--'.$boundary."\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n".chunk_split(base64_encode($payload['body'])).'--'.$boundary."\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n".chunk_split(base64_encode($newsletter?$html:'<!doctype html><html lang="de"><body style="font-family:Arial,sans-serif;line-height:1.6">'.$html.'</body></html>')).'--'.$boundary."--\r\n";
+    $body='--'.$boundary."\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n".chunk_split(base64_encode($payload['body'])).'--'.$boundary."\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n".chunk_split(base64_encode($html)).'--'.$boundary."--\r\n";
     $contentType='multipart/alternative; boundary="'.$boundary.'"';
     if(!empty($payload['attachments'])) {
         $mixed='sd-mixed-'.bin2hex(random_bytes(18));$body='--'.$mixed."\r\nContent-Type: ".$contentType."\r\n\r\n".$body;

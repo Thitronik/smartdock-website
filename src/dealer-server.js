@@ -9,6 +9,20 @@ export async function connectDealerPortal(root,language){
  };
  const t=messages[language]||messages.de;let csrf='',busy=false;
  const status=root.querySelector('#login-status'),result=root.querySelector('#result');
+ const employeeCopy={
+ de:['Mitarbeiter einladen','Lade weitere Mitarbeiter deiner Firma ein. Nach der persönlichen Einrichtung prüft SMARTDOCK den Zugang. Erst nach der Freigabe ist der Zugriff möglich.','Firma','E-Mail-Adresse des Mitarbeiters','Einladung senden','Bitte Firma auswählen …','Die Einladung wurde an den E-Mail-Server übergeben. Nach der Einrichtung prüft SMARTDOCK den Zugang.','Die Einladung wurde gespeichert. Der Versand steht noch aus.','Die Einladung wurde gespeichert, aber der E-Mail-Versand ist fehlgeschlagen. Bitte wende dich an SMARTDOCK.','Einladung wird versendet …'],
+ en:['Invite employees','Invite more employees of your company. SMARTDOCK reviews each account after setup. Access is available only after approval.','Company','Employee email address','Send invitation','Select a company …','The invitation was handed to the email server. SMARTDOCK will review access after setup.','Invitation saved. Email delivery is pending.','Invitation saved, but email delivery failed. Please contact SMARTDOCK.','Sending invitation …'],
+ fr:['Inviter des collaborateurs','Invite des collaborateurs de ton entreprise. SMARTDOCK vérifie chaque compte après sa création. L’accès nécessite une validation.','Entreprise','Adresse e-mail du collaborateur','Envoyer l’invitation','Choisis une entreprise …','L’invitation a été transmise au serveur de messagerie. SMARTDOCK vérifiera ensuite l’accès.','Invitation enregistrée. Envoi en attente.','Invitation enregistrée, mais l’envoi a échoué. Contacte SMARTDOCK.','Envoi de l’invitation …'],
+ nl:['Medewerkers uitnodigen','Nodig medewerkers van je bedrijf uit. SMARTDOCK controleert hun toegang na het instellen van het account. Toegang volgt pas na goedkeuring.','Bedrijf','E-mailadres van de medewerker','Uitnodiging versturen','Kies een bedrijf …','De uitnodiging is aan de mailserver overgedragen. SMARTDOCK controleert de toegang na het instellen.','Uitnodiging opgeslagen. De verzending staat nog open.','Uitnodiging opgeslagen, maar verzenden is mislukt. Neem contact op met SMARTDOCK.','Uitnodiging wordt verstuurd …'],
+ es:['Invitar empleados','Invita a empleados de tu empresa. SMARTDOCK revisa cada cuenta después de su configuración. El acceso requiere aprobación.','Empresa','Correo electrónico del empleado','Enviar invitación','Selecciona una empresa …','La invitación se ha entregado al servidor de correo. SMARTDOCK revisará el acceso después de la configuración.','Invitación guardada. Envío pendiente.','Invitación guardada, pero el envío ha fallado. Contacta con SMARTDOCK.','Enviando invitación …']
+ }[language]||null;
+ function employeeForm(companies,logout){
+  const allowed=companies.filter(d=>Number(d.can_invite)===1);if(!allowed.length||!employeeCopy)return;
+  root.querySelector('#dealer-employees')?.remove();const section=document.createElement('section');section.id='dealer-employees';section.className='card employee-invite';
+  section.innerHTML=`<h2>${employeeCopy[0]}</h2><p class="muted">${employeeCopy[1]}</p><form id="dealer-employee-invite"><label for="employee-company">${employeeCopy[2]}</label><select id="employee-company" name="dealer_id" required></select><label for="employee-email">${employeeCopy[3]}</label><input id="employee-email" name="email" type="email" maxlength="254" required autocomplete="off"><button>${employeeCopy[4]}</button><p role="status" aria-live="polite" class="employee-status"></p></form>`;
+  const select=section.querySelector('select');if(allowed.length>1){const option=document.createElement('option');option.value='';option.textContent=employeeCopy[5];select.append(option);}for(const d of allowed){const option=document.createElement('option');option.value=String(d.id);option.textContent=d.company_name;select.append(option);}logout.before(section);
+ }
+
  async function api(action,data){
   const response=await fetch('/api/index.php?portal=dealer&action='+action,{method:data===undefined?'GET':'POST',credentials:'same-origin',cache:'no-store',headers:data===undefined?{}:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:data===undefined?undefined:JSON.stringify(data)});
   let body;try{body=await response.json();}catch{throw Error('SMARTDOCK: Server nicht erreichbar.');}
@@ -26,10 +40,16 @@ export async function connectDealerPortal(root,language){
   root.querySelector('.columns').hidden=true;root.querySelector('.page-hero h1').textContent=({de:'Willkommen im Händlerbereich',en:'Welcome to the dealer area',fr:'Bienvenue dans l’espace revendeurs',nl:'Welkom in het dealerportaal',es:'Bienvenido al área de distribuidores'})[language]||'Willkommen im Händlerbereich';
   const p=document.createElement('p');p.textContent=data.companies.map(d=>d.company_name).join(' · ');result.replaceChildren(p);
   const logout=document.createElement('button');logout.type='button';logout.textContent=t[2];logout.addEventListener('click',async()=>{if(busy)return;busy=true;try{await api('logout',{});location.reload();}catch(error){p.textContent=error.message;busy=false;}});details.after(logout);
-  details.hidden=false;details.open=true;details.querySelector('summary').hidden=true;details.querySelector('.notice').hidden=true;details.querySelectorAll('.tile p').forEach(node=>node.hidden=true);
+  details.hidden=false;details.open=true;details.querySelector('summary').hidden=true;details.querySelector('.notice').hidden=true;details.querySelectorAll('.tile p').forEach(node=>node.hidden=true);employeeForm(data.companies,logout);
  }
  root.addEventListener('submit',async event=>{
-  const form=event.target;if(form.id!=='login')return;event.preventDefault();event.stopImmediatePropagation();if(busy||!form.reportValidity())return;
+  const form=event.target;
+  if(form.id==='dealer-employee-invite'){
+   event.preventDefault();event.stopImmediatePropagation();if(busy||!form.reportValidity())return;
+   const feedback=form.querySelector('[role=status]'),button=form.querySelector('button');busy=true;button.disabled=true;feedback.textContent=employeeCopy[9];
+   try{const data=await api('dealer-employee-invite',Object.fromEntries(new FormData(form)));feedback.textContent=employeeCopy[data.mailStatus==='sent'?6:data.mailStatus==='failed'?8:7];form.querySelector('[name=email]').value='';}catch(error){feedback.textContent=error.message;}finally{busy=false;button.disabled=false;}return;
+  }
+  if(form.id!=='login')return;event.preventDefault();event.stopImmediatePropagation();if(busy||!form.reportValidity())return;
   busy=true;const button=form.querySelector('button');button.disabled=true;
   try {
    if(form.id==='login'){

@@ -19,6 +19,7 @@ if(count($argv)===1){
  if(count($rows)!==2||$rows[0]['login_realm']!=='staff'||$rows[0]['password_hash']!=='unchanged-admin-hash'||$rows[1]['login_realm']!=='dealer'||$rows[1]['password_hash']!==null||$rows[1]['status']!=='invited')throw new RuntimeException('Separate migration identities/passwords failed.');
  if((int)$db->query('SELECT user_id FROM sd_dealer_memberships WHERE id=1')->fetchColumn()!==(int)$rows[1]['id'])throw new RuntimeException('Membership transfer failed.');
  if($db->query("SELECT password_hash FROM sd_users WHERE email_normalized='legacy@example.invalid'")->fetchColumn()!=='unchanged-dealer-hash')throw new RuntimeException('Legacy dealer password changed.');
+ $db->exec(file_get_contents(__DIR__.'/../../database/migrations/008_employee_invitations.sql'));
  // Reset synthetic migration evidence only, in this isolated disposable CI database.
  $db->exec('SET FOREIGN_KEY_CHECKS=0');foreach($db->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) as $table)$db->exec('TRUNCATE TABLE `'.str_replace('`','``',$table).'`');$db->exec('SET FOREIGN_KEY_CHECKS=1');
  foreach(['state','sessions','mfa'] as $folder)mkdir($root.'/'.$folder,0700);
