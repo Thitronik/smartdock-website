@@ -158,13 +158,13 @@ try{
  const newsletter={email:'reader@example.invalid',language:'en'};
  assert.equal((await publicClient.call('newsletter-request',newsletter)).status,200);
  const newsletterMail=(await mails()).find(m=>m.type==='newsletter_confirmation');assert.equal(newsletterMail.to,newsletter.email);
- assert.equal(publicStatus().newsletter[0].status,'confirmed','Direct registration is active immediately');
+ assert.equal(publicStatus().newsletter.find(s=>s.email===newsletter.email).status,'confirmed','Direct registration is active immediately');
  assert.doesNotMatch(newsletterMail.body,/action=newsletter-confirm/,'No confirmation link sent');
  const unsubscribeToken=newsletterMail.body.match(/action=newsletter-unsubscribe&token=([a-f0-9]{64})/)[1];
  const reader=client();
  assert.equal((await publicClient.call('newsletter-request',newsletter)).status,200);assert.equal((await mails()).filter(m=>m.type==='newsletter_confirmation').length,1,'Duplicate request sends no additional mail');
- await reader.page('newsletter-unsubscribe&token='+unsubscribeToken);const unsubForm=await reader.page('newsletter-unsubscribe');assert.equal(publicStatus().newsletter[0].status,'confirmed');
- assert.equal((await reader.page('newsletter-unsubscribe',{csrf:unsubForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1]})).status,200);assert.equal(publicStatus().newsletter[0].status,'unsubscribed');
+ await reader.page('newsletter-unsubscribe&token='+unsubscribeToken);const unsubForm=await reader.page('newsletter-unsubscribe');assert.equal(publicStatus().newsletter.find(s=>s.email===newsletter.email).status,'confirmed');
+ assert.equal((await reader.page('newsletter-unsubscribe',{csrf:unsubForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1]})).status,200);assert.equal(publicStatus().newsletter.find(s=>s.email===newsletter.email).status,'unsubscribed');
 
  // Owner-only staff invitations require mailbox possession + password + MFA.
  const staffInput={first_name:'CI',last_name:'Invited',email:'ci.staff@thitronik.de'};
