@@ -10,17 +10,18 @@ function independent_access_container(\PDO $db): int {
     if(!$id)throw new \InvalidArgumentException('Weitere Zugänge sind derzeit gesperrt.');return (int)$id;
 }
 
-function queue_dealer_invitation(\PDO $db,array $config,int $dealerId,string $email,int $actor): void {
+function queue_dealer_invitation(\PDO $db,array $config,int $dealerId,string $email,int $actor): int {
     $email=normalized_email($email);
     $q=$db->prepare('SELECT source_system FROM sd_dealer WHERE id=?');$q->execute([$dealerId]);$independent=$q->fetchColumn()==='smartdock-internal';
     $q=$db->prepare('SELECT id FROM sd_users WHERE email_normalized=?');$q->execute([$email]);
-    if($q->fetch())throw new \InvalidArgumentException('Für diese E-Mail-Adresse besteht bereits ein Konto. Bitte den vorhandenen Zugang zuordnen.');
+    if($q->fetch())throw new \InvalidArgumentException('Für diese E-Mail-Adresse besteht bereits ein Konto. Es wurde keine neue Einladung versendet. Bitte den vorhandenen Zugang verwenden oder zuordnen.');
     $q=$db->prepare('UPDATE sd_dealer_invitations SET revoked_at=UTC_TIMESTAMP(6) WHERE email=? AND consumed_at IS NULL AND revoked_at IS NULL');$q->execute([$email]);
     $raw=bin2hex(random_bytes(32));
     $q=$db->prepare('INSERT INTO sd_dealer_invitations(dealer_id,email,token_hash,invited_by,expires_at) VALUES(?,?,?,?,DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 7 DAY))');
     $q->execute([$dealerId,$email,hash('sha256',$raw,true),$actor]);$id=(int)$db->lastInsertId();
     enroll_newsletter($db,$email,'de','dealer-enrollment-2026-11-02','Automatische Aufnahme beim Anlegen eines Händlerzugangs durch SMARTDOCK. Bestehende Abmeldungen bleiben erhalten.');
     queue_mail($db,$config,'dealer_invitation',$email,'SMARTDOCK: Einladung zum Händlerbereich',"Du bist zum SMARTDOCK Händlerbereich eingeladen. Vervollständige dein persönliches Profil und lege dein Passwort fest:\n\n".access_link($config,'dealer-invitation',$raw)."\n\n".($independent?"Dein persönlicher Zugang wird ohne Firmenzuordnung eingerichtet.":"Dein Zugang wird automatisch der eingeladenen Firma zugeordnet.")." Der Link ist 7 Tage gültig und kann einmal verwendet werden.",'dealer-invitation-'.$id);
+    return $id;
 }
 
 function dealer_invitation_page(array $config): never {

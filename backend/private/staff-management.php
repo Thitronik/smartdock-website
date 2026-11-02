@@ -4,34 +4,36 @@ namespace Smartdock;
 
 // The owner is an existing, verified account. This never bootstraps or grants it a role.
 function staff_owner_email(): string { return 'marketing@thitronik.de'; }
+function staff_owner_emails(): array { return ['marketing@thitronik.de','smartdock@thitronik.de']; }
+function staff_protected_email(string $email): bool { return in_array(strtolower($email),staff_owner_emails(),true); }
 function staff_is_owner(array $user): bool {
-    return ($user['email_normalized']??'')===staff_owner_email() && in_array('admin',$user['roles']??[],true);
+    return staff_protected_email($user['email_normalized']??'') && in_array('admin',$user['roles']??[],true);
 }
 function require_staff_owner(array $user): void {
-    if(!staff_is_owner($user))reply(403,['error'=>'Nur das Marketing-Hauptkonto verwaltet Adminzugänge.']);
+    if(!staff_is_owner($user))reply(403,['error'=>'Nur die geschützten Hauptkonten dürfen Adminzugänge sperren, widerrufen oder löschen.']);
 }
 function staff_address_authorized(\PDO $db,array $config,array $user): bool {
     $email=$user['email_normalized'];
     if(!str_ends_with($email,'@thitronik.de'))return false;
     if(staff_allowed($email,$config['staff_allowlist'],$config['staff_email_domain']??'thitronik.de'))return true;
-    $q=$db->prepare("SELECT s.user_id FROM sd_staff_roles s JOIN sd_users owner ON owner.id=s.granted_by JOIN sd_staff_roles os ON os.user_id=owner.id AND os.role='admin' AND os.revoked_at IS NULL WHERE s.user_id=? AND s.role='admin' AND s.revoked_at IS NULL AND owner.email_normalized=? AND owner.status='active'");
-    $q->execute([$user['id'],staff_owner_email()]);return (bool)$q->fetchColumn();
+    $q=$db->prepare("SELECT s.user_id FROM sd_staff_roles s JOIN sd_users owner ON owner.id=s.granted_by JOIN sd_staff_roles os ON os.user_id=owner.id AND os.role='admin' AND os.revoked_at IS NULL WHERE s.user_id=? AND s.role='admin' AND s.revoked_at IS NULL AND owner.email_normalized LIKE '%@thitronik.de' AND owner.status='active'");
+    $q->execute([$user['id']]);return (bool)$q->fetchColumn();
 }
 function staff_management_snapshot(\PDO $db,array $config,array $user): ?array {
-    if(!staff_is_owner($user))return null;
+    if(!in_array('admin',$user['roles']??[],true))return null;
     $rows=$db->query("SELECT u.id,u.first_name,u.last_name,u.email,u.email_normalized,u.status,MAX(s.revoked_at IS NULL AND s.role='admin') AS active_role FROM sd_users u LEFT JOIN sd_staff_roles s ON s.user_id=u.id WHERE s.user_id IS NOT NULL OR EXISTS(SELECT 1 FROM sd_admin_audit_events a WHERE a.target_id=u.id AND a.target_type='user' AND a.action='staff.invited') GROUP BY u.id ORDER BY u.email")->fetchAll();
     foreach($rows as &$row){
-        $row['protected']=$row['email_normalized']===staff_owner_email();
+        $row['protected']=staff_protected_email($row['email_normalized']);
         // Display the shared marketing account as a team in the admin list.
-        if($row['protected']){$row['first_name']='Marketing';$row['last_name']='';}
+        if($row['email_normalized']===staff_owner_email()){$row['first_name']='Marketing';$row['last_name']='';}
         unset($row['email_normalized']);
     }
-    return ['ownerEmail'=>staff_owner_email(),'accounts'=>$rows];
+    return ['ownerEmail'=>staff_owner_email(),'ownerEmails'=>staff_owner_emails(),'canManageAdmins'=>staff_is_owner($user),'accounts'=>$rows];
 }
 function staff_invite(\PDO $db,array $config,array $owner,array $data): never {
-    require_staff_owner($owner);
+    require_staff($owner,['admin']);
     try{$email=normalized_email(access_field($data,'email',254));$first=access_field($data,'first_name',200);$last=access_field($data,'last_name',200);}catch(\InvalidArgumentException){reply(400,['error'=>'Bitte Name und gültige E-Mail-Adresse eingeben.']);}
-    if(!str_ends_with($email,'@thitronik.de')||$email===staff_owner_email())reply(400,['error'=>'Nur weitere persönliche @thitronik.de-Adressen können eingeladen werden.']);
+    if(!str_ends_with($email,'@thitronik.de')||staff_protected_email($email))reply(400,['error'=>'Nur weitere persönliche @thitronik.de-Adressen können eingeladen werden.']);
     access_limit($config,'staff-invite',$email);
     $db->beginTransaction();
     try{
@@ -41,7 +43,7 @@ function staff_invite(\PDO $db,array $config,array $owner,array $data): never {
         $q=$db->prepare("INSERT INTO sd_users(first_name,last_name,email,email_normalized,status) VALUES(?,?,?,?,'invited')");$q->execute([$first,$last,$email,$email]);$id=(int)$db->lastInsertId();
         $token=access_token($db,$id,'verify_email',null,null,7*24);
         audit($db,(int)$owner['id'],'staff.invited','user',$id,['token_id'=>$token['id']]);
-        queue_mail($db,$config,'staff_activation',$email,'SMARTDOCK: Einladung zur Administration',"Du wurdest vom SMARTDOCK Marketing-Hauptkonto zur Administration eingeladen.\n\nBestätige deine E-Mail-Adresse und richte dein persönliches Passwort und den Authenticator ein:\n\n".access_link($config,'staff-invitation',$token['raw'])."\n\nE-Mail-Adresse für die spätere Anmeldung: ".$email."\nDer Link ist einmalig und 7 Tage gültig. Ohne diese Einrichtung ist kein Adminzugang möglich.",'staff-invitation-'.$token['id'],$id,$token['id']);
+        queue_mail($db,$config,'staff_activation',$email,'SMARTDOCK: Einladung zur Administration',"Du wurdest von einem SMARTDOCK Admin zur Administration eingeladen.\n\nBestätige deine E-Mail-Adresse und richte dein persönliches Passwort und den Authenticator ein:\n\n".access_link($config,'staff-invitation',$token['raw'])."\n\nE-Mail-Adresse für die spätere Anmeldung: ".$email."\nDer Link ist einmalig und 7 Tage gültig. Ohne diese Einrichtung ist kein Adminzugang möglich.",'staff-invitation-'.$token['id'],$id,$token['id']);
         $db->commit();
     }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
     dispatch_mail($db,$config);reply(200,['ok'=>true]);
@@ -52,7 +54,7 @@ function staff_revoke(\PDO $db,array $config,array $owner,array $data): never {
     $db->beginTransaction();
     try{
         $q=$db->prepare('SELECT * FROM sd_users WHERE id=? FOR UPDATE');$q->execute([$id]);$target=$q->fetch();
-        if(!$target||$target['email_normalized']===staff_owner_email()){$db->rollBack();reply(403,['error'=>'Das Marketing-Hauptkonto kann nicht gesperrt oder gelöscht werden.']);}
+        if(!$target||staff_protected_email($target['email_normalized'])){$db->rollBack();reply(403,['error'=>'Die geschützten Hauptkonten können nicht gesperrt oder gelöscht werden.']);}
         $q=$db->prepare("SELECT id FROM sd_admin_audit_events WHERE action='staff.invited' AND target_type='user' AND target_id=? UNION SELECT user_id FROM sd_staff_roles WHERE user_id=? LIMIT 1");$q->execute([$id,$id]);
         if(!$q->fetchColumn()){$db->rollBack();reply(404,['error'=>'Kein Adminzugang.']);}
         $q=$db->prepare("UPDATE sd_staff_roles SET revoked_at=UTC_TIMESTAMP(6) WHERE user_id=? AND revoked_at IS NULL");$q->execute([$id]);
@@ -70,7 +72,7 @@ function staff_delete(\PDO $db,array $config,array $owner,array $data): never {
     try {
         $q=$db->prepare('SELECT id,status,email_normalized FROM sd_users WHERE id=? FOR UPDATE');$q->execute([$id]);$target=$q->fetch();
         if(!$target){$db->rollBack();reply(404,['error'=>'Konto nicht gefunden.']);}
-        if(!access_can_delete($target['status'],$target['email_normalized']===staff_owner_email())){$db->rollBack();reply(409,['error'=>'Nur zuvor gesperrte Adminzugänge dürfen gelöscht werden. Das Marketing-Hauptkonto ist geschützt.']);}
+        if(!access_can_delete($target['status'],staff_protected_email($target['email_normalized']))){$db->rollBack();reply(409,['error'=>'Nur zuvor gesperrte Adminzugänge dürfen gelöscht werden. Die beiden Hauptkonten sind geschützt.']);}
         $q=$db->prepare("SELECT id FROM sd_admin_audit_events WHERE action='staff.invited' AND target_type='user' AND target_id=? UNION SELECT user_id FROM sd_staff_roles WHERE user_id=? LIMIT 1");$q->execute([$id,$id]);
         if(!$q->fetchColumn()){$db->rollBack();reply(404,['error'=>'Kein Adminzugang.']);}
         $q=$db->prepare('SELECT id FROM sd_dealer_memberships WHERE user_id=? LIMIT 1');$q->execute([$id]);
@@ -97,9 +99,9 @@ function staff_invitation_page(array $config): never {
     header('Referrer-Policy: same-origin');$hash=$_SESSION['staff_invite_hash']??'';
     if(!preg_match('/^[a-f0-9]{64}$/D',$hash))$finish('Bitte den Einladungslink aus deiner E-Mail öffnen.');
     $db=database($config);
-    $sql="SELECT u.*,t.id AS token_id,a.actor_user_id AS inviter FROM sd_user_tokens t JOIN sd_users u ON u.id=t.user_id JOIN sd_admin_audit_events a ON a.target_id=u.id AND a.target_type='user' AND a.action='staff.invited' AND JSON_UNQUOTE(JSON_EXTRACT(a.details_json,'$.token_id'))=CAST(t.id AS CHAR) JOIN sd_users owner ON owner.id=a.actor_user_id JOIN sd_staff_roles os ON os.user_id=owner.id AND os.role='admin' AND os.revoked_at IS NULL WHERE t.token_hash=UNHEX(?) AND t.purpose='verify_email' AND t.revoked_at IS NULL AND t.consumed_at IS NULL AND t.expires_at>UTC_TIMESTAMP(6) AND u.status='invited' AND u.password_hash IS NULL AND u.email_verified_at IS NULL AND owner.email_normalized=? AND owner.status='active'";
-    $q=$db->prepare($sql);$q->execute([$hash,staff_owner_email()]);$user=$q->fetch();
-    if(!$user||!str_ends_with($user['email_normalized'],'@thitronik.de')||$user['email_normalized']===staff_owner_email())$finish('Der Link ist ungültig, abgelaufen oder widerrufen.');
+    $sql="SELECT u.*,t.id AS token_id,a.actor_user_id AS inviter FROM sd_user_tokens t JOIN sd_users u ON u.id=t.user_id JOIN sd_admin_audit_events a ON a.target_id=u.id AND a.target_type='user' AND a.action='staff.invited' AND JSON_UNQUOTE(JSON_EXTRACT(a.details_json,'$.token_id'))=CAST(t.id AS CHAR) JOIN sd_users owner ON owner.id=a.actor_user_id JOIN sd_staff_roles os ON os.user_id=owner.id AND os.role='admin' AND os.revoked_at IS NULL WHERE t.token_hash=UNHEX(?) AND t.purpose='verify_email' AND t.revoked_at IS NULL AND t.consumed_at IS NULL AND t.expires_at>UTC_TIMESTAMP(6) AND u.status='invited' AND u.password_hash IS NULL AND u.email_verified_at IS NULL AND owner.email_normalized LIKE '%@thitronik.de' AND owner.status='active'";
+    $q=$db->prepare($sql);$q->execute([$hash]);$user=$q->fetch();
+    if(!$user||!str_ends_with($user['email_normalized'],'@thitronik.de')||staff_protected_email($user['email_normalized']))$finish('Der Link ist ungültig, abgelaufen oder widerrufen.');
     $_SESSION['staff_invite_secret']??=base32_encode(random_bytes(20));$secret=$_SESSION['staff_invite_secret'];$error='';
     if($method==='POST'){
         if(($_SERVER['HTTP_ORIGIN']??'')!==$config['origin']||!is_string($_POST['csrf']??null)||!hash_equals($_SESSION['csrf'],$_POST['csrf']))$finish('Anfrage nicht erlaubt.');
@@ -109,7 +111,7 @@ function staff_invitation_page(array $config): never {
         else{
             $stored=false;$db->beginTransaction();
             try{
-                $q=$db->prepare($sql.' FOR UPDATE');$q->execute([$hash,staff_owner_email()]);$fresh=$q->fetch();
+                $q=$db->prepare($sql.' FOR UPDATE');$q->execute([$hash]);$fresh=$q->fetch();
                 if(!$fresh){$db->rollBack();$finish('Der Link ist nicht mehr gültig.');}
                 store_staff_secret($config,$fresh['email_normalized'],$secret);$stored=true;
                 $q=$db->prepare("UPDATE sd_users SET password_hash=?,password_set_at=UTC_TIMESTAMP(6),email_verified_at=UTC_TIMESTAMP(6),status='active' WHERE id=?");$q->execute([password_hash($password,PASSWORD_DEFAULT),$fresh['id']]);

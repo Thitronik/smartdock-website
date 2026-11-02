@@ -29,6 +29,13 @@ if(in_array('--expire-mail',$argv,true)){$db->exec("UPDATE sd_user_tokens SET cr
 if(in_array('--restore-mail',$argv,true)){$db->exec("UPDATE sd_user_tokens SET created_at=UTC_TIMESTAMP(6),expires_at=DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 7 DAY) WHERE purpose='verify_email' AND consumed_at IS NULL");echo '{}';exit;}
 if(in_array('--remove-proof',$argv,true)){$db->exec("DELETE FROM sd_admin_audit_events WHERE action='staff.email_verified' AND target_id=1");echo '{}';exit;}
 
+if(in_array('--smartdock-owner',$argv,true)){
+ $email='smartdock@thitronik.de';$secret=Smartdock\base32_encode(random_bytes(20));
+ $q=$db->prepare("INSERT INTO sd_users(first_name,last_name,email,email_normalized,password_hash,password_set_at,email_verified_at,status) VALUES('SMARTDOCK','Team',?,?,?,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'active')");$q->execute([$email,$email,password_hash('FictionalPassword-OnlyForCI!',PASSWORD_DEFAULT)]);$id=(int)$db->lastInsertId();
+ $q=$db->prepare("INSERT INTO sd_staff_roles(user_id,role,granted_by) VALUES(?,'admin',1)");$q->execute([$id]);
+ $q=$db->prepare("INSERT INTO sd_admin_audit_events(actor_user_id,action,target_type,target_id,details_json) VALUES(1,'staff.email_verified','user',?,?)");$q->execute([$id,json_encode(['email_hash'=>hash('sha256',$email)])]);
+ Smartdock\store_staff_secret($config,$email,$secret);echo json_encode(['id'=>$id,'secret'=>$secret]);exit;
+}
 if((int)$db->query('SELECT COUNT(*) FROM sd_users')->fetchColumn()!==1 || $db->query('SELECT email_normalized FROM sd_users WHERE id=1')->fetchColumn()!=='marketing@thitronik.de')throw new RuntimeException('Bootstrap fixture required.');
 $q=$db->prepare("INSERT INTO sd_users(first_name,last_name,email,email_normalized,password_hash,password_set_at,email_verified_at,status) VALUES('Test','Person',?,?,?,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6),'active')");
 foreach(['outsider@example.invalid','dealer@example.invalid'] as $email)$q->execute([$email,$email,password_hash('FictionalPassword-OnlyForCI!',PASSWORD_DEFAULT)]);
