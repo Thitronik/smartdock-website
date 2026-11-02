@@ -181,7 +181,7 @@ function run(array $config): never {
         try {
             $q=$db->prepare('SELECT m.id,m.status,u.email_normalized FROM sd_dealer_memberships m JOIN sd_users u ON u.id=m.user_id WHERE m.id=? FOR UPDATE');$q->execute([$id]);$target=$q->fetch();
             if(!$target){$db->rollBack();reply(404,['error'=>'Zugang nicht gefunden.']);}
-            if(!access_can_delete($target['status'],staff_protected_email($target['email_normalized']))){$db->rollBack();reply(409,['error'=>'Nur zuvor gesperrte Zugänge dürfen gelöscht werden. Die beiden Hauptkonten sind geschützt.']);}
+            if(!access_can_delete($target['status'])){$db->rollBack();reply(409,['error'=>'Nur zuvor gesperrte Händlerzugänge dürfen gelöscht werden. Adminzugänge bleiben unverändert.']);}
             $q=$db->prepare("UPDATE sd_mail_outbox SET status='cancelled' WHERE status IN ('queued','failed') AND user_token_id IN (SELECT id FROM sd_user_tokens WHERE membership_id=?)");$q->execute([$id]);
             // Delete only this company access, not other memberships or the firm.
             $q=$db->prepare("DELETE FROM sd_dealer_memberships WHERE id=? AND status='suspended'");$q->execute([$id]);

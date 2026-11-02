@@ -8,3 +8,6 @@
 .sd-dealer-portal [hidden]{display:none!important}
 
 .sd-dealer-portal .columns{grid-template-columns:minmax(0,620px);justify-content:center}.sd-dealer-portal>.dealer-preview+button{display:block;margin:32px auto}.sd-dealer-portal [hidden]{display:none!important}
+
+/* Center the label itself; keep the arrow at a fixed distance to its left. */
+.sd-dealer-portal .tile h3{display:flex;align-items:center;justify-content:center;min-height:64px;padding:16px 40px;box-sizing:border-box;text-align:center}.sd-dealer-portal .tile h3 span{position:relative;display:inline-block}.sd-dealer-portal .tile h3::before{content:none}.sd-dealer-portal .tile h3 span::before{content:"↗";position:absolute;right:calc(100% + 12px);top:50%;transform:translateY(-50%);color:hsl(var(--primary));font-weight:400}

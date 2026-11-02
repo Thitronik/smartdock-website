@@ -15,7 +15,6 @@ function queue_dealer_invitation(\PDO $db,array $config,int $dealerId,string $em
     $q=$db->prepare('SELECT source_system FROM sd_dealer WHERE id=?');$q->execute([$dealerId]);$independent=$q->fetchColumn()==='smartdock-internal';
     $q=$db->prepare('SELECT * FROM sd_users WHERE email_normalized=?');$q->execute([$email]);$account=$q->fetch();
     if($account){
-        if(!$independent)throw new \InvalidArgumentException('Für diese E-Mail-Adresse besteht bereits ein Konto. Bitte den vorhandenen Zugang zuordnen.');
         if(!active_user($account))throw new \InvalidArgumentException('Das vorhandene Konto muss zuerst eingerichtet oder reaktiviert werden. Keine Einladung versendet.');
         $q=$db->prepare('SELECT id FROM sd_dealer_memberships WHERE dealer_id=? AND user_id=?');$q->execute([$dealerId,$account['id']]);
         if($q->fetch())throw new \InvalidArgumentException('Dieser Händlerzugang besteht bereits. Bitte den vorhandenen Eintrag verwalten. Es wurde keine neue Einladung versendet.');
@@ -39,7 +38,7 @@ function dealer_invitation_page(array $config): never {
     $query="SELECT i.*,d.company_name,d.source_system FROM sd_dealer_invitations i JOIN sd_dealer d ON d.id=i.dealer_id WHERE i.token_hash=? AND i.consumed_at IS NULL AND i.revoked_at IS NULL AND i.expires_at>UTC_TIMESTAMP(6) AND d.status='active'";
     $q=$db->prepare($query);$q->execute([$_SESSION['dealer-invitation']??'']);$invitation=$q->fetch();
     if(!$invitation)access_html(403,'Link nicht gültig','<p>Die Einladung ist abgelaufen oder bereits verwendet. Bitte SMARTDOCK um eine neue Einladung bitten.</p>');
-    $q=$db->prepare('SELECT * FROM sd_users WHERE email_normalized=?');$q->execute([$invitation['email']]);$account=$q->fetch();$existing=$invitation['source_system']==='smartdock-internal'&&$account;
+    $q=$db->prepare('SELECT * FROM sd_users WHERE email_normalized=?');$q->execute([$invitation['email']]);$account=$q->fetch();$existing=(bool)$account;
     $error='';
     if($method==='POST'){
         if(($_SERVER['HTTP_ORIGIN']??'')!==$config['origin']||!is_string($_POST['csrf']??null)||!hash_equals($_SESSION['csrf'],$_POST['csrf']))access_html(403,'Anfrage nicht erlaubt','<p>Bitte lade die Seite neu.</p>');
@@ -61,7 +60,7 @@ function dealer_invitation_page(array $config): never {
             $q=$db->prepare("INSERT INTO sd_dealer_memberships(dealer_id,user_id,status,decided_at,decided_by,position,phone) VALUES(?,?,'approved',UTC_TIMESTAMP(6),?,?,?)");$q->execute([$fresh['dealer_id'],$userId,$fresh['invited_by'],$values['position'],$values['phone']]);
             $q=$db->prepare('UPDATE sd_dealer_invitations SET consumed_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$fresh['id']]);
             audit($db,$userId,'dealer.invitation_accepted','dealer',(int)$fresh['dealer_id'],[]);$db->commit();unset($_SESSION['dealer-invitation']);
-            access_html(200,'Willkommen im Händlerbereich',($existing?'<p>Dein zusätzlicher Händlerzugang ist eingerichtet. Dein Passwort und eine vorhandene Authenticator-Einrichtung bleiben unverändert. Bei einem Admin-Konto melde dich bei Bedarf zuerst im Adminbereich an.</p><p><a href="/admin/">Zur Admin-Anmeldung</a></p>':'<p>Dein Zugang ist eingerichtet.</p>').'<p><a href="/haendlerbereich/">Zum Händlerbereich</a></p>');
+            access_html(200,'Willkommen im Händlerbereich','<p>Dein Händlerzugang ist eingerichtet. Schön, dass du dabei bist!</p>');
         }catch(\InvalidArgumentException $e){if($db->inTransaction())$db->rollBack();$error='<p role="alert">'.access_escape($e->getMessage()).'</p>';}
         catch(\PDOException $e){if($db->inTransaction())$db->rollBack();if($e->getCode()!=='23000')throw $e;$error='<p role="alert">Für diese E-Mail besteht bereits ein Konto. Bitte melde dich an oder wende dich an SMARTDOCK.</p>';}
         catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
