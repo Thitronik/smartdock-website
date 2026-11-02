@@ -139,7 +139,7 @@ function newsletter_route(\PDO $db,array $config,array $user,string $action,arra
         }}catch(\Throwable){reply(400,['error'=>'Ungültiger Import. Keine Adressen übernommen.']);}
         $counts=['inserted'=>0,'activated'=>0,'existing'=>0,'suppressed'=>0];$db->beginTransaction();
         try{foreach($validated as [$email,$language,$created]){$result=enroll_newsletter($db,$email,$language,'legacy-import-'.$source.'-2026-11-02','Historischer Import aus '.$source.'. Vom Administrator als bestehende Newsletterliste übernommen; keine neue Postfachbestätigung nachgewiesen.',$created);$counts[$result]++;}
-            audit($db,(int)$user['id'],'newsletter.imported','newsletter',0,['source'=>$source,'counts'=>$counts]);$db->commit();
+            audit($db,(int)$user['id'],'newsletter.imported','content',0,['source'=>$source,'counts'=>$counts]);$db->commit();
         }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
         reply(200,['ok'=>true,'counts'=>$counts,'unique'=>count($validated)]);
     }
