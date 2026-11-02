@@ -136,6 +136,8 @@ function approve_dealer_membership(\PDO $db,array $config,int $id,array $staff):
     $q=$db->prepare("UPDATE sd_dealer_memberships SET status='approved',decided_at=UTC_TIMESTAMP(6),decided_by=? WHERE id=?");$q->execute([$staff['id'],$id]);
     $q=$db->prepare("UPDATE sd_dealer_access_requests SET status='approved' WHERE membership_id=?");$q->execute([$id]);
     audit($db,(int)$staff['id'],'membership.decision','membership',$id,['from'=>$membership['status'],'to'=>'approved']);
+    require_once __DIR__.'/newsletter-enrollment.php';
+    enroll_newsletter($db,$membership['email'],'de','dealer-enrollment-2026-11-02','Automatische Aufnahme bei Freigabe eines Händlerzugangs. Bestehende Abmeldungen bleiben erhalten.');
     queue_dealer_password($db,$config,['id'=>$membership['user_id'],'email'=>$membership['email'],'password_hash'=>$membership['password_hash']]);
 }
 function access_form(string $button,string $extra=''): string {return '<form method="post"><input type="hidden" name="csrf" value="'.access_escape($_SESSION['csrf']).'">'.$extra.'<button class="primary-button" style="background:#bceb02;border-color:#bceb02;color:#1d1d1b;white-space:normal">'.access_escape($button).'</button></form>';}

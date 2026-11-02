@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace Smartdock;
 require_once __DIR__.'/newsletter-pdf.php';
+require_once __DIR__.'/newsletter-enrollment.php';
 
 function newsletter_settings(array $config): array {
     $path=__DIR__.'/newsletter-settings.php';
@@ -46,12 +47,15 @@ function newsletter_group(string $email,array $dealers): string {
         $address=strtolower(trim($dealer['public_email']??''));
         // Exact published addresses are dealers even on a shared mail provider.
         if($address!==''&&$address===strtolower(trim($email)))return 'dealer';
-        if($domain!==''&&!in_array($domain,$generic,true)&&$domain===substr(strrchr($address,'@')?:'',1))return 'dealer';
+        if($domain!==''&&!preg_match('/^(gmail|googlemail|outlook|hotmail|live|icloud|me|gmx|web|yahoo|aol|t-online|mail|freenet|proton|protonmail|o2online|orange|bluewin)\./',$domain)&&!in_array($domain,$generic,true)&&$domain===substr(strrchr($address,'@')?:'',1))return 'dealer';
     }
     return 'customer';
 }
+function newsletter_dealer_addresses(\PDO $db): array {
+    return $db->query("SELECT public_email,status FROM sd_dealer WHERE status='active' UNION SELECT u.email AS public_email,d.status FROM sd_users u JOIN sd_dealer_memberships m ON m.user_id=u.id JOIN sd_dealer d ON d.id=m.dealer_id WHERE m.status='approved' AND u.status='active' AND d.status='active' UNION SELECT i.email AS public_email,d.status FROM sd_dealer_invitations i JOIN sd_dealer d ON d.id=i.dealer_id WHERE i.revoked_at IS NULL AND i.consumed_at IS NULL AND i.expires_at>UTC_TIMESTAMP(6) AND d.status='active'")->fetchAll();
+}
 function newsletter_recipients(\PDO $db,string $group): array {
-    $dealers=$db->query("SELECT public_email,status FROM sd_dealer WHERE status='active'")->fetchAll();
+    $dealers=newsletter_dealer_addresses($db);
     return array_values(array_filter($db->query("SELECT id,email,email_normalized,language,consented_at FROM sd_newsletter_subscribers WHERE status='confirmed' ORDER BY id")->fetchAll(),fn($s)=>newsletter_group($s['email'],$dealers)===$group));
 }
 function newsletter_content(array $data): array {
@@ -123,6 +127,22 @@ function newsletter_route(\PDO $db,array $config,array $user,string $action,arra
         catch(\InvalidArgumentException $e){reply(400,['error'=>$e->getMessage()]);}
         reply(200,['url'=>$url]);
     }
+    if($action==='newsletter-import'){
+        $entries=$data['entries']??null;$source=$data['source']??'';
+        if(!is_array($entries)||count($entries)<1||count($entries)>500||!in_array($source,['brevo','hostinger','dealer'],true))reply(400,['error'=>'Bitte 1 bis 500 Adressen und eine gültige Quelle angeben.']);
+        $validated=[];
+        try{foreach($entries as $entry){
+            if(!is_object($entry))throw new \InvalidArgumentException();
+            $email=normalized_email($entry->email??'');$language=$entry->language??'de';$created=$entry->created_at??null;
+            if(!in_array($language,['de','en','fr','nl','es'],true)||($created!==null&&(!is_string($created)||!preg_match('/^\d{4}-\d{2}-\d{2} 00:00:00$/D',$created))))throw new \InvalidArgumentException();
+            $validated[$email]=[$email,$language,$created];
+        }}catch(\Throwable){reply(400,['error'=>'Ungültiger Import. Keine Adressen übernommen.']);}
+        $counts=['inserted'=>0,'activated'=>0,'existing'=>0,'suppressed'=>0];$db->beginTransaction();
+        try{foreach($validated as [$email,$language,$created]){$result=enroll_newsletter($db,$email,$language,'legacy-import-'.$source.'-2026-11-02','Historischer Import aus '.$source.'. Vom Administrator als bestehende Newsletterliste übernommen; keine neue Postfachbestätigung nachgewiesen.',$created);$counts[$result]++;}
+            audit($db,(int)$user['id'],'newsletter.imported','content',0,['source'=>$source,'counts'=>$counts]);$db->commit();
+        }catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
+        reply(200,['ok'=>true,'counts'=>$counts,'unique'=>count($validated)]);
+    }
     if($action==='newsletter-subscriber-status'){
         $id=(int)($data['id']??0);$status=$data['status']??'';
         if($id<1||!in_array($status,['confirmed','unsubscribed'],true))reply(400,['error'=>'Ungültige Newsletteraktion.']);
@@ -139,7 +159,7 @@ function newsletter_route(\PDO $db,array $config,array $user,string $action,arra
     }
     $ready=newsletter_ready($db);
     if($action==='newsletter-admin'){
-        $dealers=$db->query("SELECT public_email,status FROM sd_dealer WHERE status='active'")->fetchAll();
+        $dealers=newsletter_dealer_addresses($db);
         $subscribers=$db->query('SELECT email,status,created_at,language FROM sd_newsletter_subscribers ORDER BY email_normalized')->fetchAll();
         foreach($subscribers as &$s)$s['group']=newsletter_group($s['email'],$dealers);unset($s);
         $campaigns=$ready?$db->query("SELECT c.*, (SELECT COUNT(*) FROM sd_mail_outbox m WHERE m.campaign_id=c.id AND m.message_type='newsletter_campaign' AND m.status='sent') AS sent, (SELECT COUNT(*) FROM sd_mail_outbox m WHERE m.campaign_id=c.id AND m.message_type='newsletter_campaign' AND m.status='failed') AS failed, (SELECT COUNT(*) FROM sd_mail_outbox m WHERE m.campaign_id=c.id AND m.message_type='newsletter_campaign' AND m.status='cancelled') AS cancelled FROM sd_newsletter_campaigns c ORDER BY c.id DESC LIMIT 50")->fetchAll():[];

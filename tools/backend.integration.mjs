@@ -99,6 +99,7 @@ try{
  assert.equal((await dealer.call('dealer-invite',{id:1,email:request.email})).status,403);
  assert.equal((await admin.call('dealer-create',{company_name:'Invited Company',country_code:'DE',invite_email:request.email})).status,200);
  const mails=async()=>JSON.parse(await readFile(path.join(state,'outbox-mails.json'),'utf8'));
+ const automatic=(await admin.call('newsletter-admin')).body.subscribers.find(s=>s.email===request.email);assert.equal(automatic.status,'confirmed');assert.equal(automatic.group,'dealer','New dealer invitation enrolls address in dealer newsletter');
  const invitation=(await mails()).find(m=>m.type==='dealer_invitation');assert.equal(invitation.to,request.email);
  const passwordToken=invitation.body.match(/action=dealer-invitation&token=([a-f0-9]{64})/)[1];
  const passwordClient=client();await passwordClient.page('dealer-invitation&token='+passwordToken);const passwordPage=await passwordClient.page('dealer-invitation');
@@ -157,13 +158,13 @@ try{
  const newsletter={email:'reader@example.invalid',language:'en'};
  assert.equal((await publicClient.call('newsletter-request',newsletter)).status,200);
  const newsletterMail=(await mails()).find(m=>m.type==='newsletter_confirmation');assert.equal(newsletterMail.to,newsletter.email);
- assert.equal(publicStatus().newsletter[0].status,'confirmed','Direct registration is active immediately');
+ assert.equal(publicStatus().newsletter.find(s=>s.email===newsletter.email).status,'confirmed','Direct registration is active immediately');
  assert.doesNotMatch(newsletterMail.body,/action=newsletter-confirm/,'No confirmation link sent');
  const unsubscribeToken=newsletterMail.body.match(/action=newsletter-unsubscribe&token=([a-f0-9]{64})/)[1];
  const reader=client();
  assert.equal((await publicClient.call('newsletter-request',newsletter)).status,200);assert.equal((await mails()).filter(m=>m.type==='newsletter_confirmation').length,1,'Duplicate request sends no additional mail');
- await reader.page('newsletter-unsubscribe&token='+unsubscribeToken);const unsubForm=await reader.page('newsletter-unsubscribe');assert.equal(publicStatus().newsletter[0].status,'confirmed');
- assert.equal((await reader.page('newsletter-unsubscribe',{csrf:unsubForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1]})).status,200);assert.equal(publicStatus().newsletter[0].status,'unsubscribed');
+ await reader.page('newsletter-unsubscribe&token='+unsubscribeToken);const unsubForm=await reader.page('newsletter-unsubscribe');assert.equal(publicStatus().newsletter.find(s=>s.email===newsletter.email).status,'confirmed');
+ assert.equal((await reader.page('newsletter-unsubscribe',{csrf:unsubForm.text.match(/name="csrf" value="([a-f0-9]{64})"/)[1]})).status,200);assert.equal(publicStatus().newsletter.find(s=>s.email===newsletter.email).status,'unsubscribed');
 
  // Owner-only staff invitations require mailbox possession + password + MFA.
  const staffInput={first_name:'CI',last_name:'Invited',email:'ci.staff@thitronik.de'};
@@ -199,6 +200,18 @@ try{
  assert.equal((await admin.call('newsletter-test',{id:campaign.body.id})).status,200);
  const testNewsletters=(await mails()).filter(m=>m.type==='newsletter_test');assert.deepEqual(testNewsletters.map(m=>m.to).sort(),['marketing@thitronik.de',staffInput.email].sort());
  for(const mail of testNewsletters){assert.equal(mail.attachments.length,1);assert.equal(Buffer.from(mail.attachments[0].base64,'base64').subarray(0,5).toString(),'%PDF-');assert.match(mail.html,/Testnewsletter – kein Abonnement/);assert.doesNotMatch(mail.html,/haendlerbereich/);}
+ // Historical imports are idempotent, silent, admin-only and preserve opt-outs.
+ const importedAddress='legacy-import@example.invalid';const beforeImport=(await mails()).length;
+ assert.equal((await guest.call('newsletter-import',{source:'brevo',entries:[{email:importedAddress}]})).status,401);
+ const imported=await admin.call('newsletter-import',{source:'brevo',entries:[{email:importedAddress},{email:importedAddress.toUpperCase()}]});
+ assert.equal(imported.status,200);assert.equal(imported.body.counts.inserted,1);assert.equal(imported.body.unique,1);
+ assert.equal((await mails()).length,beforeImport,'Import sends no messages');
+ assert.equal((await admin.call('newsletter-import',{source:'brevo',entries:[{email:importedAddress}]})).body.counts.existing,1);
+ const importedRow=(await admin.call('admin')).body.newsletterSubscribers.find(s=>s.email===importedAddress);
+ assert.equal((await admin.call('newsletter-subscriber-status',{id:importedRow.id,status:'unsubscribed'})).status,200);
+ assert.equal((await admin.call('newsletter-import',{source:'brevo',entries:[{email:importedAddress}]})).body.counts.suppressed,1);
+ assert.ok(!(await admin.call('admin')).body.newsletterSubscribers.some(s=>s.email===importedAddress),'Import cannot restore opt-outs');
+ assert.equal((await admin.call('newsletter-import',{source:'brevo',entries:[{email:'not-an-address'}]})).status,400);
  const staffRows=(await admin.call('admin')).body.staffManagement.accounts;
  assert.equal(staffRows.find(a=>a.email==='marketing@thitronik.de').protected,true);
  const added=staffRows.find(a=>a.email===staffInput.email);

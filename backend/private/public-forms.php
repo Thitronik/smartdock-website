@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace Smartdock;
 require_once __DIR__.'/dealer-access.php';
 require_once __DIR__.'/configuration-report.php';
+require_once __DIR__.'/newsletter-enrollment.php';
 
 function form_language(array $data): string {
     $language=$data['language']??'de';if(!is_string($language)||!in_array($language,['de','en','fr','nl','es'],true))throw new \InvalidArgumentException('Invalid language.');return $language;
@@ -97,6 +98,7 @@ function newsletter_consent(string $language): string {
 function newsletter_request(\PDO $db,array $config,array $data): never {
     form_guard($config,$data,'newsletter',3);
     try{$email=normalized_email(access_field($data,'email',254));$language=form_language($data);}catch(\InvalidArgumentException){reply(400,['error'=>'Bitte eine gültige E-Mail-Adresse verwenden.']);}
+    if(newsletter_spam_pattern($email))reply(400,['error'=>'Diese Adresse entspricht einem auffälligen Anmeldemuster. Bitte verwende eine andere E-Mail-Adresse oder kontaktiere SMARTDOCK.']);
     $result=['ok'=>true,'pending'=>false];
     $key=hash_hmac('sha256',$email,$config['rate_key']);if(!rate_limit($config['state_directory'],'newsletter-address-'.$key,time(),1))reply(200,$result);
     // Verify a deliverable domain before storing fake/typo addresses. DNS failures
