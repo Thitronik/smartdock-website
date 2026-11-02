@@ -20,7 +20,7 @@ document.getElementById('reset').addEventListener('click',()=>{document.getEleme
 // Öffentlich ist ausschließlich diese ausdrücklich gekennzeichnete Layoutvorschau.
 // Echte Händlerunterlagen werden später nur durch das Hetzner-Backend ausgeliefert.
 const tileTitles = {
- de:['News & Termine','Serviceunterlagen','KI-Support','Schulungen & Videos','Bestellungen','RMA'],
+ de:['News & Termine','Serviceunterlagen','KI-Support','Schulungen & Videos','Bestellungen','Rücksendungen & Reklamationen'],
  en:['News & events','Service documents','AI support','Training & videos','Orders','RMA'],
  fr:['Actualités & événements','Documents de service','Assistance IA','Formations & vidéos','Commandes','RMA'],
  nl:['Nieuws & evenementen','Servicedocumenten','AI-ondersteuning','Trainingen & video’s','Bestellingen','RMA'],
