@@ -37,3 +37,9 @@ echo "Newsletter upload validation passed.\n";
 $pdf=\Smartdock\newsletter_pdf(newsletter_content(['subject'=>'Test','title'=>'SMARTDOCK News','text'=>str_repeat("Eine Nachricht.\n",120)]),'https://example.test/unsubscribe',['origin'=>'https://example.test']);
 expect(str_starts_with($pdf,'%PDF-'));
 expect(!str_contains($html,'bgcolor="#f1f2f3"'));
+
+require_once __DIR__.'/../private/newsletter-enrollment.php';
+foreach(['a.b.c.d.ef.123@gmail.com','ab.c.d.ef.g.h12@googlemail.com'] as $email)expect(\Smartdock\newsletter_spam_pattern($email));
+foreach(['first.last@gmail.com','user123456@gmail.com','a.b.c.d.e.f@boat.example','a.b.c.d.lastname@gmail.com','sales+boat@gmail.com'] as $email)expect(!\Smartdock\newsletter_spam_pattern($email));
+expect(newsletter_group('other@yahoo.fr',[['public_email'=>'dealer@yahoo.fr','status'=>'active']])==='customer');
+echo "Newsletter signup pattern and shared-provider checks passed.\n";

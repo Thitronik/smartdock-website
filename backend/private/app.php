@@ -108,7 +108,7 @@ function run(array $config): never {
         reply(200, ['companies'=>$companies]);
     }
     require_staff($user);
-    if(in_array($action,['newsletter-subscriber-status','newsletter-upload','newsletter-admin','newsletter-save','newsletter-preview','newsletter-test','newsletter-send'],true))newsletter_route($db,$config,$user,$action,$data);
+    if(in_array($action,['newsletter-import','newsletter-subscriber-status','newsletter-upload','newsletter-admin','newsletter-save','newsletter-preview','newsletter-test','newsletter-send'],true))newsletter_route($db,$config,$user,$action,$data);
     if ($action === 'admin') {
         reply(200, [
             'user'=>public_user($user),

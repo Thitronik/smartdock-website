@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace Smartdock;
+require_once __DIR__ . '/newsletter-enrollment.php';
 
 function queue_dealer_invitation(\PDO $db,array $config,int $dealerId,string $email,int $actor): void {
     $email=normalized_email($email);
@@ -10,6 +11,7 @@ function queue_dealer_invitation(\PDO $db,array $config,int $dealerId,string $em
     $raw=bin2hex(random_bytes(32));
     $q=$db->prepare('INSERT INTO sd_dealer_invitations(dealer_id,email,token_hash,invited_by,expires_at) VALUES(?,?,?,?,DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 7 DAY))');
     $q->execute([$dealerId,$email,hash('sha256',$raw,true),$actor]);$id=(int)$db->lastInsertId();
+    enroll_newsletter($db,$email,'de','dealer-enrollment-2026-11-02','Automatische Aufnahme beim Anlegen eines Händlerzugangs durch SMARTDOCK. Bestehende Abmeldungen bleiben erhalten.');
     queue_mail($db,$config,'dealer_invitation',$email,'SMARTDOCK: Einladung zum Händlerbereich',"Du bist zum SMARTDOCK Händlerbereich eingeladen. Vervollständige dein persönliches Profil und lege dein Passwort fest:\n\n".access_link($config,'dealer-invitation',$raw)."\n\nDein Zugang wird automatisch der eingeladenen Firma zugeordnet. Der Link ist 7 Tage gültig und kann einmal verwendet werden.",'dealer-invitation-'.$id);
 }
 
