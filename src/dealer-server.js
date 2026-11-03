@@ -16,11 +16,17 @@ export async function connectDealerPortal(root,language){
  nl:['Medewerkers uitnodigen','Nodig medewerkers van je bedrijf uit. SMARTDOCK controleert hun toegang na het instellen van het account. Toegang volgt pas na goedkeuring.','Bedrijf','E-mailadres van de medewerker','Uitnodiging versturen','Kies een bedrijf …','De uitnodiging is aan de mailserver overgedragen. SMARTDOCK controleert de toegang na het instellen.','Uitnodiging opgeslagen. De verzending staat nog open.','Uitnodiging opgeslagen, maar verzenden is mislukt. Neem contact op met SMARTDOCK.','Uitnodiging wordt verstuurd …'],
  es:['Invitar empleados','Invita a empleados de tu empresa. SMARTDOCK revisa cada cuenta después de su configuración. El acceso requiere aprobación.','Empresa','Correo electrónico del empleado','Enviar invitación','Selecciona una empresa …','La invitación se ha entregado al servidor de correo. SMARTDOCK revisará el acceso después de la configuración.','Invitación guardada. Envío pendiente.','Invitación guardada, pero el envío ha fallado. Contacta con SMARTDOCK.','Enviando invitación …']
  }[language]||null;
- function employeeForm(companies,logout){
+ function employeeForm(companies,details){
   const allowed=companies.filter(d=>Number(d.can_invite)===1);if(!allowed.length||!employeeCopy)return;
-  root.querySelector('#dealer-employees')?.remove();const section=document.createElement('section');section.id='dealer-employees';section.className='card employee-invite';
-  section.innerHTML=`<h2>${employeeCopy[0]}</h2><p class="muted">${employeeCopy[1]}</p><form id="dealer-employee-invite"><label for="employee-company">${employeeCopy[2]}</label><select id="employee-company" name="dealer_id" required></select><label for="employee-email">${employeeCopy[3]}</label><input id="employee-email" name="email" type="email" maxlength="254" required autocomplete="off"><button>${employeeCopy[4]}</button><p role="status" aria-live="polite" class="employee-status"></p></form>`;
-  const select=section.querySelector('select');if(allowed.length>1){const option=document.createElement('option');option.value='';option.textContent=employeeCopy[5];select.append(option);}for(const d of allowed){const option=document.createElement('option');option.value=String(d.id);option.textContent=d.company_name;select.append(option);}logout.before(section);
+  root.querySelector('#dealer-employees')?.remove();const group=document.createElement('div');group.id='dealer-employees';
+  for(const company of allowed){
+   const section=document.createElement('section');section.className='card employee-invite';
+   section.innerHTML=`<h2>${employeeCopy[0]}</h2><p class="muted">${employeeCopy[1]}</p><form class="dealer-employee-invite-form"><input type="hidden" name="dealer_id"><label>${employeeCopy[3]}<input name="email" type="email" maxlength="254" required autocomplete="off"></label><button>${employeeCopy[4]}</button><p role="status" aria-live="polite" class="employee-status"></p></form>`;
+   section.querySelector('[name=dealer_id]').value=String(company.id);
+   if(allowed.length>1){const name=document.createElement('p');name.className='dealer-company-name';name.textContent=company.company_name;section.querySelector('h2').after(name);}
+   group.append(section);
+  }
+  details.after(group);
  }
 
  async function api(action,data){
@@ -38,13 +44,13 @@ export async function connectDealerPortal(root,language){
  async function showDealer(){
   const data=await api('dealer');if(!root.isConnected)return;
   root.querySelector('.columns').hidden=true;root.querySelector('.page-hero h1').textContent=({de:'Willkommen im Händlerbereich',en:'Welcome to the dealer area',fr:'Bienvenue dans l’espace revendeurs',nl:'Welkom in het dealerportaal',es:'Bienvenido al área de distribuidores'})[language]||'Willkommen im Händlerbereich';
-  const p=document.createElement('p');p.textContent=data.companies.map(d=>d.company_name).join(' · ');result.replaceChildren(p);
-  const logout=document.createElement('button');logout.type='button';logout.textContent=t[2];logout.addEventListener('click',async()=>{if(busy)return;busy=true;try{await api('logout',{});location.reload();}catch(error){p.textContent=error.message;busy=false;}});details.after(logout);
-  details.hidden=false;details.open=true;details.querySelector('summary').hidden=true;details.querySelector('.notice').hidden=true;details.querySelectorAll('.tile p').forEach(node=>node.hidden=true);employeeForm(data.companies,logout);
+  result.classList.add('dealer-company-card');const p=document.createElement('p');p.className='dealer-company-name';p.textContent=data.companies.map(d=>d.company_name).join(' · ');result.replaceChildren(p);
+  const logout=document.createElement('button');logout.type='button';logout.className='dealer-logout';logout.textContent=t[2];logout.addEventListener('click',async()=>{if(busy)return;busy=true;try{await api('logout',{});location.reload();}catch(error){p.textContent=error.message;busy=false;}});result.append(logout);
+  details.hidden=false;details.open=true;details.querySelector('summary').hidden=true;details.querySelector('.notice').hidden=true;details.querySelectorAll('.tile p').forEach(node=>node.hidden=true);employeeForm(data.companies,details);
  }
  root.addEventListener('submit',async event=>{
   const form=event.target;
-  if(form.id==='dealer-employee-invite'){
+  if(form.classList.contains('dealer-employee-invite-form')){
    event.preventDefault();event.stopImmediatePropagation();if(busy||!form.reportValidity())return;
    const feedback=form.querySelector('[role=status]'),button=form.querySelector('button');busy=true;button.disabled=true;feedback.textContent=employeeCopy[9];
    try{const data=await api('dealer-employee-invite',Object.fromEntries(new FormData(form)));feedback.textContent=employeeCopy[data.mailStatus==='sent'?6:data.mailStatus==='failed'?8:7];form.querySelector('[name=email]').value='';}catch(error){feedback.textContent=error.message;}finally{busy=false;button.disabled=false;}return;
