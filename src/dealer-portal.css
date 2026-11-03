@@ -17,4 +17,4 @@
 .sd-dealer-portal #result.dealer-company-card{display:flex;align-items:center;justify-content:center;text-align:center;min-height:110px}.sd-dealer-portal .dealer-company-name{margin:0!important;max-width:none;color:#bceb02;text-transform:uppercase;font-weight:600;letter-spacing:.06em;overflow-wrap:anywhere;text-align:center}
 
 .sd-dealer-portal #result.dealer-company-card{position:relative;padding-inline:164px}.sd-dealer-portal .dealer-logout{position:absolute;top:50%;right:16px;margin:0;transform:translateY(-50%)}
-@media(max-width:640px){.sd-dealer-portal #result.dealer-company-card{padding:80px 24px 32px}.sd-dealer-portal .dealer-logout{top:16px;transform:none}}
+@media(max-width:640px){.sd-dealer-portal #result.dealer-company-card{flex-direction:column;gap:20px;padding:32px 24px}.sd-dealer-portal .dealer-logout{position:static;transform:none}}
