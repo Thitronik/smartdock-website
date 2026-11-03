@@ -1,0 +1,409 @@
+{
+  "items": [
+    {
+      "language": "de",
+      "home": "Startseite",
+      "imprint": "Impressum",
+      "privacy": "Datenschutz",
+      "date": "Stand: 03.11.2026",
+      "country": "Deutschland",
+      "imprintSections": [
+        [
+          "Anbieter gemäß § 5 DDG",
+          "Thitronik GmbH, vertreten durch Geschäftsführer Mark Thietje.",
+          "Finkenweg 9–15, 24340 Eckernförde, Deutschland.",
+          "Telefon: +49 4351 76744-0 · Telefax: +49 4351 76744-127",
+          "E-Mail: smartdock@thitronik.de"
+        ],
+        [
+          "Register und Kennnummern",
+          "Handelsregister: Amtsgericht Kiel, HRB 11453 KI.",
+          "Umsatzsteuer-Identifikationsnummer: DE268454642.",
+          "WEEE-Registernummer: DE33826840."
+        ],
+        [
+          "Verantwortlich für redaktionelle Inhalte",
+          "Mark Thietje, Finkenweg 9–15, 24340 Eckernförde."
+        ],
+        [
+          "Hinweis zur Website",
+          "SMARTDOCK ist eine Informations- und Anfrageseite. Hier gibt es keinen Online-Shop und keine Bezahlfunktion. Auch das Absenden einer Konfiguration ist keine Bestellung und begründet keinen Vertrag und keine finanzielle Verpflichtung. Die Konfiguration dient der unverbindlichen Angebotsvorbereitung."
+        ],
+        [
+          "Urheberrecht und externe Links",
+          "Die Rechte an Texten, Bildern und sonstigen Inhalten liegen bei den jeweiligen Rechteinhabern. Für Inhalte verlinkter Websites ist deren jeweiliger Betreiber verantwortlich. Hinweise auf mögliche Rechtsverletzungen können an die oben genannte Adresse gesendet werden."
+        ],
+        [
+          "Verbraucherstreitbeilegung",
+          "Wir sind nicht bereit und nicht verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen."
+        ]
+      ],
+      "privacySections": [
+        [
+          "Verantwortlicher und Datenschutzkontakt",
+          "Verantwortlich ist die Thitronik GmbH, Finkenweg 9–15, 24340 Eckernförde, Deutschland. Telefon: +49 4351 76744-0. E-Mail: smartdock@thitronik.de. Für Datenschutzanliegen: datenschutz@thitronik.de."
+        ],
+        [
+          "Hosting und technische Sicherheit",
+          "Website, Formulardaten und E-Mail-Versand werden über Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen, Deutschland, bereitgestellt. Beim Abruf können unter anderem IP-Adresse, Zeitpunkt, aufgerufene Ressource und Browserinformationen in technischen Protokollen verarbeitet werden. Dies dient der sicheren Bereitstellung und Fehleranalyse auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO."
+        ],
+        [
+          "Kontakt und unverbindliche Konfiguration",
+          "Wir verarbeiten die von dir eingegebenen Kontakt- und Konfigurationsdaten zur Beantwortung deiner Anfrage und Angebotsvorbereitung. Dazu gehören je nach Formular Name, E-Mail-Adresse, Anschrift, optionale Telefonnummer, Nachricht und ausgewählte Komponenten. Grundlage sind Art. 6 Abs. 1 lit. b DSGVO bei vorvertraglichen Anfragen, sonst Art. 6 Abs. 1 lit. f DSGVO zur Bearbeitung der Kontaktaufnahme. Ohne erforderliche Angaben kann die Anfrage nicht bearbeitet werden. Über die Website erfolgen weder Kauf noch Zahlungsabwicklung."
+        ],
+        [
+          "Ausgewählter Einbauservice",
+          "Wenn du einen Installationspartner auswählst und die Konfiguration absendest, erhält dieser deine Anfrage einschließlich Kontakt- und Konfigurationsdaten, damit er dich zum gewünschten Einbau kontaktieren kann. Die Übermittlung erfolgt zur Bearbeitung der von dir angefragten Leistung nach Art. 6 Abs. 1 lit. b DSGVO. Der ausgewählte Betrieb verarbeitet die empfangenen Daten in eigener Verantwortung."
+        ],
+        [
+          "Händler- und Administrationszugänge",
+          "Für eingeladene Konten verarbeiten wir Identitäts-, Kontakt-, Firmenzuordnungs- und Zugangsdaten. Passwörter werden als Hashwerte gespeichert; für Administrationskonten werden zusätzlich Daten zur Zwei-Faktor-Authentifizierung verarbeitet. Sitzungen und Sicherheitsprotokolle schützen die Zugänge. Grundlage ist Art. 6 Abs. 1 lit. b DSGVO zur Bereitstellung des Zugangs bzw. Art. 6 Abs. 1 lit. f DSGVO für dessen Sicherheit und Verwaltung."
+        ],
+        [
+          "Newsletter",
+          "Bei einer Newsletter-Anmeldung verwenden wir deine E-Mail-Adresse zum Versand von SMARTDOCK-Informationen. Grundlage ist deine Einwilligung nach Art. 6 Abs. 1 lit. a DSGVO. Du kannst sie jederzeit für die Zukunft über den Abmeldelink in jeder Newsletter-Mail oder per Nachricht widerrufen. Der Versand erfolgt über die eigene SMARTDOCK-Newsletterfunktion und Hetzner. Geschäftliche Adressen können anhand der Händlerzuordnung in eine Händlergruppe eingeordnet werden."
+        ],
+        [
+          "Cookies, lokale Speicherung und Standort",
+          "Notwendige Sitzungsdaten ermöglichen geschützte Anmeldungen. Einstellungen und gegebenenfalls Konfigurationen werden im Browser gespeichert. Technisch notwendige Speicherung erfolgt nach § 25 Abs. 2 TDDDG; darüber hinausgehende Speicherung erfordert eine Einwilligung nach § 25 Abs. 1 TDDDG. Den Standort für die Händlersuche ermitteln wir nur nach deiner Browserfreigabe. Er dient zur Suche nach Händlern in deiner Nähe; Grundlage ist Art. 6 Abs. 1 lit. a DSGVO."
+        ],
+        [
+          "Eingebundene Inhalte",
+          "Die Website lädt derzeit Schriften von Google Fonts, Videos von Vimeo und Kartenkacheln von OpenStreetMap. Beim Laden erhält der jeweilige Anbieter insbesondere deine IP-Adresse und technische Verbindungsdaten. Bei Google und Vimeo kann eine Verarbeitung außerhalb des EWR erfolgen. Weitere Informationen geben die Datenschutzhinweise der Anbieter: policies.google.com/privacy, vimeo.com/privacy und osmfoundation.org/wiki/Privacy_Policy. Diese Einbindungen sind von der Nutzung des Konfigurators als unverbindliche Anfrage zu unterscheiden."
+        ],
+        [
+          "Speicherung und Empfänger",
+          "Daten werden nur so lange aufbewahrt, wie es für die jeweilige Anfrage, einen bestehenden Zugang, die Einwilligung oder gesetzliche Aufbewahrungs- und Nachweispflichten erforderlich ist. Danach werden sie gelöscht oder gesperrt. Zugriff erhalten zuständige Beschäftigte, die erforderlichen technischen Dienstleister und gegebenenfalls der von dir gewählte Installationspartner. Eine Einwilligung kann jederzeit mit Wirkung für die Zukunft widerrufen werden."
+        ],
+        [
+          "Deine Rechte",
+          "Unter den gesetzlichen Voraussetzungen hast du Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung und Datenübertragbarkeit (Art. 15–20 DSGVO). Bei einer Verarbeitung aufgrund berechtigter Interessen kannst du aus Gründen deiner besonderen Situation widersprechen; gegen Direktwerbung ist ein Widerspruch jederzeit möglich (Art. 21 DSGVO). Außerdem kannst du dich bei einer Datenschutzaufsichtsbehörde beschweren (Art. 77 DSGVO), insbesondere dem Unabhängigen Landeszentrum für Datenschutz Schleswig-Holstein, datenschutzzentrum.de."
+        ]
+      ]
+    },
+    {
+      "language": "en",
+      "home": "Home",
+      "imprint": "Legal notice",
+      "privacy": "Privacy",
+      "date": "Updated: 3 November 2026",
+      "country": "Germany",
+      "imprintSections": [
+        [
+          "Provider under section 5 DDG",
+          "Thitronik GmbH, represented by managing director Mark Thietje.",
+          "Finkenweg 9–15, 24340 Eckernförde, Germany.",
+          "Telephone: +49 4351 76744-0 · Fax: +49 4351 76744-127",
+          "Email: smartdock@thitronik.de"
+        ],
+        [
+          "Registration",
+          "Commercial register: Amtsgericht Kiel, HRB 11453 KI.",
+          "VAT identification number: DE268454642.",
+          "WEEE registration: DE33826840."
+        ],
+        [
+          "Editorial responsibility",
+          "Mark Thietje, Finkenweg 9–15, 24340 Eckernförde, Germany."
+        ],
+        [
+          "About this website",
+          "SMARTDOCK provides information and accepts enquiries. It is not an online shop and has no payment function. Submitting a configuration does not place an order, form a contract or create a financial obligation. It is a non-binding enquiry to help prepare a quotation."
+        ],
+        [
+          "Copyright and external links",
+          "Content remains the property of its respective rights holders. Operators of linked websites are responsible for their content. Please report suspected infringements using the contact details above."
+        ],
+        [
+          "Consumer dispute resolution",
+          "We are neither willing nor obliged to participate in dispute resolution proceedings before a consumer arbitration body."
+        ]
+      ],
+      "privacySections": [
+        [
+          "Controller and privacy contact",
+          "The controller is Thitronik GmbH, Finkenweg 9–15, 24340 Eckernförde, Germany. Telephone: +49 4351 76744-0. Email: smartdock@thitronik.de. Privacy enquiries: datenschutz@thitronik.de."
+        ],
+        [
+          "Hosting and security",
+          "The website, form data and email delivery use Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen, Germany. Technical logs may include IP address, access time, requested resources and browser details. Processing supports secure operation and troubleshooting under Article 6(1)(f) GDPR."
+        ],
+        [
+          "Contact and configurations",
+          "We process the contact and configuration details you provide to answer enquiries and prepare quotations. Depending on the form, this includes name, email, address, optional telephone number, message and chosen components. The basis is Article 6(1)(b) GDPR for pre-contractual enquiries, otherwise Article 6(1)(f) GDPR to respond to contact requests. Required details are necessary to process an enquiry. There are no purchases or payments on this website."
+        ],
+        [
+          "Chosen installation partner",
+          "If you choose an installation partner and submit the configuration, that partner receives your enquiry, contact details and configuration so that they can respond about installation. The basis is Article 6(1)(b) GDPR. The chosen business processes the received data under its own responsibility."
+        ],
+        [
+          "Dealer and administration accounts",
+          "We process identity, contact, company membership and access details for invited accounts. Passwords are stored as hashes. Administration accounts additionally use two-factor authentication data. Session and security logs protect access. The basis is Article 6(1)(b) GDPR for providing the account and Article 6(1)(f) GDPR for security and administration."
+        ],
+        [
+          "Newsletter",
+          "We use your email address to send SMARTDOCK information when you subscribe, based on consent under Article 6(1)(a) GDPR. You may withdraw consent for future delivery using the unsubscribe link in each newsletter or by contacting us. Delivery uses our SMARTDOCK newsletter function and Hetzner. Business addresses may be assigned to a dealer group based on their company association."
+        ],
+        [
+          "Browser storage and location",
+          "Necessary session data supports protected sign-in. Preferences and, where applicable, configurations are stored in your browser. Necessary storage relies on section 25(2) TDDDG; additional storage requires consent under section 25(1) TDDDG. Location access for dealer searches requires your browser permission and is based on Article 6(1)(a) GDPR."
+        ],
+        [
+          "Embedded content",
+          "The website currently loads Google Fonts, Vimeo videos and OpenStreetMap map tiles. Loading these resources discloses your IP address and technical connection data to the provider. Google and Vimeo may process data outside the EEA. Provider information: policies.google.com/privacy, vimeo.com/privacy and osmfoundation.org/wiki/Privacy_Policy."
+        ],
+        [
+          "Retention and recipients",
+          "Data is retained as needed for the enquiry, active account, consent or statutory retention and evidence requirements, then deleted or restricted. Recipients are authorised staff, necessary technical service providers and, where selected, your installation partner. Consent can be withdrawn for the future."
+        ],
+        [
+          "Your rights",
+          "Subject to legal conditions, you may request access, correction, erasure, restriction and data portability under Articles 15–20 GDPR. You may object to processing based on legitimate interests for reasons relating to your situation, and to direct marketing at any time (Article 21 GDPR). You may complain to a supervisory authority (Article 77 GDPR), including the Unabhängiges Landeszentrum für Datenschutz Schleswig-Holstein: datenschutzzentrum.de."
+        ]
+      ]
+    },
+    {
+      "language": "fr",
+      "home": "Accueil",
+      "imprint": "Mentions légales",
+      "privacy": "Protection des données",
+      "date": "Mise à jour : 3 novembre 2026",
+      "country": "Allemagne",
+      "imprintSections": [
+        [
+          "Éditeur du site — § 5 DDG",
+          "Thitronik GmbH, représentée par son directeur général Mark Thietje.",
+          "Finkenweg 9–15, 24340 Eckernförde, Allemagne.",
+          "Téléphone : +49 4351 76744-0 · Fax : +49 4351 76744-127",
+          "E-mail : smartdock@thitronik.de"
+        ],
+        [
+          "Immatriculation",
+          "Registre du commerce : Amtsgericht Kiel, HRB 11453 KI.",
+          "Numéro de TVA intracommunautaire : DE268454642.",
+          "Numéro WEEE : DE33826840."
+        ],
+        [
+          "Responsabilité éditoriale",
+          "Mark Thietje, Finkenweg 9–15, 24340 Eckernförde, Allemagne."
+        ],
+        [
+          "Objet du site",
+          "SMARTDOCK présente ses produits et vous permet d’envoyer des demandes. Ce site n’est pas une boutique en ligne et ne propose aucun paiement. L’envoi d’une configuration ne constitue ni une commande ni un contrat et ne crée aucune obligation financière. Il sert uniquement à préparer une proposition commerciale sans engagement."
+        ],
+        [
+          "Droits d’auteur et liens externes",
+          "Les contenus appartiennent à leurs titulaires de droits respectifs. Les exploitants des sites externes sont responsables de leurs contenus. Vous pouvez nous signaler une éventuelle atteinte aux droits aux coordonnées ci-dessus."
+        ],
+        [
+          "Règlement des litiges de consommation",
+          "Nous ne sommes ni disposés ni tenus de participer à une procédure de règlement des litiges devant un organisme de médiation de la consommation."
+        ]
+      ],
+      "privacySections": [
+        [
+          "Responsable du traitement et contact",
+          "Le responsable est Thitronik GmbH, Finkenweg 9–15, 24340 Eckernförde, Allemagne. Téléphone : +49 4351 76744-0. E-mail : smartdock@thitronik.de. Pour la protection des données : datenschutz@thitronik.de."
+        ],
+        [
+          "Hébergement et sécurité",
+          "Le site, les données des formulaires et l’envoi des e-mails utilisent les services de Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen, Allemagne. Les journaux techniques peuvent contenir votre adresse IP, l’heure de consultation, les ressources demandées et les informations du navigateur. Le traitement permet de sécuriser le service et de diagnostiquer les erreurs, sur la base de l’article 6, paragraphe 1, point f du RGPD."
+        ],
+        [
+          "Contact et configuration sans engagement",
+          "Nous traitons les coordonnées et les données de configuration que vous fournissez pour répondre à votre demande et préparer une proposition. Selon le formulaire, il s’agit de votre nom, e-mail, adresse, numéro de téléphone facultatif, message et composants sélectionnés. La base est l’article 6, paragraphe 1, point b du RGPD pour les démarches précontractuelles, ou le point f pour répondre aux autres demandes. Les champs obligatoires sont nécessaires au traitement de votre demande. Aucun achat ni paiement n’est effectué sur ce site."
+        ],
+        [
+          "Installateur sélectionné",
+          "Si vous choisissez un installateur et envoyez votre configuration, ce partenaire reçoit votre demande, vos coordonnées et votre configuration afin de vous contacter pour l’installation souhaitée. La base est l’article 6, paragraphe 1, point b du RGPD. Le partenaire traite les données reçues sous sa propre responsabilité."
+        ],
+        [
+          "Comptes revendeurs et administration",
+          "Pour les comptes sur invitation, nous traitons les données d’identité, de contact, de rattachement à l’entreprise et d’accès. Les mots de passe sont enregistrés sous forme de hachages. Les comptes d’administration utilisent également des données d’authentification à deux facteurs. Les sessions et journaux de sécurité protègent les accès. Les bases sont l’article 6, paragraphe 1, point b du RGPD pour le compte et le point f pour sa sécurité et sa gestion."
+        ],
+        [
+          "Newsletter",
+          "Lors de votre inscription, nous utilisons votre adresse e-mail pour envoyer les informations SMARTDOCK sur la base de votre consentement — article 6, paragraphe 1, point a du RGPD. Vous pouvez le retirer à tout moment pour les envois futurs via le lien de désinscription de chaque newsletter ou en nous contactant. L’envoi utilise notre outil SMARTDOCK et Hetzner. Les adresses professionnelles peuvent être classées dans le groupe revendeurs selon leur rattachement à une entreprise."
+        ],
+        [
+          "Stockage dans le navigateur et localisation",
+          "Les données de session nécessaires permettent la connexion aux espaces protégés. Les préférences et, le cas échéant, les configurations sont enregistrées dans votre navigateur. Le stockage nécessaire relève du § 25, alinéa 2 TDDDG ; les autres stockages nécessitent votre consentement selon l’alinéa 1. La recherche de revendeurs utilise votre localisation uniquement après votre autorisation dans le navigateur, sur la base de l’article 6, paragraphe 1, point a du RGPD."
+        ],
+        [
+          "Contenus intégrés",
+          "Le site charge actuellement des polices Google Fonts, des vidéos Vimeo et des tuiles cartographiques OpenStreetMap. Lors du chargement, le fournisseur reçoit notamment votre adresse IP et des données techniques de connexion. Google et Vimeo peuvent traiter ces données en dehors de l’EEE. Informations des fournisseurs : policies.google.com/privacy, vimeo.com/privacy et osmfoundation.org/wiki/Privacy_Policy."
+        ],
+        [
+          "Conservation et destinataires",
+          "Les données sont conservées pendant la durée nécessaire à la demande, au compte actif, au consentement ou aux obligations légales de conservation et de preuve, puis supprimées ou leur traitement limité. Les destinataires sont les collaborateurs habilités, les prestataires techniques nécessaires et, si vous en choisissez un, votre installateur. Vous pouvez retirer votre consentement pour l’avenir."
+        ],
+        [
+          "Vos droits",
+          "Sous les conditions légales, vous disposez des droits d’accès, de rectification, d’effacement, de limitation et de portabilité — articles 15 à 20 du RGPD. Vous pouvez vous opposer aux traitements fondés sur un intérêt légitime pour des raisons liées à votre situation et à tout moment à la prospection directe — article 21. Vous pouvez saisir une autorité de contrôle — article 77 — notamment l’Unabhängiges Landeszentrum für Datenschutz Schleswig-Holstein : datenschutzzentrum.de, ou l’autorité de votre lieu de résidence, par exemple la CNIL : cnil.fr."
+        ]
+      ]
+    },
+    {
+      "language": "nl",
+      "home": "Home",
+      "imprint": "Bedrijfsgegevens",
+      "privacy": "Privacy",
+      "date": "Bijgewerkt: 3 november 2026",
+      "country": "Duitsland",
+      "imprintSections": [
+        [
+          "Aanbieder volgens § 5 DDG",
+          "Thitronik GmbH, vertegenwoordigd door directeur Mark Thietje.",
+          "Finkenweg 9–15, 24340 Eckernförde, Duitsland.",
+          "Telefoon: +49 4351 76744-0 · Fax: +49 4351 76744-127",
+          "E-mail: smartdock@thitronik.de"
+        ],
+        [
+          "Registratie",
+          "Handelsregister: Amtsgericht Kiel, HRB 11453 KI.",
+          "Btw-identificatienummer: DE268454642.",
+          "WEEE-registratie: DE33826840."
+        ],
+        [
+          "Verantwoordelijk voor redactionele inhoud",
+          "Mark Thietje, Finkenweg 9–15, 24340 Eckernförde, Duitsland."
+        ],
+        [
+          "Over deze website",
+          "SMARTDOCK biedt informatie en ontvangt aanvragen. Er is geen webshop of betaalfunctie. Het versturen van een configuratie is geen bestelling, vormt geen overeenkomst en schept geen financiële verplichting. De configuratie dient uitsluitend als voorbereiding op een vrijblijvende offerte."
+        ],
+        [
+          "Auteursrecht en externe links",
+          "De inhoud behoort toe aan de betreffende rechthebbenden. Exploitanten van gelinkte websites zijn verantwoordelijk voor hun eigen inhoud. Meld mogelijke inbreuken via bovenstaande contactgegevens."
+        ],
+        [
+          "Consumentengeschillen",
+          "Wij zijn niet bereid en niet verplicht deel te nemen aan geschillenbeslechting voor een consumentenarbitrageorgaan."
+        ]
+      ],
+      "privacySections": [
+        [
+          "Verantwoordelijke en contact",
+          "Verantwoordelijke is Thitronik GmbH, Finkenweg 9–15, 24340 Eckernförde, Duitsland. Telefoon: +49 4351 76744-0. E-mail: smartdock@thitronik.de. Privacyvragen: datenschutz@thitronik.de."
+        ],
+        [
+          "Hosting en beveiliging",
+          "De website, formuliergegevens en e-mailverzending gebruiken Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen, Duitsland. Technische logbestanden kunnen IP-adres, tijdstip, opgevraagde bestanden en browsergegevens bevatten. Dit dient voor veilige werking en foutanalyse op basis van artikel 6, lid 1, onder f AVG."
+        ],
+        [
+          "Contact en configuratie",
+          "We verwerken je contact- en configuratiegegevens om aanvragen te beantwoorden en offertes voor te bereiden. Afhankelijk van het formulier gaat het om naam, e-mail, adres, optioneel telefoonnummer, bericht en gekozen onderdelen. De grondslag is artikel 6, lid 1, onder b AVG bij precontractuele aanvragen, anders onder f voor het beantwoorden van contactverzoeken. Verplichte gegevens zijn nodig om je aanvraag te verwerken. Er zijn geen aankopen of betalingen op de website."
+        ],
+        [
+          "Gekozen installatiepartner",
+          "Als je een installatiepartner kiest en de configuratie verstuurt, ontvangt deze je aanvraag, contactgegevens en configuratie om de installatie met je te bespreken. Grondslag is artikel 6, lid 1, onder b AVG. Het gekozen bedrijf verwerkt de ontvangen gegevens onder eigen verantwoordelijkheid."
+        ],
+        [
+          "Dealer- en beheeraccounts",
+          "Voor uitgenodigde accounts verwerken we identiteit, contactgegevens, bedrijfskoppeling en toegangsgegevens. Wachtwoorden worden gehasht opgeslagen. Beheeraccounts gebruiken ook gegevens voor tweefactorauthenticatie. Sessies en beveiligingslogboeken beschermen de toegang. Grondslagen zijn artikel 6, lid 1, onder b AVG voor het account en onder f voor beveiliging en beheer."
+        ],
+        [
+          "Nieuwsbrief",
+          "Na inschrijving gebruiken we je e-mailadres voor SMARTDOCK-nieuws op basis van toestemming — artikel 6, lid 1, onder a AVG. Je kunt deze voor toekomstige verzending intrekken via de afmeldlink in elke nieuwsbrief of door contact op te nemen. Verzending gebeurt via onze SMARTDOCK-functie en Hetzner. Zakelijke adressen kunnen op basis van de bedrijfskoppeling in de dealergroep worden ingedeeld."
+        ],
+        [
+          "Browseropslag en locatie",
+          "Noodzakelijke sessiegegevens maken beschermd inloggen mogelijk. Instellingen en eventueel configuraties worden in je browser opgeslagen. Noodzakelijke opslag valt onder § 25, lid 2 TDDDG; overige opslag vereist toestemming volgens lid 1. Locatie voor de dealerzoeker wordt alleen met je browsertoestemming gebruikt, op basis van artikel 6, lid 1, onder a AVG."
+        ],
+        [
+          "Ingesloten inhoud",
+          "De website laadt momenteel Google Fonts, Vimeo-video’s en OpenStreetMap-kaarttegels. Daarbij ontvangt de aanbieder onder meer je IP-adres en technische verbindingsgegevens. Google en Vimeo kunnen gegevens buiten de EER verwerken. Meer informatie: policies.google.com/privacy, vimeo.com/privacy en osmfoundation.org/wiki/Privacy_Policy."
+        ],
+        [
+          "Bewaartermijn en ontvangers",
+          "Gegevens blijven bewaard zolang dit nodig is voor de aanvraag, een actief account, toestemming of wettelijke bewaar- en bewijsverplichtingen. Daarna worden ze verwijderd of beperkt. Ontvangers zijn bevoegde medewerkers, noodzakelijke technische dienstverleners en eventueel je gekozen installatiepartner. Toestemming kan voor de toekomst worden ingetrokken."
+        ],
+        [
+          "Je rechten",
+          "Onder de wettelijke voorwaarden heb je recht op inzage, correctie, verwijdering, beperking en overdraagbaarheid — artikelen 15–20 AVG. Je kunt vanwege je specifieke situatie bezwaar maken tegen verwerking op grond van gerechtvaardigd belang en altijd tegen direct marketing — artikel 21. Je kunt een klacht indienen bij een toezichthouder — artikel 77 — waaronder het Unabhängiges Landeszentrum für Datenschutz Schleswig-Holstein: datenschutzzentrum.de."
+        ]
+      ]
+    },
+    {
+      "language": "es",
+      "home": "Inicio",
+      "imprint": "Aviso legal",
+      "privacy": "Privacidad",
+      "date": "Actualizado: 3 de noviembre de 2026",
+      "country": "Alemania",
+      "imprintSections": [
+        [
+          "Prestador según el § 5 DDG",
+          "Thitronik GmbH, representada por su director general Mark Thietje.",
+          "Finkenweg 9–15, 24340 Eckernförde, Alemania.",
+          "Teléfono: +49 4351 76744-0 · Fax: +49 4351 76744-127",
+          "Correo: smartdock@thitronik.de"
+        ],
+        [
+          "Registro",
+          "Registro mercantil: Amtsgericht Kiel, HRB 11453 KI.",
+          "Identificación de IVA: DE268454642.",
+          "Registro WEEE: DE33826840."
+        ],
+        [
+          "Responsabilidad editorial",
+          "Mark Thietje, Finkenweg 9–15, 24340 Eckernförde, Alemania."
+        ],
+        [
+          "Finalidad del sitio",
+          "SMARTDOCK ofrece información y permite enviar consultas. No es una tienda en línea ni ofrece pagos. Enviar una configuración no constituye un pedido ni un contrato y no genera ninguna obligación económica. Solo sirve para preparar una propuesta sin compromiso."
+        ],
+        [
+          "Derechos de autor y enlaces externos",
+          "Los contenidos pertenecen a sus respectivos titulares. Los operadores de los sitios enlazados son responsables de sus contenidos. Puedes comunicar posibles infracciones mediante los datos de contacto anteriores."
+        ],
+        [
+          "Resolución de litigios de consumo",
+          "No estamos dispuestos ni obligados a participar en procedimientos de resolución de litigios ante una entidad de arbitraje de consumo."
+        ]
+      ],
+      "privacySections": [
+        [
+          "Responsable y contacto",
+          "El responsable es Thitronik GmbH, Finkenweg 9–15, 24340 Eckernförde, Alemania. Teléfono: +49 4351 76744-0. Correo: smartdock@thitronik.de. Protección de datos: datenschutz@thitronik.de."
+        ],
+        [
+          "Alojamiento y seguridad",
+          "El sitio, los datos de formularios y el envío de correos utilizan Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen, Alemania. Los registros técnicos pueden incluir dirección IP, hora, recursos solicitados e información del navegador. Se usan para seguridad y diagnóstico sobre la base del artículo 6.1.f del RGPD."
+        ],
+        [
+          "Contacto y configuraciones",
+          "Tratamos los datos de contacto y configuración que facilitas para responder y preparar propuestas. Según el formulario, incluyen nombre, correo, dirección, teléfono opcional, mensaje y componentes elegidos. La base es el artículo 6.1.b del RGPD para consultas precontractuales, o el artículo 6.1.f para responder a otras consultas. Los campos obligatorios son necesarios para tramitar tu solicitud. No se realizan compras ni pagos en este sitio."
+        ],
+        [
+          "Instalador seleccionado",
+          "Si eliges un instalador y envías la configuración, este recibe la solicitud, tus datos de contacto y la configuración para hablar contigo sobre la instalación. La base es el artículo 6.1.b del RGPD. El negocio seleccionado trata los datos bajo su propia responsabilidad."
+        ],
+        [
+          "Cuentas de distribuidores y administración",
+          "Para las cuentas por invitación tratamos datos de identidad, contacto, vinculación a la empresa y acceso. Las contraseñas se almacenan como hashes. Las cuentas de administración también usan datos de autenticación de dos factores. Las sesiones y registros protegen el acceso. Las bases son el artículo 6.1.b del RGPD para la cuenta y el artículo 6.1.f para seguridad y gestión."
+        ],
+        [
+          "Boletín",
+          "Tras suscribirte, usamos tu correo para enviar información SMARTDOCK con tu consentimiento — artículo 6.1.a del RGPD. Puedes retirarlo para futuros envíos mediante el enlace de baja de cada boletín o contactándonos. El envío utiliza nuestra herramienta SMARTDOCK y Hetzner. Las direcciones profesionales pueden asignarse al grupo de distribuidores según la empresa asociada."
+        ],
+        [
+          "Almacenamiento y ubicación",
+          "Los datos de sesión necesarios permiten acceder a las zonas protegidas. Las preferencias y, en su caso, las configuraciones se guardan en el navegador. El almacenamiento necesario se basa en el § 25.2 TDDDG; el adicional requiere consentimiento según el § 25.1. Solo usamos tu ubicación para buscar distribuidores si la autorizas en el navegador, sobre la base del artículo 6.1.a del RGPD."
+        ],
+        [
+          "Contenido integrado",
+          "El sitio carga actualmente Google Fonts, vídeos de Vimeo y mapas de OpenStreetMap. El proveedor recibe, entre otros datos, tu dirección IP e información técnica de conexión. Google y Vimeo pueden tratar datos fuera del EEE. Información: policies.google.com/privacy, vimeo.com/privacy y osmfoundation.org/wiki/Privacy_Policy."
+        ],
+        [
+          "Conservación y destinatarios",
+          "Los datos se conservan mientras sean necesarios para la solicitud, una cuenta activa, el consentimiento o las obligaciones legales de conservación y prueba. Después se eliminan o se limita su tratamiento. Acceden empleados autorizados, proveedores técnicos necesarios y, si lo eliges, tu instalador. Puedes retirar el consentimiento para el futuro."
+        ],
+        [
+          "Tus derechos",
+          "Conforme a los requisitos legales, puedes solicitar acceso, rectificación, supresión, limitación y portabilidad — artículos 15–20 del RGPD. Puedes oponerte por motivos relacionados con tu situación al tratamiento basado en intereses legítimos y siempre a la publicidad directa — artículo 21. Puedes reclamar ante una autoridad de control — artículo 77 — incluido el Unabhängiges Landeszentrum für Datenschutz Schleswig-Holstein: datenschutzzentrum.de."
+        ]
+      ]
+    }
+  ]
+}

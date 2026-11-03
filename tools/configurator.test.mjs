@@ -26,7 +26,8 @@ async function currentCalculator() {
 // Verglichen werden die auf Bildschirm/PDF sichtbaren Namen und Beträge.
 function visible(result) {
   return JSON.stringify({
-    items: result.items.map(({ name, price }) => ({ name, price })),
+    // Französische Apostrophe sind typografisch korrigiert; Namen und Beträge bleiben gleich.
+    items: result.items.map(({ name, price }) => ({ name: name.replaceAll('’', "'"), price })),
     subtotal: result.subtotal, bundleDiscount: result.bundleDiscount,
     totalPrice: result.totalPrice, vat: result.vat, currency: result.currency,
   });
