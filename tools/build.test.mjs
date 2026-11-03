@@ -36,7 +36,7 @@ test('Der Build erzeugt beide Anwendungen, fünf Sprach-Einstiege und alle histo
   const root = await createOutput();
   const pages = await createOutput(PAGES_BASE);
   assert.equal([...root.keys()].filter(name => name.endsWith('.html')).length, 122);
-  assert.equal(root.size, 214);
+  assert.equal(root.size, 216);
   assert.equal(pages.size, root.size + 1);
   for (const language of ['', 'en/', 'fr/', 'nl/', 'es/']) {
     assert.ok(root.has(language + 'index.html'));
@@ -257,4 +257,58 @@ test('Produktivbau entfernt Vorschauhinweise und öffnet nur öffentliche Seiten
  assert.match(files.get('haendlerbereich/index.html').toString(),/content="noindex,nofollow"/);
  assert.ok(files.has('robots.txt'));assert.match(files.get('sitemap.xml').toString(),/https:\/\/www\.smartdock\.de\//);
  await assert.rejects(createOutput(PAGES_BASE,{production:true}));
+});
+
+test('Französische Ansprache und Typografie bleiben in beiden Anwendungen formell', async () => {
+ const output=await createOutput();
+ for(const [file,name] of [['assets/index-RRVGC1mK.js','jk'],['assets/positionhold.js','PE']]) {
+  const fr=dictionary(output.get(file).toString(),name);
+  for(const [key,value] of Object.entries(fr)) {
+   assert.doesNotMatch(value,/(?<!\p{L})(?:tu|ton|ta|tes|toi)(?!\p{L})/iu,file+': '+key);
+   assert.doesNotMatch(value,/(?<!\u202f)[?!]/u,file+': französisches Satzzeichen '+key);
+  }
+  assert.doesNotMatch(fr.sd_adv_5_desc,/plus élevées/);
+  assert.equal(fr.sd_intro_title,'L’équipage dans la paume de votre main');
+ }
+ const faqs=JSON.parse(output.get('data/faqs.json')).items;
+ for(const faq of faqs)for(const key of ['question_fr','answer_fr']) {
+  assert.doesNotMatch(faq[key],/(?<!\p{L})(?:tu|ton|ta|tes|toi)(?!\p{L})/iu,key);
+  assert.doesNotMatch(faq[key],/(?<!\u202f)[?!]/u,key);
+ }
+});
+
+test('Rechtsseiten behandeln Anfragen und enthalten keine Shop-Zahlungsbedingungen', async () => {
+ const output=await createOutput(),main=output.get('assets/index-RRVGC1mK.js').toString();
+ const data=JSON.parse(output.get('data/legal-pages.json')).items;
+ assert.deepEqual(data.map(d=>d.language),['de','en','fr','nl','es']);
+ for(const copy of data) {
+  const text=JSON.stringify(copy);
+  assert.match(text,/Finkenweg 9–15/);
+  assert.doesNotMatch(text,/Finkenweg 11|PayPal|Cookiebot|CloudFront|Hostinger|Usercentrics|Brevo/i);
+  assert.ok(copy.privacySections.some(section=>section.join(' ').includes('Hetzner')));
+  assert.ok(copy.privacySections.some(section=>section.join(' ').includes('OpenStreetMap')));
+ }
+ for(const [name,lang] of [['NY','de'],['UY','fr'],['WY','es']])assert.ok(main.includes(name+'=()=>r.jsx(Yg,{to:"'+({de:'/datenschutz',fr:'/fr/confidentialite',es:'/es/privacidad'})[lang]+'",replace:!0})'));
+ for(const file of ['assets/index-RRVGC1mK.js','assets/positionhold.js']) {
+  const source=output.get(file).toString();
+  assert.doesNotMatch(source,/children:\w+\("legal_(?:agb|shipping|revocation)"\)/);
+ }
+});
+
+
+test('Shop-Altadressen verschwinden aus der produktiven Sitemap und bleiben noindex', async () => {
+ const files=await createOutput('',{production:true}),sitemap=files.get('sitemap.xml').toString();
+ for(const route of ['agb/','fr/cgv/','en/shipping/','es/desistimiento/']) {
+  assert.ok(!sitemap.includes('https://www.smartdock.de/'+route+'<'));
+  assert.match(files.get(route+'index.html').toString(),/content="noindex,follow"/);
+ }
+ assert.match(sitemap,/https:\/\/www.smartdock.de\/fr\/confidentialite\//);
+});
+
+
+test('Eigene Rechtsseiten laden Daten mit korrektem Root- und Pages-Präfix', async () => {
+ for(const base of ['',PAGES_BASE]) {
+  const files=await createOutput(base);
+  assert.ok(files.get('assets/legal-pages.js').toString().includes("fetch('"+base+"/data/legal-pages.json')"));
+ }
 });

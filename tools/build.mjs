@@ -81,6 +81,10 @@ function safeOutputName(name) {
   }
 }
 
+export function retiredShopRoute(route) {
+  return /\/(?:agb(?:-en)?|terms|cgv|algemene-voorwaarden|terminos|widerrufsbelehrung(?:-en)?|right-of-withdrawal|droit-de-retractation|herroepingsrecht|desistimiento|versandbedingungen(?:-en)?|shipping|livraison|verzending|envios)\/$/.test(route);
+}
+
 export async function createOutput(base = '', {production=false} = {}) {
   validateBase(base);
   const files = new Map();
@@ -100,7 +104,7 @@ export async function createOutput(base = '', {production=false} = {}) {
     if (!Array.isArray(parsed.items)) throw new Error('Datensatz ohne items: ' + name);
     add('data/' + name, bytes);
   }
-  for (const name of ['dealer-link.js', 'dealer-portal.js', 'dealer-server.js', 'dealer-portal.css', 'admin-model.js', 'admin-portal.js', 'admin-server.js', 'newsletter-admin.js', 'admin-portal.css']) add('assets/' + name, await readFile(path.join(ROOT, 'src', name)));
+  for (const name of ['legal-pages.js', 'dealer-link.js', 'dealer-portal.js', 'dealer-server.js', 'dealer-portal.css', 'admin-model.js', 'admin-portal.js', 'admin-server.js', 'newsletter-admin.js', 'admin-portal.css']) add('assets/' + name, await readFile(path.join(ROOT, 'src', name)));
   add('admin/index.html', await readFile(path.join(ROOT, 'src/admin-portal.html')));
   const dealerShell = await readFile(path.join(ROOT, 'src/dealer-portal.html'), 'utf8');
   for (const lang of ['de', 'en', 'fr', 'nl', 'es']) add((lang === 'de' ? '' : lang + '/') + 'haendlerbereich/index.html', dealerShell.replaceAll('%%LANG%%', lang));
@@ -127,12 +131,13 @@ export async function createOutput(base = '', {production=false} = {}) {
     for(const [name,bytes] of files){
       if(!name.endsWith('.html'))continue;
       let html=bytes.toString('utf8').replace(/<aside id="preview-note"[\s\S]*?<\/aside>/g,'').replace('body{padding-bottom:48px}','body{padding-bottom:0}');
-      if(!name.startsWith('admin/')&&!name.includes('haendlerbereich/'))html=html.replace('<meta name="robots" content="noindex,nofollow">','<meta name="robots" content="index,follow">');
+      if(retiredShopRoute('/'+name.replace(/index\.html$/, '')))html=html.replace('<meta name="robots" content="noindex,nofollow">','<meta name="robots" content="noindex,follow">');
+      else if(!name.startsWith('admin/')&&!name.includes('haendlerbereich/'))html=html.replace('<meta name="robots" content="noindex,nofollow">','<meta name="robots" content="index,follow">');
       html=html.replace('SMARTDOCK · Verwaltungsvorschau','SMARTDOCK · Administration');
       files.set(name,Buffer.from(html));
     }
     add('robots.txt','User-agent: *\nAllow: /\nDisallow: /admin/\nDisallow: /api/\nDisallow: /haendlerbereich/\nSitemap: https://www.smartdock.de/sitemap.xml\n');
-    add('sitemap.xml','<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+routes.filter(r=>!r.path.includes('haendlerbereich')).map(r=>'<url><loc>https://www.smartdock.de'+r.path+'</loc></url>').join('')+'</urlset>');
+    add('sitemap.xml','<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+routes.filter(r=>!r.path.includes('haendlerbereich')&&!retiredShopRoute(r.path)).map(r=>'<url><loc>https://www.smartdock.de'+r.path+'</loc></url>').join('')+'</urlset>');
   }
   if (base) {
     for (const [name, bytes] of files) if (TEXT.test(name)) files.set(name, Buffer.from(adaptForBase(bytes.toString('utf8'), name, base)));
