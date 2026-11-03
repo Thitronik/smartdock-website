@@ -3,7 +3,7 @@
 export function legalPage(React,jsx,Head,language,kind) {
  const lang=['de','en','fr','nl','es'].includes(language)?language:'de';
  const [copy,setCopy]=React.useState(null),[failed,setFailed]=React.useState(false);
- React.useEffect(()=>{let active=true;fetch(new URL('../data/legal-pages.json',import.meta.url)).then(response=>{if(!response.ok)throw Error('legal content');return response.json();}).then(data=>{const entry=data.items.find(item=>item.language===lang);if(!entry)throw Error('language');if(active)setCopy(entry);}).catch(()=>{if(active)setFailed(true);});return()=>{active=false;};},[lang]);
+ React.useEffect(()=>{let active=true;fetch('/data/legal-pages.json').then(response=>{if(!response.ok)throw Error('legal content');return response.json();}).then(data=>{const entry=data.items.find(item=>item.language===lang);if(!entry)throw Error('language');if(active)setCopy(entry);}).catch(()=>{if(active)setFailed(true);});return()=>{active=false;};},[lang]);
  const errors={de:'Die Angaben konnten nicht geladen werden. Bitte lade die Seite erneut.',en:'The information could not be loaded. Please reload the page.',fr:'Les informations n’ont pas pu être chargées. Veuillez recharger la page.',nl:'De gegevens konden niet worden geladen. Laad de pagina opnieuw.',es:'No se ha podido cargar la información. Vuelve a cargar la página.'};
  if(!copy)return jsx.jsx('main',{className:'min-h-screen pt-28 pb-20',children:jsx.jsx('p',{role:'status',className:'max-w-4xl mx-auto px-6',children:failed?errors[lang]:'…'})});
  const sections=kind==='imprint'?copy.imprintSections:copy.privacySections,title=copy[kind];

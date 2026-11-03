@@ -304,3 +304,11 @@ test('Shop-Altadressen verschwinden aus der produktiven Sitemap und bleiben noin
  }
  assert.match(sitemap,/https:\/\/www.smartdock.de\/fr\/confidentialite\//);
 });
+
+
+test('Eigene Rechtsseiten laden Daten mit korrektem Root- und Pages-Präfix', async () => {
+ for(const base of ['',PAGES_BASE]) {
+  const files=await createOutput(base);
+  assert.ok(files.get('assets/legal-pages.js').toString().includes("fetch('"+base+"/data/legal-pages.json')"));
+ }
+});
