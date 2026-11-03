@@ -68,8 +68,10 @@ function dealer_invitation_page(array $config): never {
             $q=$db->prepare('UPDATE sd_dealer_invitations SET consumed_at=UTC_TIMESTAMP(6) WHERE id=?');$q->execute([$fresh['id']]);
             audit($db,$userId,'dealer.invitation_accepted','dealer',(int)$fresh['dealer_id'],[]);$db->commit();unset($_SESSION['dealer-invitation']);
             dispatch_mail($db,$config);
-            if($pending)access_html(200,'Freigabe ausstehend','<p>Deine E-Mail-Adresse ist bestätigt. SMARTDOCK prüft jetzt deinen Mitarbeiterzugang. Du erhältst eine E-Mail, sobald der Zugang freigegeben ist.</p>');
-            access_html(200,'Willkommen im Händlerbereich','<p>Dein Händlerzugang ist eingerichtet. Schön, dass du dabei bist!</p>');
+            header('Refresh: 5; url=/haendlerbereich/');
+            $continue='<p><a class="primary-button" style="display:inline-block;background:#bceb02;border-color:#bceb02;color:#1d1d1b;padding:12px 24px;border-radius:999px;text-decoration:none" href="/haendlerbereich/">Weiter zum Händlerbereich-Login</a></p><p>Du wirst nach 5 Sekunden automatisch zum Händlerbereich-Login weitergeleitet.</p>';
+            if($pending)access_html(200,'Freigabe ausstehend','<p>Deine E-Mail-Adresse ist bestätigt. SMARTDOCK prüft jetzt deinen Mitarbeiterzugang. Du erhältst eine E-Mail, sobald der Zugang freigegeben ist.</p>'.$continue);
+            access_html(200,'Willkommen im Händlerbereich','<p>Dein Händlerzugang ist eingerichtet. Schön, dass du dabei bist!</p>'.$continue);
         }catch(\InvalidArgumentException $e){if($db->inTransaction())$db->rollBack();$error='<p role="alert">'.access_escape($e->getMessage()).'</p>';}
         catch(\PDOException $e){if($db->inTransaction())$db->rollBack();if($e->getCode()!=='23000')throw $e;$error='<p role="alert">Für diese E-Mail besteht bereits ein Konto. Bitte melde dich an oder wende dich an SMARTDOCK.</p>';}
         catch(\Throwable $e){if($db->inTransaction())$db->rollBack();throw $e;}
