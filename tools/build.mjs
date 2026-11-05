@@ -96,6 +96,7 @@ export async function createOutput(base = '', {production=false} = {}) {
   for (const directory of ['public', 'vendor/website']) {
     for (const [name, bytes] of await readTree(path.join(ROOT, directory))) add(name, bytes);
   }
+  for (const [name,bytes] of await readTree(path.join(ROOT,'vendor/pdfjs'))) add('assets/pdfjs/'+name,bytes);
   // Kleine lesbare Ergänzung zum übernommenen Position-Hold-Stylesheet.
   files.set('assets/positionhold.css', Buffer.concat([files.get('assets/positionhold.css'), Buffer.from('\n'), await readFile(path.join(ROOT, 'src/positionhold-motion.css'))]));
   for (const [name, bytes] of await readTree(path.join(ROOT, 'content'))) {
@@ -104,7 +105,7 @@ export async function createOutput(base = '', {production=false} = {}) {
     if (!Array.isArray(parsed.items)) throw new Error('Datensatz ohne items: ' + name);
     add('data/' + name, bytes);
   }
-  for (const name of ['legal-pages.js', 'dealer-link.js', 'dealer-portal.js', 'dealer-server.js', 'dealer-portal.css', 'admin-model.js', 'admin-portal.js', 'admin-server.js', 'newsletter-admin.js', 'admin-portal.css']) add('assets/' + name, await readFile(path.join(ROOT, 'src', name)));
+  for (const name of ['product-press.js', 'product-press.css', 'legal-pages.js', 'dealer-link.js', 'dealer-portal.js', 'dealer-server.js', 'dealer-portal.css', 'admin-model.js', 'admin-portal.js', 'admin-server.js', 'newsletter-admin.js', 'admin-portal.css']) add('assets/' + name, await readFile(path.join(ROOT, 'src', name)));
   add('admin/index.html', await readFile(path.join(ROOT, 'src/admin-portal.html')));
   const dealerShell = await readFile(path.join(ROOT, 'src/dealer-portal.html'), 'utf8');
   for (const lang of ['de', 'en', 'fr', 'nl', 'es']) add((lang === 'de' ? '' : lang + '/') + 'haendlerbereich/index.html', dealerShell.replaceAll('%%LANG%%', lang));
