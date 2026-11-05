@@ -18,5 +18,9 @@ zur Funktionsseite. Mobiles Menü enthält weiterhin Produkt, Funktionen,
 Installation, FAQ, Kontakt, Konfigurator, Händlerfinder und Händlerbereich.
 
 Belege: /private/tmp/smartdock-navigation-desktop.png und
-/private/tmp/smartdock-navigation-mobile.png. Die Änderung ist lokal geprüft.
-Veröffentlichung bei Hetzner wartet auf die erneuerte WebFTP-Anmeldung.
+/private/tmp/smartdock-navigation-mobile.png. Die Änderung ist auf Live und Test veröffentlicht.
+Vor dem Upload entsprachen beide Live-Anwendungsdateien noch dem Ausgangsstand.
+Nach dem Upload wurden beide Pakete und HTML-Einstiege auf Live und Test bytegenau
+mit dem geprüften Build verglichen. Der Live-Browser zeigt Produkt/Funktionen oben
+und alle bisherigen Menüpunkte in der Mobilansicht. Weitere Belege:
+/private/tmp/smartdock-navigation-live.png und /private/tmp/smartdock-navigation-live-mobile.png.
