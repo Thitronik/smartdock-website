@@ -36,7 +36,7 @@ test('Der Build erzeugt beide Anwendungen, fünf Sprach-Einstiege und alle histo
   const root = await createOutput();
   const pages = await createOutput(PAGES_BASE);
   assert.equal([...root.keys()].filter(name => name.endsWith('.html')).length, 122);
-  assert.equal(root.size, 216);
+  assert.equal(root.size, 234);
   assert.equal(pages.size, root.size + 1);
   for (const language of ['', 'en/', 'fr/', 'nl/', 'es/']) {
     assert.ok(root.has(language + 'index.html'));
@@ -330,4 +330,58 @@ test('Desktop-Navigation führt zu Produkt und Funktionen; mobile Links bleiben 
   assert.ok(source.includes('`mobile-nav-${'),file+' mobile Links');
   assert.ok(source.includes('className:"w-full rounded-full transition-all duration-300 active:scale-[0.98]",children:A("nav_configurator")'),file+' mobiler Konfigurator');
  }
+});
+
+test('Produktseite behält nach BOOTE vor float das wechselnde Desktop-Raster', async () => {
+ const files=await createOutput(),source=files.get('assets/index-RRVGC1mK.js').toString();
+ const start=source.indexOf('ef=()=>{')+3;assert.ok(start>3);
+ let depth=0,quote=null,end=start+4;
+ for(;end<source.length;end++){
+  const char=source[end];
+  if(quote){if(char==='\\')end++;else if(char===quote)quote=null;continue;}
+  if(['"',"'",'`'].includes(char))quote=char;
+  else if(char==='{')depth++;
+  else if(char==='}'&&--depth===0){end++;break;}
+ }
+ const jsx=(type,props)=>({type,props});
+ const product=vm.runInNewContext('('+source.slice(start,end)+')',{
+  r:{jsx,jsxs:jsx},Le:{div:'motion'},vn:()=>({t:key=>key,currentLanguage:'DE'}),fn:()=> '/',Fn:()=>{},pn:'head',En:'breadcrumb',fh:'hero',OP:'icon',Gr:'link',vt:'button',sdBooteArticle:'boote'
+ })();
+ const rows=[];
+ const containsImage=node=>node?.type==='img'||[].concat(node?.props?.children||[]).some(containsImage);
+ function visit(node){
+  if(!node||typeof node!=='object')return;
+  if(node.type==='boote'){rows.push(false);return;}
+  if(node.props?.className==='grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center'){
+   const children=Array.from(node.props.children);
+   const order=item=>Number(item.props.className.match(/lg:order-(\d)/)?.[1]||item.props.className.match(/order-(\d)/)?.[1]||0);
+   rows.push(containsImage(children.sort((a,b)=>order(a)-order(b))[0]));return;
+  }
+  [].concat(node.props?.children||[]).forEach(visit);
+ }
+ visit(product);assert.deepEqual(rows,[true,false,true,false,true,false]);
+ for(const name of ['assets/product-press.js','assets/product-press.css','assets/pdfjs/pdf.min.js','assets/pdfjs/pdf.worker.min.js','assets/pdfjs/LICENSE.txt','assets/pdfjs/wasm/openjpeg.wasm','media/press/boote-smartdock-preview.jpg','media/press/boote-smartdock-11-2026.pdf'])assert.ok(files.has(name),name);
+ assert.match(files.get('media/press/boote-smartdock-11-2026.pdf').toString('ascii',0,8),/^%PDF-/);
+});
+
+test('BOOTE-Vorschau öffnet einen beschrifteten Dialog und lädt den PDF-Betrachter erst beim Öffnen', async () => {
+ const {createBooteArticle}=await import('../src/product-press.js');
+ const previousWindow=global.window;
+ try{
+  for(const base of ['',PAGES_BASE]){
+   global.window={__sdPagesUrl:path=>base+path};let open=false;
+   const jsx=(type,props)=>({type,props});
+   const React={useState:()=>[open,value=>{open=value;}],useRef:()=>({current:null}),useId:()=> 'press-title',useEffect:()=>{}};
+   const Article=createBooteArticle(React,{jsx,jsxs:jsx},{div:'motion'});
+   let result=Article({language:'FR'}),dialog=result.props.children[2];
+   assert.equal(dialog.type,'dialog');assert.equal(dialog.props['aria-labelledby'],'press-title');
+   assert.equal(dialog.props.children[1],false);
+   assert.equal(result.props.children[1].props.children[0].props.src,base+'/media/press/boote-smartdock-preview.jpg');
+   result.props.children[1].props.onClick();assert.equal(open,true);
+   result=Article({language:'FR'});dialog=result.props.children[2];
+   const viewer=dialog.props.children[1];assert.equal(typeof viewer.type,'function');
+   assert.equal(viewer.props.pdfUrl,base+'/media/press/boote-smartdock-11-2026.pdf');
+   let cancelled=false;dialog.props.onCancel({preventDefault:()=>{cancelled=true;}});assert.ok(cancelled);assert.equal(open,false);
+  }
+ }finally{if(previousWindow===undefined)delete global.window;else global.window=previousWindow;}
 });
