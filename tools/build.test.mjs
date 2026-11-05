@@ -313,7 +313,7 @@ test('Eigene Rechtsseiten laden Daten mit korrektem Root- und Pages-Präfix', as
  }
 });
 
-test('Desktop-Navigation führt zu Produkt und Funktionen; mobile Links bleiben vollständig', async () => {
+test('Desktop-Navigation führt zu Produkt und Funktionen; mobile Aktionen bleiben erreichbar', async () => {
  const files=await createOutput();
  for(const [file,jsx,links,handler,pathname]of [['assets/index-RRVGC1mK.js','r','x','b','d'],['assets/positionhold.js','s','Z','ne','u']]) {
   const source=files.get(file).toString(),start=source.indexOf(jsx+'.jsx("nav",{"aria-label":A("nav_product")');
@@ -332,21 +332,26 @@ test('Desktop-Navigation führt zu Produkt und Funktionen; mobile Links bleiben 
  }
 });
 
-test('Desktop-Dropdown zeigt Aktionen ohne doppelte Hauptlinks; mobile Liste bleibt komplett', async () => {
+test('Desktop-Dropdown zeigt kompakte Aktionen; mobile Reihenfolge folgt Hauptlinks und Händlerbereich', async () => {
  const files=await createOutput();
  for(const [file,jsx,links,handler,pathname,route]of [['assets/index-RRVGC1mK.js','r','x','b','d','fn'],['assets/positionhold.js','s','Z','ne','u','ws']]){
-  const source=files.get(file).toString(),start=source.indexOf(jsx+'.jsxs("nav",{className:"flex items-center justify-center space-x-12"');
-  assert.ok(start>0);const end=source.indexOf(jsx+'.jsx("a",sdDealerLink(g))]})',start);
-  assert.ok(end>start);const expression=source.slice(start,end+(jsx+'.jsx("a",sdDealerLink(g))]})').length);
+  const source=files.get(file).toString(),start=source.indexOf(jsx+'.jsxs("nav",{className:"flex items-center justify-center gap-6"');
+  assert.ok(start>0);const end=source.indexOf('children:A("nav_dealer_finder")})]})',start);
+  assert.ok(end>start);const expression=source.slice(start,end+'children:A("nav_dealer_finder")})]})'.length);
   const clicked=[],items=['Produkt','Funktionen','Installation','FAQ','Kontakt'].map((name,i)=>({name,href:'/link-'+i}));
   for(const lang of ['DE','EN','FR','NL','ES']){
    const node=vm.runInNewContext(expression,{[jsx]:{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})},[links]:items,[handler]:(e,url)=>clicked.push(url),[pathname]:{pathname:'/'},[route]:(key,language)=>'/'+language+'/'+key,g:lang,A:key=>key,sdDealerLink:language=>({href:'/'+language+'/portal',children:'Portal'})});
-   assert.deepEqual(Array.from(node.props.children,item=>item.props.children),['FAQ','Kontakt','nav_configurator','nav_dealer_finder','Portal']);
-   assert.deepEqual(Array.from(node.props.children,item=>item.props.href),['/link-3','/link-4','/'+lang+'/configurator','/'+lang+'/dealer','/'+lang+'/portal']);
-   node.props.children[2].props.onClick({});node.props.children[3].props.onClick({});
+   assert.equal(node.props.className,'flex items-center justify-center gap-6');
+   assert.deepEqual(Array.from(node.props.children,item=>item.props.children),['FAQ','Kontakt','Portal','nav_configurator','nav_dealer_finder']);
+   assert.deepEqual(Array.from(node.props.children,item=>item.props.href),['/link-3','/link-4','/'+lang+'/portal','/'+lang+'/configurator','/'+lang+'/dealer']);
+   node.props.children[3].props.onClick({});node.props.children[4].props.onClick({});
   }
   assert.equal(clicked.length,10);
-  assert.ok(source.includes(links+'.map('));assert.ok(source.includes('`mobile-nav-${'));
+  assert.ok(source.includes(links+'.filter((_,index)=>index!==2).map('));assert.ok(source.includes('`mobile-nav-${'));
+  const mobileStart=source.indexOf('className:"flex flex-col space-y-4 pt-6 border-t border-border",children:[');
+  const mobileEnd=source.indexOf('children:A("nav_dealer_finder")',mobileStart);
+  assert.ok(source.indexOf('sdDealerLink(g)',mobileStart)<source.indexOf('children:A("nav_configurator")',mobileStart));
+  assert.ok(mobileEnd>mobileStart);
  }
 });
 
