@@ -312,3 +312,22 @@ test('Eigene Rechtsseiten laden Daten mit korrektem Root- und Pages-Präfix', as
   assert.ok(files.get('assets/legal-pages.js').toString().includes("fetch('"+base+"/data/legal-pages.json')"));
  }
 });
+
+test('Desktop-Navigation führt zu Produkt und Funktionen; mobile Links bleiben vollständig', async () => {
+ const files=await createOutput();
+ for(const [file,jsx,links,handler,pathname]of [['assets/index-RRVGC1mK.js','r','x','b','d'],['assets/positionhold.js','s','Z','ne','u']]) {
+  const source=files.get(file).toString(),start=source.indexOf(jsx+'.jsx("nav",{"aria-label":A("nav_product")');
+  assert.ok(start>0,file+' Desktopnavigation');
+  const end=source.indexOf('`desktop-nav-${N.href}`))})',start);
+  assert.ok(end>start);
+  const expression=source.slice(start,end+'`desktop-nav-${N.href}`))})'.length);
+  const clicked=[],items=[{name:'Produkt',href:'/produkt'},{name:'Funktionen',href:'/funktionen'},{name:'FAQ',href:'/faq'}];
+  const node=vm.runInNewContext(expression,{[jsx]:{jsx:(type,props)=>({type,props})},[links]:items,[handler]:(event,url)=>clicked.push(url),[pathname]:{pathname:'/produkt'},A:key=>key});
+  assert.equal(node.type,'nav');assert.equal(node.props.children.length,2);
+  assert.deepEqual(Array.from(node.props.children,item=>item.props.href),['/produkt','/funktionen']);
+  for(const item of node.props.children){assert.equal(item.type,'a');item.props.onClick({});}
+  assert.deepEqual(clicked,['/produkt','/funktionen']);
+  assert.ok(source.includes('`mobile-nav-${'),file+' mobile Links');
+  assert.ok(source.includes('className:"w-full rounded-full transition-all duration-300 active:scale-[0.98]",children:A("nav_configurator")'),file+' mobiler Konfigurator');
+ }
+});
