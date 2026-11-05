@@ -332,6 +332,24 @@ test('Desktop-Navigation führt zu Produkt und Funktionen; mobile Links bleiben 
  }
 });
 
+test('Desktop-Dropdown zeigt Aktionen ohne doppelte Hauptlinks; mobile Liste bleibt komplett', async () => {
+ const files=await createOutput();
+ for(const [file,jsx,links,handler,pathname,route]of [['assets/index-RRVGC1mK.js','r','x','b','d','fn'],['assets/positionhold.js','s','Z','ne','u','ws']]){
+  const source=files.get(file).toString(),start=source.indexOf(jsx+'.jsxs("nav",{className:"flex items-center justify-center space-x-12"');
+  assert.ok(start>0);const end=source.indexOf(jsx+'.jsx("a",sdDealerLink(g))]})',start);
+  assert.ok(end>start);const expression=source.slice(start,end+(jsx+'.jsx("a",sdDealerLink(g))]})').length);
+  const clicked=[],items=['Produkt','Funktionen','Installation','FAQ','Kontakt'].map((name,i)=>({name,href:'/link-'+i}));
+  for(const lang of ['DE','EN','FR','NL','ES']){
+   const node=vm.runInNewContext(expression,{[jsx]:{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})},[links]:items,[handler]:(e,url)=>clicked.push(url),[pathname]:{pathname:'/'},[route]:(key,language)=>'/'+language+'/'+key,g:lang,A:key=>key,sdDealerLink:language=>({href:'/'+language+'/portal',children:'Portal'})});
+   assert.deepEqual(Array.from(node.props.children,item=>item.props.children),['FAQ','Kontakt','nav_configurator','nav_dealer_finder','Portal']);
+   assert.deepEqual(Array.from(node.props.children,item=>item.props.href),['/link-3','/link-4','/'+lang+'/configurator','/'+lang+'/dealer','/'+lang+'/portal']);
+   node.props.children[2].props.onClick({});node.props.children[3].props.onClick({});
+  }
+  assert.equal(clicked.length,10);
+  assert.ok(source.includes(links+'.map('));assert.ok(source.includes('`mobile-nav-${'));
+ }
+});
+
 test('Produktseite behält nach BOOTE vor float das wechselnde Desktop-Raster', async () => {
  const files=await createOutput(),source=files.get('assets/index-RRVGC1mK.js').toString();
  const start=source.indexOf('ef=()=>{')+3;assert.ok(start>3);
