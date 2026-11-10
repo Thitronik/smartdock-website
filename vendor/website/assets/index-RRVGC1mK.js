@@ -1,5 +1,5 @@
 import {createBooteArticle as sdCreateBooteArticle} from "./product-press.js?v=20261105press1";
-import {legalPage as sdLegalPage} from "./legal-pages.js?v=20261103language2";
+import {legalPage as sdLegalPage} from "./legal-pages.js?v=20261110legal1";
 import {mountAdminPortal as sdMountAdminPortal} from "./admin-portal.js?v=20261102live1";
 import {mountDealerPortal as sdMountDealerPortal} from "./dealer-portal.js?v=20261103language2";
 import {dealerLink as sdDealerLink} from "./dealer-link.js";

@@ -1,0 +1,102 @@
+[
+  {
+    "language": "de",
+    "kind": "imprint",
+    "source": "docs/rechtstexte/2026-11-10/de/Impressum.pdf",
+    "sha256": "4b077d4e9b8c1e0c572849b6dc67b355ee73cfd403185df67d60e46e65facf8d",
+    "textSha256": "04a2d80c58f0c4a579cbf4e79a18b78c79d163bef03271ad287c5b76f50a9a70",
+    "blocks": 6,
+    "publishedTextSha256": "b7cfdba0092b78cc9a7133ef0905920c9a2d6b0e5d4242cf1eda45439ae17c38",
+    "approvedChange": "Finkenweg 11-15 / 9-15 → Finkenweg 9–15 (Auftraggeber, 10.11.2026)"
+  },
+  {
+    "language": "de",
+    "kind": "privacy",
+    "source": "docs/rechtstexte/2026-11-10/de/Datenschutzerklaerung.pdf",
+    "sha256": "65fcdaf7dd3d741796bfefa495faa6ffd6deb43a86b440d0e71afd11ca60bd23",
+    "textSha256": "43911603f4a3062ad4a9e311ef9c0e42869677da471c2fcc6d5236dd7e07cf8c",
+    "blocks": 44,
+    "publishedTextSha256": "43911603f4a3062ad4a9e311ef9c0e42869677da471c2fcc6d5236dd7e07cf8c",
+    "approvedChange": "Finkenweg 11-15 / 9-15 → Finkenweg 9–15 (Auftraggeber, 10.11.2026)"
+  },
+  {
+    "language": "en",
+    "kind": "imprint",
+    "source": "docs/rechtstexte/2026-11-10/en/Impressum.pdf",
+    "sha256": "91ce591204fdca5aa9fa0cd79efddf385d843136a209185e0e091aa5927eb4d7",
+    "textSha256": "739ed8a4987b280c2233c5ebaa2d18f97b736833f9b0c0fe2bab31ea6a34d984",
+    "blocks": 6,
+    "publishedTextSha256": "3ca2de3477498f6b1c9a2f2ed9d90af09f8d9d1403cc3149484441368a5bb0ce",
+    "approvedChange": "Finkenweg 11-15 / 9-15 → Finkenweg 9–15 (Auftraggeber, 10.11.2026)"
+  },
+  {
+    "language": "en",
+    "kind": "privacy",
+    "source": "docs/rechtstexte/2026-11-10/en/Datenschutzerklaerung.pdf",
+    "sha256": "3837df1a06cf2e7172d70a6735ce59958e64076d3bd576f86e9ccc870d0d0887",
+    "textSha256": "8414f38ee9001b4506fd34ffdd8c789c2e04e2b295a5ff29ee10e893d2237da1",
+    "blocks": 43,
+    "publishedTextSha256": "8414f38ee9001b4506fd34ffdd8c789c2e04e2b295a5ff29ee10e893d2237da1",
+    "approvedChange": "Finkenweg 11-15 / 9-15 → Finkenweg 9–15 (Auftraggeber, 10.11.2026)"
+  },
+  {
+    "language": "fr",
+    "kind": "imprint",
+    "source": "docs/rechtstexte/2026-11-10/fr/Impressum.pdf",
+    "sha256": "2555faa5295be93d27deea293382612022fa345c4d7f2e49f064e69a92203734",
+    "textSha256": "1d60405bcf95c23a0a57985257bfd2644aa3d53a22078ff02d4fea2b7b6960e1",
+    "blocks": 5,
+    "publishedTextSha256": "03cb887ce91c16d7e9f1cd8afaf6a6bb86a1341be84ccc7b4510243f9c31d6a5",
+    "approvedChange": "Finkenweg 11-15 / 9-15 → Finkenweg 9–15 (Auftraggeber, 10.11.2026)"
+  },
+  {
+    "language": "fr",
+    "kind": "privacy",
+    "source": "docs/rechtstexte/2026-11-10/fr/Datenschutzerklaerung.pdf",
+    "sha256": "5c8c797838a03d5079ddbe39d2d2f01491fb6150dccb1e732f3ac18a58f953d0",
+    "textSha256": "e5cca9d2af5286b8d3ce0b363675bb4859c473f6f14e35b73707bf2bcf1825a0",
+    "blocks": 43,
+    "publishedTextSha256": "e5cca9d2af5286b8d3ce0b363675bb4859c473f6f14e35b73707bf2bcf1825a0",
+    "approvedChange": "Finkenweg 11-15 / 9-15 → Finkenweg 9–15 (Auftraggeber, 10.11.2026)"
+  },
+  {
+    "language": "nl",
+    "kind": "imprint",
+    "source": "docs/rechtstexte/2026-11-10/nl/Impressum.pdf",
+    "sha256": "42636adaa1f151df5bfeee6721691e5a9f6eb60745371379d58eb5d0c2d1aa32",
+    "textSha256": "3eb63d64b9375138754edf84ca306472fc1fbc1d65850dc1fda13e5404e84abc",
+    "blocks": 5,
+    "publishedTextSha256": "2469b9d09cf2dfd98f4599b6339177b28015cc8237f4e69cd0dd4a4e82f3dad1",
+    "approvedChange": "Finkenweg 11-15 / 9-15 → Finkenweg 9–15 (Auftraggeber, 10.11.2026)"
+  },
+  {
+    "language": "nl",
+    "kind": "privacy",
+    "source": "docs/rechtstexte/2026-11-10/nl/Datenschutzerklaerung.pdf",
+    "sha256": "21d21a46c2f9001f0985648ffc5db2e86707c2a384d17b467f1cb8969eb25a8f",
+    "textSha256": "03570c6059bee5a6472a3452e4e14bc848c7e88c8931a514882038f5201ce9da",
+    "blocks": 42,
+    "publishedTextSha256": "03570c6059bee5a6472a3452e4e14bc848c7e88c8931a514882038f5201ce9da",
+    "approvedChange": "Finkenweg 11-15 / 9-15 → Finkenweg 9–15 (Auftraggeber, 10.11.2026)"
+  },
+  {
+    "language": "es",
+    "kind": "imprint",
+    "source": "docs/rechtstexte/2026-11-10/es/Impressum.pdf",
+    "sha256": "30d91e71b9a65eaf35d8dde1439713551a44fec6ecbf1d18da08e8edb7fd7d8c",
+    "textSha256": "c423efb607fdd21f7d48d76b909471095a02ba8999af7fa1b793ae12dbf2cc5c",
+    "blocks": 5,
+    "publishedTextSha256": "68e9fa396da69ffe95e901c0b613c7ebca8b86cf1dc929347ecc7bb7bdbb08a1",
+    "approvedChange": "Finkenweg 11-15 / 9-15 → Finkenweg 9–15 (Auftraggeber, 10.11.2026)"
+  },
+  {
+    "language": "es",
+    "kind": "privacy",
+    "source": "docs/rechtstexte/2026-11-10/es/Datenschutzerklaerung.pdf",
+    "sha256": "867ee5cf58bb72533bc0c83eb4ad37a3880f21b8650e6bd9b6e3d320ce31ab0f",
+    "textSha256": "32eeb89a89ce50ce22e550e78ed5537fa27e5b7b2a2bea27fc2a995a405d3a1d",
+    "blocks": 42,
+    "publishedTextSha256": "32eeb89a89ce50ce22e550e78ed5537fa27e5b7b2a2bea27fc2a995a405d3a1d",
+    "approvedChange": "Finkenweg 11-15 / 9-15 → Finkenweg 9–15 (Auftraggeber, 10.11.2026)"
+  }
+]
