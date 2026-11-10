@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
+import {readFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {legalText} from '../src/legal-pages.js';
 import { createOutput, adaptForBase, validateBase, validateRoutes, PAGES_BASE } from './build.mjs';
 
 test('URL-Basis und Routen lassen weder Pfadausbruch noch mehrdeutige Ziele zu', () => {
@@ -277,7 +280,7 @@ test('Französische Ansprache und Typografie bleiben in beiden Anwendungen forme
  }
 });
 
-test('Rechtsseiten behandeln Anfragen und enthalten keine Shop-Zahlungsbedingungen', async () => {
+test('Händlerbund-Rechtsseiten enthalten fünf vollständige Sprachfassungen ohne Shopbedingungen', async () => {
  const output=await createOutput(),main=output.get('assets/index-RRVGC1mK.js').toString();
  const data=JSON.parse(output.get('data/legal-pages.json')).items;
  assert.deepEqual(data.map(d=>d.language),['de','en','fr','nl','es']);
@@ -285,8 +288,9 @@ test('Rechtsseiten behandeln Anfragen und enthalten keine Shop-Zahlungsbedingung
   const text=JSON.stringify(copy);
   assert.match(text,/Finkenweg 9–15/);
   assert.doesNotMatch(text,/Finkenweg 11|PayPal|Cookiebot|CloudFront|Hostinger|Usercentrics|Brevo/i);
-  assert.ok(copy.privacySections.some(section=>section.join(' ').includes('Hetzner')));
-  assert.ok(copy.privacySections.some(section=>section.join(' ').includes('OpenStreetMap')));
+  assert.match(text,/OpenStreetmap/i);
+  assert.match(text,/Vimeo/);
+  assert.ok(copy.imprintBlocks.length>=5);assert.ok(copy.privacyBlocks.length>=40);
  }
  for(const [name,lang] of [['NY','de'],['UY','fr'],['WY','es']])assert.ok(main.includes(name+'=()=>r.jsx(Yg,{to:"'+({de:'/datenschutz',fr:'/fr/confidentialite',es:'/es/privacidad'})[lang]+'",replace:!0})'));
  for(const file of ['assets/index-RRVGC1mK.js','assets/positionhold.js']) {
@@ -295,6 +299,33 @@ test('Rechtsseiten behandeln Anfragen und enthalten keine Shop-Zahlungsbedingung
  }
 });
 
+
+test('Veröffentlichter Händlerbund-Wortlaut ist vollständig; Original-PDFs bleiben unverändert', async () => {
+ const manifest=JSON.parse(await readFile(new URL('../docs/rechtstexte/2026-11-10/manifest.json',import.meta.url),'utf8'));
+ const data=JSON.parse(await readFile(new URL('../content/legal-pages.json',import.meta.url),'utf8')).items;
+ assert.equal(manifest.length,10);
+ for(const record of manifest){
+  const pdf=await readFile(new URL('../'+record.source,import.meta.url));
+  assert.equal(createHash('sha256').update(pdf).digest('hex'),record.sha256);
+  const entry=data.find(e=>e.language===record.language);
+  const blocks=entry[record.kind+'Blocks'];
+  assert.equal(blocks.length,record.blocks);
+  const oldText=entry[record.kind+'Sections'].flat().join('').replace(/\s/g,'');
+  assert.equal(createHash('sha256').update(oldText).digest('hex'),record.publishedTextSha256,'cached renderer');
+  const text=blocks.flatMap(b=>b.runs.map(r=>r.text)).join('').replace(/\s/g,'');
+  assert.equal(createHash('sha256').update(text).digest('hex'),record.publishedTextSha256,record.language+'/'+record.kind);
+ }
+});
+
+test('Rechtstexte zeigen Links sicher und mit unverändertem sichtbaren Wortlaut', () => {
+ const jsx={jsx:(type,props)=>({type,props})};
+ const text='Kontakt: smartdock@thitronik.de. https://vimeo.com/privacy (https://example.org/?x=1&y=2). <script>alert(1)</script>';
+ const nodes=legalText(jsx,text),links=nodes.filter(n=>typeof n==='object');
+ assert.equal(nodes.map(n=>typeof n==='string'?n:n.props.children).join(''),text);
+ assert.deepEqual(links.map(n=>n.props.href),['mailto:smartdock@thitronik.de','https://vimeo.com/privacy','https://example.org/?x=1&y=2']);
+ assert.equal(links[1].props.rel,'noopener noreferrer');
+ assert.ok(nodes.some(n=>typeof n==='string'&&n.includes('<script>')));
+});
 
 test('Shop-Altadressen verschwinden aus der produktiven Sitemap und bleiben noindex', async () => {
  const files=await createOutput('',{production:true}),sitemap=files.get('sitemap.xml').toString();
@@ -309,7 +340,7 @@ test('Shop-Altadressen verschwinden aus der produktiven Sitemap und bleiben noin
 test('Eigene Rechtsseiten laden Daten mit korrektem Root- und Pages-Präfix', async () => {
  for(const base of ['',PAGES_BASE]) {
   const files=await createOutput(base);
-  assert.ok(files.get('assets/legal-pages.js').toString().includes("fetch('"+base+"/data/legal-pages.json')"));
+  assert.ok(files.get('assets/legal-pages.js').toString().includes("fetch('"+base+"/data/legal-pages.json?v=20261110legal1')"));
  }
 });
 
