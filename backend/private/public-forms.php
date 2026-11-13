@@ -82,7 +82,15 @@ function public_inquiry(\PDO $db,array $config,array $data,string $type): never 
                 queue_mail($db,$config,'configuration_notification',$dealerRecipient,'SMARTDOCK: Dein Unternehmen wurde für den Einbau gewählt',$dealerBody,'configuration-dealer-'.$ref,null,null,$refs);
             }
         }
-        queue_mail($db,$config,$mailType,$recipient,$subject,$body,$type.'-'.$ref,null,null,$refs);$db->commit();
+        queue_mail($db,$config,$mailType,$recipient,$subject,$body,$type.'-'.$ref,null,null,$refs);
+        // Only copy the internal production notification, never customer or test mail.
+        if($type==='configuration'
+            && in_array(parse_url($config['origin'],PHP_URL_HOST),['smartdock.de','www.smartdock.de'],true)
+            && ($config['mail_from']??'')==='noreply@smartdock.de'
+            && strcasecmp($recipient,'smartdock@thitronik.de')===0) {
+            queue_mail($db,$config,$mailType,'m.thietje@thitronik.de',$subject,$body,'configuration-copy-'.$ref,null,null,$refs);
+        }
+        $db->commit();
     }catch(\Throwable $error){if($db->inTransaction())$db->rollBack();throw $error;}
     dispatch_mail($db,$config);reply(200,['ok'=>true,'id'=>$ref]);
 }
