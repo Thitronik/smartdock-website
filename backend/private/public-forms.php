@@ -29,7 +29,8 @@ function public_inquiry(\PDO $db,array $config,array $data,string $type): never 
             $clientReference=access_field($data,'referenceNumber',36);if(!preg_match('/\A[a-zA-Z0-9-]{6,36}\z/D',$clientReference))throw new \InvalidArgumentException('Reference invalid.');
             $keys=['street','houseNumber','postalCode','city','country','motorCount','motorType','joystickType','bugstrahlruder','heckstrahlruder','horn','ankerwinde1','ankerwinde2','ankerwinch1','ankerwinch2','installationService','thrusterManufacturer','thrusterType','promoCode'];
             $selection=[];foreach($keys as $key)if(array_key_exists($key,$data))$selection[$key]=$data[$key];
-            foreach(['street'=>200,'houseNumber'=>30,'postalCode'=>30,'city'=>120,'country'=>80] as $field=>$length)$selection[$field]=access_field($data,$field,$length);
+            foreach(['street'=>200,'houseNumber'=>30,'postalCode'=>30,'city'=>120] as $field=>$length)$selection[$field]=access_field($data,$field,$length,false);
+            $selection['country']=access_field($data,'country',80);
             foreach(['motorType','joystickType','thrusterManufacturer','thrusterType'] as $field)$selection[$field]=access_field($data,$field,150,false);
             if(!in_array($selection['installationService']??'Nein',['Ja','Nein'],true))throw new \InvalidArgumentException('Installation invalid.');
             $selection['dealer']=null;
